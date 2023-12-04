@@ -66,6 +66,14 @@ impl Tensor {
         }
     }
 
+    pub fn from_vec(data: Vec<f64>) -> Self {
+        let len = data.len();
+        Self {
+            data,
+            shape: vec![len],
+        }
+    }
+
     pub fn new(data: Vec<f64>, shape: Vec<usize>) -> Self {
         Self { data, shape }
     }
@@ -76,7 +84,7 @@ mod tests {
     use crate::Tensor;
 
     #[test]
-    fn addition_1d() {
+    fn addition_scalar() {
         let a = Tensor::from_scalar(2.0);
         let b = Tensor::from_scalar(3.0);
         let result = a + b;
@@ -85,7 +93,16 @@ mod tests {
     }
 
     #[test]
-    fn addition_2d() {
+    fn addition_vector() {
+        let a = Tensor::from_vec(vec![2.0, 3.0]);
+        let b = Tensor::from_vec(vec![8.0, 7.0]);
+        let result = a + b;
+
+        assert_eq!(result.data, vec![10.0, 10.0]);
+    }
+
+    #[test]
+    fn addition_matrix_2d() {
         let a = Tensor::new(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
         let b = Tensor::new(vec![5.0, 6.0, 7.0, 8.0], vec![2, 2]);
         let result = a + b;
@@ -94,7 +111,7 @@ mod tests {
     }
 
     #[test]
-    fn multiplication_2d() {
+    fn multiplication_matrix_2d() {
         let a = Tensor::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]);
         let b = Tensor::new(vec![1.0, 2.0, 3.0, 1.0, 2.0, 3.0], vec![3, 2]);
         let result = a * b;
