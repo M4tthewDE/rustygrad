@@ -99,6 +99,21 @@ impl Tensor {
             shape,
         }
     }
+
+    pub fn max(self) -> Self {
+        let data = match self
+            .data
+            .into_iter()
+            .max_by(|a, b| a.partial_cmp(b).unwrap())
+        {
+            Some(val) => vec![val],
+            None => vec![],
+        };
+        Self {
+            data,
+            shape: vec![1],
+        }
+    }
 }
 
 #[cfg(test)]
@@ -149,5 +164,14 @@ mod tests {
 
         assert_eq!(result.data, vec![1.0, 3.0, 2.0, 4.0, 3.0, 5.0]);
         assert_eq!(result.shape, vec![3, 2]);
+    }
+
+    #[test]
+    fn max() {
+        let a = Tensor::from_vec(vec![2.0, 3.0]);
+        let result = a.max();
+
+        assert_eq!(result.data, vec![3.0]);
+        assert_eq!(result.shape, vec![1]);
     }
 }
