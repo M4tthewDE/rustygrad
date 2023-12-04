@@ -59,6 +59,12 @@ impl ops::Mul<Tensor> for Tensor {
 }
 
 impl Tensor {
+    pub fn empty() -> Self {
+        Self {
+            data: vec![],
+            shape: vec![],
+        }
+    }
     pub fn from_scalar(data: f64) -> Self {
         Self {
             data: vec![data],
@@ -101,18 +107,15 @@ impl Tensor {
     }
 
     pub fn max(self) -> Self {
-        let data = match self
+        let (data, shape) = match self
             .data
             .into_iter()
             .max_by(|a, b| a.partial_cmp(b).unwrap())
         {
-            Some(val) => vec![val],
-            None => vec![],
+            Some(val) => (vec![val], vec![1]),
+            None => (vec![], vec![]),
         };
-        Self {
-            data,
-            shape: vec![1],
-        }
+        Self { data, shape }
     }
 }
 
@@ -168,10 +171,10 @@ mod tests {
 
     #[test]
     fn max() {
-        let a = Tensor::from_vec(vec![2.0, 3.0]);
+        let a = Tensor::empty();
         let result = a.max();
 
-        assert_eq!(result.data, vec![3.0]);
-        assert_eq!(result.shape, vec![1]);
+        assert_eq!(result.data, vec![]);
+        assert_eq!(result.shape, vec![]);
     }
 }
