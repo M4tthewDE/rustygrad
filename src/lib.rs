@@ -77,6 +77,28 @@ impl Tensor {
     pub fn new(data: Vec<f64>, shape: Vec<usize>) -> Self {
         Self { data, shape }
     }
+
+    pub fn transpose(self) -> Self {
+        let mut cols: Vec<Vec<f64>> = Vec::new();
+
+        // TODO: do this in one pass!
+        for (i, val) in self.data.iter().enumerate() {
+            let remainder = i % self.shape[1];
+            if let Some(col) = cols.get_mut(remainder) {
+                col.push(*val);
+            } else {
+                cols.push(vec![*val]);
+            }
+        }
+
+        let mut shape = self.shape.clone();
+        shape.reverse();
+
+        Self {
+            data: cols.concat(),
+            shape,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -118,5 +140,14 @@ mod tests {
 
         assert_eq!(result.data, vec![13.0, 13.0, 31.0, 31.0]);
         assert_eq!(result.shape, vec![2, 2]);
+    }
+
+    #[test]
+    fn transpose() {
+        let a = Tensor::new(vec![1.0, 2.0, 3.0, 3.0, 4.0, 5.0], vec![2, 3]);
+        let result = a.transpose();
+
+        assert_eq!(result.data, vec![1.0, 3.0, 2.0, 4.0, 3.0, 5.0]);
+        assert_eq!(result.shape, vec![3, 2]);
     }
 }
