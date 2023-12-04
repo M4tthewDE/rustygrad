@@ -62,7 +62,7 @@ impl Tensor {
     pub fn from_scalar(data: f64) -> Self {
         Self {
             data: vec![data],
-            shape: vec![],
+            shape: vec![1],
         }
     }
 
