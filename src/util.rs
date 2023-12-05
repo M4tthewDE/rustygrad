@@ -1,8 +1,8 @@
-use std::fs;
 use std::fs::create_dir;
 use std::fs::File;
 use std::io::copy;
 use std::path::PathBuf;
+use std::process::Command;
 
 use anyhow::anyhow;
 use anyhow::Result;
@@ -13,7 +13,7 @@ pub fn load_torch_model(url: &str) -> Result<()> {
         .split('/')
         .last()
         .ok_or(anyhow!("no file name in url"))?;
-    let mut path = get_cache_dir()?.join(file_name);
+    let path = get_cache_dir()?.join(file_name);
 
     if path.exists() {
         info!("using cached model in {:?}", path);
@@ -21,19 +21,31 @@ pub fn load_torch_model(url: &str) -> Result<()> {
         download_file(url, &path)?;
     }
 
-    path.pop();
-    let path = path.join(format!("{file_name}.json"));
-    if path.exists() {
-        info!("using cached json of model in {:?}", path);
+    let mut json_path = path.clone();
+    json_path.pop();
+    let json_path = json_path.join(format!("{file_name}.json"));
+    if json_path.exists() {
+        info!("using cached json of model in {:?}", json_path);
     } else {
-        todo!("convert to json");
+        info!("converting pth model to json...");
+        convert_to_json(
+            path.to_str()
+                .ok_or(anyhow!("error converting path to string {:?}", path))?,
+        )?;
     }
 
-    load_model(&path)?;
+    load_model(&json_path)?;
     Ok(())
 }
 
 fn load_model(path: &PathBuf) -> Result<()> {
+    todo!("load model from json {path:?}");
+}
+
+fn convert_to_json(path: &str) -> Result<()> {
+    Command::new("python3")
+        .args(["src/pth_to_json.py", path])
+        .output()?;
     Ok(())
 }
 
