@@ -18,7 +18,7 @@ pub struct Efficientnet {
 
 impl Efficientnet {
     pub fn load_pretrained(self) {
-        let torch_model = util::load_torch_model(MODEL_URLS[self.number]).unwrap();
+        util::load_torch_model(MODEL_URLS[self.number]).unwrap();
         todo!();
     }
 }
