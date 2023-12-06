@@ -6,7 +6,6 @@ fn main() {
     //
     tracing_subscriber::fmt::init();
 
-    let efficientnet = Efficientnet::default();
-    efficientnet.load_pretrained();
+    let _efficientnet = Efficientnet::default();
     todo!();
 }
