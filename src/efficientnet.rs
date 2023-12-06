@@ -1,5 +1,4 @@
 use crate::util;
-use anyhow::Result;
 
 // https://github.com/lukemelas/EfficientNet-PyTorch/blob/master/efficientnet_pytorch/model.py
 
@@ -78,27 +77,22 @@ impl BlockArgs {
 }
 
 pub struct Efficientnet {
-    pub blocks_args: Vec<BlockArgs>,
     pub global_params: GlobalParams,
+    pub blocks_args: Vec<BlockArgs>,
 }
 
 impl Default for Efficientnet {
     fn default() -> Self {
-        let (global_params, blocks_args) = get_model_params(0).unwrap();
+        let global_params = get_global_params(0);
+        let blocks_args = BLOCKS_ARGS.map(BlockArgs::from_tuple).to_vec();
+
+        let _model = util::load_torch_model(MODEL_URLS[0]).unwrap();
 
         Self {
-            blocks_args,
             global_params,
+            blocks_args,
         }
     }
-}
-
-fn get_model_params(number: usize) -> Result<(GlobalParams, Vec<BlockArgs>)> {
-    let _global_params = get_global_params(number);
-    let _blocks_args = BLOCKS_ARGS.map(BlockArgs::from_tuple).to_vec();
-    let _model_data = util::load_torch_model(MODEL_URLS[number])?;
-
-    todo!("do whatever it takes");
 }
 
 fn get_global_params(number: usize) -> GlobalParams {
