@@ -25,6 +25,18 @@ static PARAMS: [(f64, f64, i64, f64); 8] = [
     (2.0, 3.1, 600, 0.5),
 ];
 
+type BlockArgsTuple = (usize, usize, usize, usize, usize, usize, f64, bool);
+
+static BLOCKS_ARGS: [BlockArgsTuple; 7] = [
+    (1, 3, 11, 1, 32, 16, 0.25, true),
+    (2, 3, 22, 6, 16, 24, 0.25, true),
+    (2, 5, 22, 6, 24, 40, 0.25, true),
+    (3, 3, 22, 6, 40, 80, 0.25, true),
+    (3, 5, 11, 6, 80, 112, 0.25, true),
+    (4, 5, 22, 6, 112, 192, 0.25, true),
+    (1, 3, 11, 6, 192, 320, 0.25, true),
+];
+
 pub struct GlobalParams {
     pub width_coefficient: f64,
     pub depth_coefficient: f64,
@@ -38,8 +50,35 @@ pub struct GlobalParams {
     pub include_top: bool,
 }
 
+#[derive(Clone)]
+pub struct BlockArgs {
+    pub num_repeat: usize,
+    pub kernel_size: usize,
+    pub stride: usize,
+    pub expand_ratio: usize,
+    pub input_filters: usize,
+    pub output_filters: usize,
+    pub se_ratio: f64,
+    pub id_skip: bool,
+}
+
+impl BlockArgs {
+    fn from_tuple(tuple: BlockArgsTuple) -> Self {
+        Self {
+            num_repeat: tuple.0,
+            kernel_size: tuple.1,
+            stride: tuple.2,
+            expand_ratio: tuple.3,
+            input_filters: tuple.4,
+            output_filters: tuple.5,
+            se_ratio: tuple.6,
+            id_skip: tuple.7,
+        }
+    }
+}
+
 pub struct Efficientnet {
-    pub blocks_args: BlocksArgs,
+    pub blocks_args: Vec<BlockArgs>,
     pub global_params: GlobalParams,
 }
 
@@ -54,10 +93,9 @@ impl Default for Efficientnet {
     }
 }
 
-type BlocksArgs = (f64, f64);
-
-fn get_model_params(number: usize) -> Result<(GlobalParams, BlocksArgs)> {
+fn get_model_params(number: usize) -> Result<(GlobalParams, Vec<BlockArgs>)> {
     let _global_params = get_global_params(number);
+    let _blocks_args = BLOCKS_ARGS.map(BlockArgs::from_tuple).to_vec();
     let _model_data = util::load_torch_model(MODEL_URLS[number])?;
 
     todo!("do whatever it takes");
