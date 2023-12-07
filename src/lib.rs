@@ -120,6 +120,47 @@ impl Tensor {
         };
         Self { data, shape }
     }
+
+    pub fn conv2d(self, kernel: Self) -> Self {
+        let (height, width) = (self.shape[0], self.shape[1]);
+        let (kernel_height, kernel_width) = (kernel.shape[0], kernel.shape[1]);
+
+        let output_height = (height - kernel_height + 1).div_ceil(1) as usize;
+        let output_width = (width - kernel_width + 1).div_ceil(1) as usize;
+
+        //dbg!(self.data[0..3].to_vec());
+        //dbg!(self.data[4..7].to_vec());
+        //dbg!(self.data[8..11].to_vec());
+
+        //dbg!(self.data[1..4].to_vec());
+        //dbg!(self.data[5..8].to_vec());
+        //dbg!(self.data[9..12].to_vec());
+
+        //dbg!(self.data[4..7].to_vec());
+        //dbg!(self.data[8..11].to_vec());
+        //dbg!(self.data[12..15].to_vec());
+
+        //dbg!(self.data[5..8].to_vec());
+        //dbg!(self.data[9..12].to_vec());
+        //dbg!(self.data[13..16].to_vec());
+        //
+
+        for i in 0..output_height {
+            for j in 0..output_width {
+                let patch: Vec<Vec<f64>> = (0..kernel_height)
+                    .into_iter()
+                    .map(|k| {
+                        (i * height + j + (kernel_height + 1) * k)
+                            ..(i * height + kernel_width + j + (kernel_height + 1) * k)
+                    })
+                    .map(|range| self.data[range.clone()].to_vec())
+                    .collect();
+                dbg!(patch);
+            }
+        }
+
+        todo!("conv2d");
+    }
 }
 
 #[cfg(test)]
@@ -177,7 +218,33 @@ mod tests {
         let a = Tensor::empty();
         let result = a.max();
 
-        assert_eq!(result.data, vec![]);
-        assert_eq!(result.shape, vec![]);
+        assert!(result.data.is_empty());
+        assert!(result.shape.is_empty());
+    }
+
+    #[test]
+    fn conv2d() {
+        // https://medium.com/apache-mxnet/convolutions-explained-with-ms-excel-465d6649831c
+        let input = Tensor::new(
+            vec![
+                1., 3., 2., 1., //
+                1., 3., 3., 1., //
+                2., 1., 1., 3., //
+                3., 2., 3., 3., //
+            ],
+            vec![4, 4],
+        );
+        let kernel = Tensor::new(
+            vec![
+                1., 2., 3., //
+                0., 1., 0., //
+                2., 1., 2., //
+            ],
+            vec![3, 3],
+        );
+        let output = input.conv2d(kernel);
+
+        assert_eq!(output.data, vec![23., 22., 31., 26.]);
+        assert_eq!(output.shape, vec![2, 2]);
     }
 }
