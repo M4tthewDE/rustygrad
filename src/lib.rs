@@ -84,6 +84,10 @@ impl Tensor {
     }
 
     pub fn new(data: Vec<f64>, shape: Vec<usize>) -> Self {
+        let mut count: usize = 1;
+        shape.iter().for_each(|x| count *= *x);
+        assert_eq!(data.len(), count);
+
         Self { data, shape }
     }
 
@@ -128,26 +132,9 @@ impl Tensor {
         let output_height = (height - kernel_height + 1).div_ceil(1) as usize;
         let output_width = (width - kernel_width + 1).div_ceil(1) as usize;
 
-        //dbg!(self.data[0..3].to_vec());
-        //dbg!(self.data[4..7].to_vec());
-        //dbg!(self.data[8..11].to_vec());
-
-        //dbg!(self.data[1..4].to_vec());
-        //dbg!(self.data[5..8].to_vec());
-        //dbg!(self.data[9..12].to_vec());
-
-        //dbg!(self.data[4..7].to_vec());
-        //dbg!(self.data[8..11].to_vec());
-        //dbg!(self.data[12..15].to_vec());
-
-        //dbg!(self.data[5..8].to_vec());
-        //dbg!(self.data[9..12].to_vec());
-        //dbg!(self.data[13..16].to_vec());
-        //
-
         for i in 0..output_height {
             for j in 0..output_width {
-                let patch: Vec<Vec<f64>> = (0..kernel_height)
+                let _patch: Vec<Vec<f64>> = (0..kernel_height)
                     .into_iter()
                     .map(|k| {
                         (i * height + j + (kernel_height + 1) * k)
@@ -155,7 +142,7 @@ impl Tensor {
                     })
                     .map(|range| self.data[range.clone()].to_vec())
                     .collect();
-                dbg!(patch);
+                todo!("use patch for multiplication");
             }
         }
 
