@@ -17,10 +17,7 @@ impl ops::Add<Tensor> for Tensor {
 
         let result: Vec<f64> = zip(self.data, rhs.data).map(|(x1, x2)| x1 + x2).collect();
 
-        Tensor {
-            data: result,
-            shape: self.shape,
-        }
+        Self::new(result, self.shape)
     }
 }
 
@@ -54,10 +51,7 @@ impl ops::Mul<Tensor> for Tensor {
             }
         }
 
-        Tensor {
-            data: result,
-            shape: vec![self.shape[0], rhs.shape[1]],
-        }
+        Self::new(result, vec![self.shape[0], rhs.shape[1]])
     }
 }
 
@@ -69,24 +63,21 @@ impl Tensor {
         }
     }
     pub fn from_scalar(data: f64) -> Self {
-        Self {
-            data: vec![data],
-            shape: vec![1],
-        }
+        Self::new(vec![data], vec![1])
     }
 
     pub fn from_vec(data: Vec<f64>) -> Self {
         let len = data.len();
-        Self {
-            data,
-            shape: vec![len],
-        }
+        Self::new(data, vec![len])
     }
 
     pub fn new(data: Vec<f64>, shape: Vec<usize>) -> Self {
-        let mut count: usize = 1;
-        shape.iter().for_each(|x| count *= *x);
-        assert_eq!(data.len(), count, "invalid shape for data length");
+        // empty tensors are an exception
+        if !(data.is_empty() && shape.is_empty()) {
+            let mut count: usize = 1;
+            shape.iter().for_each(|x| count *= *x);
+            assert_eq!(data.len(), count, "invalid shape for data length");
+        }
 
         Self { data, shape }
     }
@@ -107,10 +98,7 @@ impl Tensor {
         let mut shape = self.shape.clone();
         shape.reverse();
 
-        Self {
-            data: cols.concat(),
-            shape,
-        }
+        Self::new(cols.concat(), shape)
     }
 
     pub fn max(self) -> Self {
@@ -122,7 +110,8 @@ impl Tensor {
             Some(val) => (vec![val], vec![1]),
             None => (vec![], vec![]),
         };
-        Self { data, shape }
+
+        Self::new(data, shape)
     }
 
     pub fn conv2d(self, kernel: Self) -> Self {
@@ -153,7 +142,7 @@ impl Tensor {
             }
         }
 
-        Tensor::new(output_data, vec![output_height, output_width])
+        Self::new(output_data, vec![output_height, output_width])
     }
 
     pub fn pad2d(self, value: f64, size: usize) -> Self {
@@ -182,9 +171,7 @@ impl Tensor {
         new_shape[0] = self.shape[0] + 2 * size;
         new_shape[1] = self.shape[1] + 2 * size;
 
-        dbg!(result.clone());
-        dbg!(new_shape.clone());
-        Tensor::new(result, new_shape)
+        Self::new(result, new_shape)
     }
 }
 
