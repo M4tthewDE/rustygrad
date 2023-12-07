@@ -102,16 +102,14 @@ impl Tensor {
     }
 
     pub fn max(self) -> Self {
-        let (data, shape) = match self
+        match self
             .data
             .into_iter()
             .max_by(|a, b| a.partial_cmp(b).unwrap())
         {
-            Some(val) => (vec![val], vec![1]),
-            None => (vec![], vec![]),
-        };
-
-        Self::new(data, shape)
+            Some(val) => Self::new(vec![val], vec![1]),
+            None => Self::empty(),
+        }
     }
 
     pub fn conv2d(self, kernel: Self) -> Self {
