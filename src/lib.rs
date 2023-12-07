@@ -158,10 +158,8 @@ impl Tensor {
 
     pub fn pad2d(self, value: f64, size: usize) -> Self {
         let mut result = Vec::new();
-        for _ in 0..size {
-            for _ in 0..self.shape[0] + 2 * size {
-                result.push(value);
-            }
+        for _ in 0..(self.shape[0] + 2 * size) * size {
+            result.push(value);
         }
 
         for row in self.data.chunks(self.shape[1]) {
@@ -176,10 +174,8 @@ impl Tensor {
             }
         }
 
-        for _ in 0..size {
-            for _ in 0..self.shape[0] + 2 * size {
-                result.push(value);
-            }
+        for _ in 0..(self.shape[0] + 2 * size) * size {
+            result.push(value);
         }
 
         let mut new_shape = self.shape.clone();
