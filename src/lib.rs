@@ -129,13 +129,12 @@ impl Tensor {
         let (height, width) = (self.shape[0], self.shape[1]);
         let (kernel_height, kernel_width) = (kernel.shape[0], kernel.shape[1]);
 
-        let output_height = (height - kernel_height + 1).div_ceil(1) as usize;
-        let output_width = (width - kernel_width + 1).div_ceil(1) as usize;
+        let output_height = (height - kernel_height + 1).div_ceil(1);
+        let output_width = (width - kernel_width + 1).div_ceil(1);
 
         for i in 0..output_height {
             for j in 0..output_width {
                 let _patch: Vec<Vec<f64>> = (0..kernel_height)
-                    .into_iter()
                     .map(|k| {
                         (i * height + j + (kernel_height + 1) * k)
                             ..(i * height + kernel_width + j + (kernel_height + 1) * k)
