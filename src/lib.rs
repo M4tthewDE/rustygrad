@@ -132,20 +132,28 @@ impl Tensor {
         let output_height = (height - kernel_height + 1).div_ceil(1);
         let output_width = (width - kernel_width + 1).div_ceil(1);
 
+        let mut output_data = Vec::new();
         for i in 0..output_height {
             for j in 0..output_width {
-                let _patch: Vec<Vec<f64>> = (0..kernel_height)
+                let patch: Vec<Vec<f64>> = (0..kernel_height)
                     .map(|k| {
                         (i * height + j + (kernel_height + 1) * k)
                             ..(i * height + kernel_width + j + (kernel_height + 1) * k)
                     })
                     .map(|range| self.data[range.clone()].to_vec())
                     .collect();
-                todo!("use patch for multiplication");
+
+                let mut value = 0.0;
+                for (y, row) in patch.iter().enumerate() {
+                    for (x, cell) in row.iter().enumerate() {
+                        value += cell * kernel.data[y * kernel_width + x];
+                    }
+                }
+                output_data.push(value);
             }
         }
 
-        todo!("conv2d");
+        Tensor::new(output_data, vec![output_height, output_width])
     }
 }
 
