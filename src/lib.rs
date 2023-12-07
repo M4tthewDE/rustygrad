@@ -86,7 +86,7 @@ impl Tensor {
     pub fn new(data: Vec<f64>, shape: Vec<usize>) -> Self {
         let mut count: usize = 1;
         shape.iter().for_each(|x| count *= *x);
-        assert_eq!(data.len(), count);
+        assert_eq!(data.len(), count, "invalid shape for data length");
 
         Self { data, shape }
     }
@@ -154,6 +154,41 @@ impl Tensor {
         }
 
         Tensor::new(output_data, vec![output_height, output_width])
+    }
+
+    pub fn pad2d(self, value: f64, size: usize) -> Self {
+        let mut result = Vec::new();
+        for _ in 0..size {
+            for _ in 0..self.shape[0] + 2 * size {
+                result.push(value);
+            }
+        }
+
+        for row in self.data.chunks(self.shape[1]) {
+            for _ in 0..size {
+                result.push(value);
+            }
+            for element in row {
+                result.push(*element);
+            }
+            for _ in 0..size {
+                result.push(value);
+            }
+        }
+
+        for _ in 0..size {
+            for _ in 0..self.shape[0] + 2 * size {
+                result.push(value);
+            }
+        }
+
+        let mut new_shape = self.shape.clone();
+        new_shape[0] = self.shape[0] + 2 * size;
+        new_shape[1] = self.shape[1] + 2 * size;
+
+        dbg!(result.clone());
+        dbg!(new_shape.clone());
+        Tensor::new(result, new_shape)
     }
 }
 
@@ -240,5 +275,50 @@ mod tests {
 
         assert_eq!(output.data, vec![23., 22., 31., 26.]);
         assert_eq!(output.shape, vec![2, 2]);
+    }
+
+    #[test]
+    fn pad2d() {
+        let input = Tensor::new(
+            vec![
+                1., 3., //
+                2., 5., //
+            ],
+            vec![2, 2],
+        );
+        let output = input.pad2d(0., 1);
+
+        assert_eq!(
+            output.data,
+            vec![
+                0., 0., 0., 0., //
+                0., 1., 3., 0., //
+                0., 2., 5., 0., //
+                0., 0., 0., 0., //
+            ]
+        );
+        assert_eq!(output.shape, vec![4, 4]);
+
+        let input = Tensor::new(
+            vec![
+                2., 3., //
+                2., 5., //
+            ],
+            vec![2, 2],
+        );
+        let output = input.pad2d(1., 2);
+
+        assert_eq!(
+            output.data,
+            vec![
+                1., 1., 1., 1., 1., 1., //
+                1., 1., 1., 1., 1., 1., //
+                1., 1., 2., 3., 1., 1., //
+                1., 1., 2., 5., 1., 1., //
+                1., 1., 1., 1., 1., 1., //
+                1., 1., 1., 1., 1., 1., //
+            ]
+        );
+        assert_eq!(output.shape, vec![6, 6]);
     }
 }
