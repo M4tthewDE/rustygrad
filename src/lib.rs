@@ -2,6 +2,7 @@ use std::{iter::zip, ops};
 
 use rand::distributions::{Distribution, Uniform};
 
+pub mod batch_norm;
 pub mod efficientnet;
 pub mod util;
 
@@ -201,6 +202,12 @@ impl Tensor {
 
         Self::new(result, new_shape)
     }
+
+    pub fn mean(self, _axis: Option<Vec<usize>>) -> Self {
+        let sum: f64 = self.data.iter().sum();
+
+        Tensor::from_scalar(sum / self.data.len() as f64)
+    }
 }
 
 #[cfg(test)]
@@ -396,5 +403,14 @@ mod tests {
             ]
         );
         assert_eq!(output.shape, vec![6, 6]);
+    }
+    #[test]
+    fn mean() {
+        let input = Tensor::from_vec(vec![0.2294, -0.5481, 1.3288]);
+
+        let mean = input.mean(None);
+
+        assert_eq!(mean.data, vec![0.3367]);
+        assert_eq!(mean.shape, vec![1]);
     }
 }
