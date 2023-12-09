@@ -246,6 +246,10 @@ impl Tensor {
             Tensor::from_scalar(self.data.iter().sum::<f64>() / self.data.len() as f64)
         };
     }
+
+    pub fn reduce_sum(self) -> Self {
+        Tensor::from_scalar(self.data.into_iter().sum())
+    }
 }
 
 #[cfg(test)]
@@ -474,5 +478,21 @@ mod tests {
 
         assert_eq!(mean.data, vec![1.75, 2.0, 1.75, 2.75]);
         assert_eq!(mean.shape, vec![4]);
+    }
+
+    #[test]
+    fn reduce_sum() {
+        let input = Tensor::new(
+            vec![
+                1., 1., 1., //
+                1., 1., 1., //
+            ],
+            vec![2, 3],
+        );
+
+        let sum = input.reduce_sum();
+
+        assert_eq!(sum.data, vec![6.0]);
+        assert_eq!(sum.shape, vec![1]);
     }
 }
