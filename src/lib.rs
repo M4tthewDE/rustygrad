@@ -112,16 +112,25 @@ impl Tensor {
         }
     }
 
-    pub fn conv2d(self, kernel: Self, padding: Option<(f64, usize)>) -> Self {
+    pub fn conv2d(
+        self,
+        kernel: Self,
+        padding: Option<(f64, usize)>,
+        stride: Option<usize>,
+    ) -> Self {
         if let Some((padding_value, padding_size)) = padding {
-            return self.pad2d(padding_value, padding_size).conv2d(kernel, None);
+            return self
+                .pad2d(padding_value, padding_size)
+                .conv2d(kernel, None, stride);
         }
+
+        let stride = stride.unwrap_or(1);
 
         let (height, width) = (self.shape[0], self.shape[1]);
         let (kernel_height, kernel_width) = (kernel.shape[0], kernel.shape[1]);
 
-        let output_height = (height - kernel_height + 1).div_ceil(1);
-        let output_width = (width - kernel_width + 1).div_ceil(1);
+        let output_height = (height - kernel_height) / stride + 1;
+        let output_width = (width - kernel_width) / stride + 1;
 
         let mut output_data = Vec::new();
         for i in 0..output_height {
@@ -255,7 +264,7 @@ mod tests {
             ],
             vec![3, 3],
         );
-        let output = input.conv2d(kernel, None);
+        let output = input.conv2d(kernel, None, None);
 
         assert_eq!(output.data, vec![23., 22., 31., 26.]);
         assert_eq!(output.shape, vec![2, 2]);
@@ -280,7 +289,7 @@ mod tests {
             ],
             vec![3, 3],
         );
-        let output = input.conv2d(kernel, Some((0., 1)));
+        let output = input.conv2d(kernel, Some((0., 1)), None);
 
         assert_eq!(
             output.data,
@@ -292,6 +301,38 @@ mod tests {
             ]
         );
         assert_eq!(output.shape, vec![4, 4]);
+    }
+
+    #[test]
+    fn conv2d_with_stride() {
+        let input = Tensor::new(
+            vec![
+                1., 3., 2., 1., 2., //
+                1., 3., 3., 1., 2., //
+                2., 1., 1., 3., 1., //
+                3., 2., 3., 3., 2., //
+                2., 3., 1., 2., 2., //
+            ],
+            vec![5, 5],
+        );
+        let kernel = Tensor::new(
+            vec![
+                1., 2., 3., //
+                0., 1., 0., //
+                2., 1., 2., //
+            ],
+            vec![3, 3],
+        );
+        let output = input.conv2d(kernel, None, Some(2));
+
+        assert_eq!(
+            output.data,
+            vec![
+                23., 22., //
+                31., 26., //
+            ]
+        );
+        assert_eq!(output.shape, vec![2, 2]);
     }
 
     #[test]
