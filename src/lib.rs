@@ -1,5 +1,7 @@
 use std::{iter::zip, ops};
 
+use rand::distributions::{Distribution, Uniform};
+
 pub mod efficientnet;
 pub mod util;
 
@@ -80,6 +82,22 @@ impl Tensor {
         }
 
         Self { data, shape }
+    }
+
+    pub fn glorot_uniform(fan_in: usize, fan_out: usize, shape: Vec<usize>) -> Self {
+        let limit = (6. / (fan_in + fan_out) as f64).sqrt();
+        let uniform = Uniform::from(0.0..limit);
+
+        let mut count: usize = 1;
+        shape.iter().for_each(|x| count *= *x);
+
+        let mut rng = rand::thread_rng();
+        let mut data = Vec::new();
+        for _ in 0..count {
+            data.push(uniform.sample(&mut rng))
+        }
+
+        Tensor::new(data, shape)
     }
 
     pub fn transpose(self) -> Self {

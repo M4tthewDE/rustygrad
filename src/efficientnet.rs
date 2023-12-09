@@ -1,5 +1,7 @@
 // https://github.com/lukemelas/EfficientNet-PyTorch/blob/master/efficientnet_pytorch/model.py
 
+use crate::Tensor;
+
 pub static MODEL_URLS: [&str; 8] = [
       "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b0-355c32eb.pth",
       "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b1-f1951068.pth",
@@ -84,6 +86,11 @@ impl Default for Efficientnet {
         let global_params = get_global_params(0);
         let blocks_args = BLOCKS_ARGS.map(BlockArgs::from_tuple).to_vec();
 
+        let out_channels = round_filters(32., global_params.width_coefficient);
+        // NOTE: are we using the correct arguments?
+        let conv_stem = Tensor::glorot_uniform(3, out_channels, vec![3, 3]);
+        dbg!(conv_stem);
+
         Self {
             global_params,
             blocks_args,
@@ -106,4 +113,20 @@ fn get_global_params(number: usize) -> GlobalParams {
         depth_divisor: 8,
         include_top: true,
     }
+}
+
+fn round_filters(mut filters: f64, multiplier: f64) -> usize {
+    let divisor = 8.0;
+    filters *= multiplier;
+
+    let mut new_filters = f64::max(
+        divisor,
+        ((filters + divisor / 2.) / (divisor * divisor)).floor(),
+    );
+
+    if new_filters < 0.9 * filters {
+        new_filters += divisor;
+    }
+
+    new_filters as usize
 }
