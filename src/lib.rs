@@ -206,6 +206,9 @@ impl Tensor {
     pub fn mean(self, axis: Option<usize>) -> Self {
         assert!(self.shape.len() <= 2, "only supporting 2d tensors for now");
 
+        // NOTE: this match is a crux for not being able to think of a general solution!
+        // swap for a general algorithm if it comes apparent during implementation of further
+        // dimensions
         return if let Some(axis) = axis {
             match axis {
                 0 => {
