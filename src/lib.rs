@@ -248,19 +248,42 @@ impl Tensor {
     }
 
     pub fn reduce_sum(self, axis: Option<usize>) -> Self {
-        if let Some(_axis) = axis {
-            let mut data: Vec<f64> = Vec::new();
+        if let Some(axis) = axis {
+            let mut new_shape = self.shape.clone();
+            new_shape.remove(axis);
 
-            let (height, width) = (self.shape[0], self.shape[1]);
-            for i in 0..width {
-                let mut value = 0.0;
-                for j in 0..height {
-                    value += self.data[i + j * height];
+            let mut count: usize = 1;
+            new_shape.iter().for_each(|x| count *= *x);
+            let mut result: Vec<f64> = vec![0.; count];
+
+            for (i, elem) in self.data.iter().enumerate() {
+                let mut shape_pos: Vec<usize> = Vec::new();
+                let mut length = self.data.len();
+                let mut offset = 0;
+                for (j, shape) in self.shape.iter().enumerate() {
+                    if j == axis {
+                        continue;
+                    }
+
+                    length /= shape;
+                    let index = (i + offset) / length;
+                    shape_pos.push((i - offset) / length);
+                    offset = length * index;
                 }
-                data.push(value);
+
+                dbg!(elem, shape_pos.clone());
+                let mut length = result.len();
+                let mut index = 0;
+                for (j, shape) in new_shape.iter().enumerate() {
+                    index += (length / shape) * shape_pos[j];
+                    length /= shape;
+                }
+
+                dbg!(index);
+                *result.get_mut(index).unwrap() += elem;
             }
 
-            return Tensor::from_vec(data);
+            return Tensor::new(result, new_shape);
         }
 
         Tensor::from_scalar(self.data.into_iter().sum())
@@ -512,7 +535,23 @@ mod tests {
     }
 
     #[test]
-    fn reduce_sum_axis() {
+    fn reduce_sum_axis_0() {
+        let input = Tensor::new(
+            vec![
+                1., 2., 3., //
+                4., 5., 6., //
+            ],
+            vec![2, 3],
+        );
+
+        let sum = input.reduce_sum(Some(0));
+
+        assert_eq!(sum.data, vec![5.0, 7.0, 9.0]);
+        assert_eq!(sum.shape, vec![3]);
+    }
+
+    #[test]
+    fn reduce_sum_axis_1() {
         let input = Tensor::new(
             vec![
                 1., 1., 1., //
@@ -521,9 +560,30 @@ mod tests {
             vec![2, 3],
         );
 
-        let sum = input.reduce_sum(Some(0));
+        let sum = input.reduce_sum(Some(1));
 
-        assert_eq!(sum.data, vec![2.0, 2.0, 2.0]);
+        assert_eq!(sum.data, vec![3.0, 3.0]);
         assert_eq!(sum.shape, vec![3]);
+    }
+
+    #[test]
+    fn reduce_sum_axis_2() {
+        let input = Tensor::new(
+            vec![
+                1., 2., //
+                3., 4., //
+                5., 6., //
+                //
+                7., 8., //
+                9., 10., //
+                11., 12., //
+            ],
+            vec![2, 3, 2],
+        );
+
+        let sum = input.reduce_sum(Some(2));
+
+        assert_eq!(sum.data, vec![3., 7., 11., 15., 19., 23.]);
+        assert_eq!(sum.shape, vec![2, 3]);
     }
 }
