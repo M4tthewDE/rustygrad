@@ -6,7 +6,7 @@ pub mod batch_norm;
 pub mod efficientnet;
 pub mod util;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Tensor {
     pub data: Vec<f64>,
     pub shape: Vec<usize>,
@@ -204,17 +204,41 @@ impl Tensor {
     }
 
     pub fn mean(self, axis: Option<usize>) -> Self {
+        assert!(self.shape.len() <= 2, "only supporting 2d tensors for now");
+
         return if let Some(axis) = axis {
-            let mut data: Vec<f64> = Vec::new();
+            match axis {
+                0 => {
+                    let mut data: Vec<f64> = Vec::new();
 
-            let length = self.shape[axis];
-            for i in 0..self.shape[axis] {
-                data.push(
-                    self.data[i * length..(i + 1) * length].iter().sum::<f64>() / length as f64,
-                );
+                    let width = self.shape[0];
+                    for i in 0..width {
+                        data.push(
+                            self.data[i * width..(i + 1) * width].iter().sum::<f64>()
+                                / width as f64,
+                        );
+                    }
+
+                    Tensor::from_vec(data)
+                }
+                1 => {
+                    let mut data: Vec<f64> = Vec::new();
+
+                    let width = self.shape[0];
+                    let height = self.shape[1];
+                    for i in 0..height {
+                        let mut value = 0.0;
+                        for j in 0..width {
+                            value += self.data[i + j * width];
+                        }
+
+                        data.push(value / height as f64);
+                    }
+
+                    Tensor::from_vec(data)
+                }
+                _ => panic!("unsupported axis {}", axis),
             }
-
-            Tensor::from_vec(data)
         } else {
             Tensor::from_scalar(self.data.iter().sum::<f64>() / self.data.len() as f64)
         };
@@ -438,9 +462,14 @@ mod tests {
             vec![4, 4],
         );
 
-        let mean = input.mean(Some(0));
+        let mean = input.clone().mean(Some(0));
 
         assert_eq!(mean.data, vec![1.75, 2.0, 1.75, 2.75]);
+        assert_eq!(mean.shape, vec![4]);
+
+        let mean = input.mean(Some(1));
+
+        assert_eq!(mean.data, vec![1.75, 2.25, 2.25, 2.0]);
         assert_eq!(mean.shape, vec![4]);
     }
 }
