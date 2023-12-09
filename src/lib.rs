@@ -1,7 +1,7 @@
 use std::{iter::zip, ops};
 
 pub mod efficientnet;
-mod util;
+pub mod util;
 
 #[derive(Debug)]
 pub struct Tensor {

@@ -1,8 +1,6 @@
-use crate::util;
-
 // https://github.com/lukemelas/EfficientNet-PyTorch/blob/master/efficientnet_pytorch/model.py
 
-static MODEL_URLS: [&str; 8] = [
+pub static MODEL_URLS: [&str; 8] = [
       "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b0-355c32eb.pth",
       "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b1-f1951068.pth",
       "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b2-8bb594d6.pth",
@@ -77,17 +75,14 @@ impl BlockArgs {
 }
 
 pub struct Efficientnet {
-    global_params: GlobalParams,
-    blocks_args: Vec<BlockArgs>,
+    pub global_params: GlobalParams,
+    pub blocks_args: Vec<BlockArgs>,
 }
 
 impl Default for Efficientnet {
     fn default() -> Self {
         let global_params = get_global_params(0);
         let blocks_args = BLOCKS_ARGS.map(BlockArgs::from_tuple).to_vec();
-
-        let _model = util::load_torch_model(MODEL_URLS[0]).unwrap();
-        todo!("implement");
 
         Self {
             global_params,
