@@ -216,8 +216,7 @@ impl Tensor {
 
             Tensor::from_vec(data)
         } else {
-            let sum: f64 = self.data.iter().sum();
-            Tensor::from_scalar(sum / self.data.len() as f64)
+            Tensor::from_scalar(self.data.iter().sum::<f64>() / self.data.len() as f64)
         };
     }
 }
