@@ -261,17 +261,18 @@ impl Tensor {
                 let mut length = self.data.len();
                 let mut offset = 0;
                 for (j, shape) in self.shape.iter().enumerate() {
+                    // TODO: this can't be correct.
+                    // We should probably set the offset!
                     if j == axis {
                         continue;
                     }
 
                     length /= shape;
-                    let index = (i + offset) / length;
-                    shape_pos.push((i - offset) / length);
+                    let index = (i - offset) / length;
+                    shape_pos.push(index);
                     offset = length * index;
                 }
 
-                dbg!(elem, shape_pos.clone());
                 let mut length = result.len();
                 let mut index = 0;
                 for (j, shape) in new_shape.iter().enumerate() {
@@ -279,7 +280,6 @@ impl Tensor {
                     length /= shape;
                 }
 
-                dbg!(index);
                 *result.get_mut(index).unwrap() += elem;
             }
 
@@ -538,9 +538,8 @@ mod tests {
     fn reduce_sum_axis_first() {
         let input = Tensor::new(
             vec![
-                1., 2., //
-                3., 4., //
-                5., 6., //
+                1., 2., 3., //
+                4., 5., 6., //
             ],
             vec![2, 3],
         );
@@ -555,9 +554,8 @@ mod tests {
     fn reduce_sum_axis_last() {
         let input = Tensor::new(
             vec![
-                1., 1., //
-                1., 1., //
-                1., 1., //
+                1., 1., 1., //
+                1., 1., 1., //
             ],
             vec![2, 3],
         );
@@ -608,5 +606,39 @@ mod tests {
 
         assert_eq!(sum.data, vec![6., 15., 24., 33.0]);
         assert_eq!(sum.shape, vec![2, 2]);
+    }
+
+    #[test]
+    fn reduce_sum_square_first() {
+        let input = Tensor::new(
+            vec![
+                1., 3., 2., //
+                1., 3., 3., //
+                2., 1., 1., //
+            ],
+            vec![3, 3],
+        );
+
+        let mean = input.reduce_sum(Some(0));
+
+        assert_eq!(mean.data, vec![6., 7., 4.]);
+        assert_eq!(mean.shape, vec![3]);
+    }
+
+    #[test]
+    fn reduce_sum_square_last() {
+        let input = Tensor::new(
+            vec![
+                1., 3., 2., //
+                1., 3., 3., //
+                2., 1., 1., //
+            ],
+            vec![3, 3],
+        );
+
+        let mean = input.reduce_sum(Some(1));
+
+        assert_eq!(mean.data, vec![4., 7., 6.]);
+        assert_eq!(mean.shape, vec![3]);
     }
 }
