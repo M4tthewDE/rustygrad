@@ -7,9 +7,9 @@ impl BatchNorm2d {
         todo!("BatchNorm2d");
     }
 
-    pub fn run(x: Tensor, training: bool) {
+    pub fn run(_x: Tensor, training: bool) {
         if training {
-            let _batch_mean = x.mean(Some(vec![0, 2, 3]));
+            //let _batch_mean = x.mean(Some(vec![0, 2, 3]));
         }
     }
 }

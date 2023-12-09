@@ -203,10 +203,22 @@ impl Tensor {
         Self::new(result, new_shape)
     }
 
-    pub fn mean(self, _axis: Option<Vec<usize>>) -> Self {
-        let sum: f64 = self.data.iter().sum();
+    pub fn mean(self, axis: Option<usize>) -> Self {
+        return if let Some(axis) = axis {
+            let mut data: Vec<f64> = Vec::new();
 
-        Tensor::from_scalar(sum / self.data.len() as f64)
+            let length = self.shape[axis];
+            for i in 0..self.shape[axis] {
+                data.push(
+                    self.data[i * length..(i + 1) * length].iter().sum::<f64>() / length as f64,
+                );
+            }
+
+            Tensor::from_vec(data)
+        } else {
+            let sum: f64 = self.data.iter().sum();
+            Tensor::from_scalar(sum / self.data.len() as f64)
+        };
     }
 }
 
@@ -404,6 +416,7 @@ mod tests {
         );
         assert_eq!(output.shape, vec![6, 6]);
     }
+
     #[test]
     fn mean() {
         let input = Tensor::from_vec(vec![0.2294, -0.5481, 1.3288]);
@@ -412,5 +425,23 @@ mod tests {
 
         assert_eq!(mean.data, vec![0.3367]);
         assert_eq!(mean.shape, vec![1]);
+    }
+
+    #[test]
+    fn mean_with_1axis() {
+        let input = Tensor::new(
+            vec![
+                1., 3., 2., 1., //
+                1., 3., 3., 1., //
+                2., 1., 1., 3., //
+                3., 2., 3., 3., //
+            ],
+            vec![4, 4],
+        );
+
+        let mean = input.mean(Some(0));
+
+        assert_eq!(mean.data, vec![1.75, 2.0, 1.75, 2.75]);
+        assert_eq!(mean.shape, vec![4]);
     }
 }
