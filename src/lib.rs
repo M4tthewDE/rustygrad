@@ -211,12 +211,15 @@ impl Tensor {
                 0 => {
                     let mut data: Vec<f64> = Vec::new();
 
-                    let width = self.shape[0];
+                    let height = self.shape[0];
+                    let width = self.shape[1];
                     for i in 0..width {
-                        data.push(
-                            self.data[i * width..(i + 1) * width].iter().sum::<f64>()
-                                / width as f64,
-                        );
+                        let mut value = 0.0;
+                        for j in 0..height {
+                            value += self.data[i + j * height];
+                        }
+
+                        data.push(value / width as f64);
                     }
 
                     Tensor::from_vec(data)
@@ -224,15 +227,12 @@ impl Tensor {
                 1 => {
                     let mut data: Vec<f64> = Vec::new();
 
-                    let width = self.shape[0];
-                    let height = self.shape[1];
+                    let height = self.shape[0];
                     for i in 0..height {
-                        let mut value = 0.0;
-                        for j in 0..width {
-                            value += self.data[i + j * width];
-                        }
-
-                        data.push(value / height as f64);
+                        data.push(
+                            self.data[i * height..(i + 1) * height].iter().sum::<f64>()
+                                / height as f64,
+                        );
                     }
 
                     Tensor::from_vec(data)
@@ -464,12 +464,12 @@ mod tests {
 
         let mean = input.clone().mean(Some(0));
 
-        assert_eq!(mean.data, vec![1.75, 2.0, 1.75, 2.75]);
+        assert_eq!(mean.data, vec![1.75, 2.25, 2.25, 2.0]);
         assert_eq!(mean.shape, vec![4]);
 
         let mean = input.mean(Some(1));
 
-        assert_eq!(mean.data, vec![1.75, 2.25, 2.25, 2.0]);
+        assert_eq!(mean.data, vec![1.75, 2.0, 1.75, 2.75]);
         assert_eq!(mean.shape, vec![4]);
     }
 }
