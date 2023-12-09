@@ -112,7 +112,11 @@ impl Tensor {
         }
     }
 
-    pub fn conv2d(self, kernel: Self) -> Self {
+    pub fn conv2d(self, kernel: Self, padding: Option<(f64, usize)>) -> Self {
+        if let Some((padding_value, padding_size)) = padding {
+            return self.pad2d(padding_value, padding_size).conv2d(kernel, None);
+        }
+
         let (height, width) = (self.shape[0], self.shape[1]);
         let (kernel_height, kernel_width) = (kernel.shape[0], kernel.shape[1]);
 
@@ -124,8 +128,7 @@ impl Tensor {
             for j in 0..output_width {
                 let patch: Vec<Vec<f64>> = (0..kernel_height)
                     .map(|k| {
-                        (i * height + j + (kernel_height + 1) * k)
-                            ..(i * height + kernel_width + j + (kernel_height + 1) * k)
+                        (i * height + j + k * height)..(i * height + kernel_width + j + k * height)
                     })
                     .map(|range| self.data[range.clone()].to_vec())
                     .collect();
@@ -252,10 +255,43 @@ mod tests {
             ],
             vec![3, 3],
         );
-        let output = input.conv2d(kernel);
+        let output = input.conv2d(kernel, None);
 
         assert_eq!(output.data, vec![23., 22., 31., 26.]);
         assert_eq!(output.shape, vec![2, 2]);
+    }
+
+    #[test]
+    fn conv2d_with_padding() {
+        let input = Tensor::new(
+            vec![
+                1., 3., 2., 1., //
+                1., 3., 3., 1., //
+                2., 1., 1., 3., //
+                3., 2., 3., 3., //
+            ],
+            vec![4, 4],
+        );
+        let kernel = Tensor::new(
+            vec![
+                1., 2., 3., //
+                0., 1., 0., //
+                2., 1., 2., //
+            ],
+            vec![3, 3],
+        );
+        let output = input.conv2d(kernel, Some((0., 1)));
+
+        assert_eq!(
+            output.data,
+            vec![
+                8., 14., 13., 8., //
+                16., 23., 22., 10., //
+                20., 31., 26., 17., //
+                10., 9., 15., 10., //
+            ]
+        );
+        assert_eq!(output.shape, vec![4, 4]);
     }
 
     #[test]

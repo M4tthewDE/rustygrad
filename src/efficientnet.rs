@@ -77,8 +77,8 @@ impl BlockArgs {
 }
 
 pub struct Efficientnet {
-    pub global_params: GlobalParams,
-    pub blocks_args: Vec<BlockArgs>,
+    global_params: GlobalParams,
+    blocks_args: Vec<BlockArgs>,
 }
 
 impl Default for Efficientnet {
@@ -87,6 +87,7 @@ impl Default for Efficientnet {
         let blocks_args = BLOCKS_ARGS.map(BlockArgs::from_tuple).to_vec();
 
         let _model = util::load_torch_model(MODEL_URLS[0]).unwrap();
+        todo!("implement");
 
         Self {
             global_params,
