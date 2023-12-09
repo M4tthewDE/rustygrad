@@ -535,7 +535,7 @@ mod tests {
     }
 
     #[test]
-    fn reduce_sum_axis_0() {
+    fn reduce_sum_axis_first() {
         let input = Tensor::new(
             vec![
                 1., 2., //
@@ -552,7 +552,7 @@ mod tests {
     }
 
     #[test]
-    fn reduce_sum_axis_1() {
+    fn reduce_sum_axis_last() {
         let input = Tensor::new(
             vec![
                 1., 1., //
@@ -569,7 +569,7 @@ mod tests {
     }
 
     #[test]
-    fn reduce_sum_axis_2() {
+    fn reduce_sum_axis_last_2d() {
         let input = Tensor::new(
             vec![
                 1., 2., //
@@ -587,5 +587,26 @@ mod tests {
 
         assert_eq!(sum.data, vec![3., 7., 11., 15., 19., 23.]);
         assert_eq!(sum.shape, vec![2, 3]);
+    }
+
+    #[test]
+    fn reduce_sum_axis_middle_2d() {
+        let input = Tensor::new(
+            vec![
+                1., 2., //
+                3., 4., //
+                5., 6., //
+                //
+                7., 8., //
+                9., 10., //
+                11., 12., //
+            ],
+            vec![2, 3, 2],
+        );
+
+        let sum = input.reduce_sum(Some(1));
+
+        assert_eq!(sum.data, vec![6., 15., 24., 33.0]);
+        assert_eq!(sum.shape, vec![2, 2]);
     }
 }
