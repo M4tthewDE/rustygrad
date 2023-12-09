@@ -569,7 +569,7 @@ mod tests {
     }
 
     #[test]
-    fn reduce_sum_axis_last_2d() {
+    fn reduce_sum_axis_last_3d() {
         let input = Tensor::new(
             vec![
                 1., 2., //
@@ -590,7 +590,7 @@ mod tests {
     }
 
     #[test]
-    fn reduce_sum_axis_middle_2d() {
+    fn reduce_sum_axis_middle_3d() {
         let input = Tensor::new(
             vec![
                 1., 2., //
