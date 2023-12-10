@@ -494,7 +494,7 @@ mod tests {
     }
 
     #[test]
-    fn mean_with_1axis() {
+    fn mean_with_axis_first() {
         let input = Tensor::new(
             vec![
                 1., 3., 2., 1., //
@@ -505,10 +505,23 @@ mod tests {
             vec![4, 4],
         );
 
-        let mean = input.clone().mean(Some(0));
+        let mean = input.mean(Some(0));
 
         assert_eq!(mean.data, vec![1.75, 2.25, 2.25, 2.0]);
         assert_eq!(mean.shape, vec![4]);
+    }
+
+    #[test]
+    fn mean_with_axis_last() {
+        let input = Tensor::new(
+            vec![
+                1., 3., 2., 1., //
+                1., 3., 3., 1., //
+                2., 1., 1., 3., //
+                3., 2., 3., 3., //
+            ],
+            vec![4, 4],
+        );
 
         let mean = input.mean(Some(1));
 
@@ -562,6 +575,27 @@ mod tests {
 
         assert_eq!(sum.data, vec![6.0, 15.0]);
         assert_eq!(sum.shape, vec![2]);
+    }
+
+    #[test]
+    fn reduce_sum_axis_first_3d() {
+        let input = Tensor::new(
+            vec![
+                1., 2., //
+                3., 4., //
+                5., 6., //
+                //
+                7., 8., //
+                9., 10., //
+                11., 12., //
+            ],
+            vec![2, 3, 2],
+        );
+
+        let sum = input.reduce_sum(Some(0));
+
+        assert_eq!(sum.data, vec![8., 10., 12., 14., 16., 18.]);
+        assert_eq!(sum.shape, vec![3, 2]);
     }
 
     #[test]
