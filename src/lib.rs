@@ -216,48 +216,12 @@ impl Tensor {
         Self::new(result, new_shape)
     }
 
-    pub fn mean(self, axis: Option<usize>) -> Self {
-        assert!(self.shape.len() <= 2, "only supporting 2d tensors for now");
-
-        // NOTE: this match is a crux for not being able to think of a general solution!
-        // swap for a general algorithm if it comes apparent during implementation of further
-        // dimensions
-        return if let Some(axis) = axis {
-            match axis {
-                0 => {
-                    let mut data: Vec<f64> = Vec::new();
-
-                    let height = self.shape[0];
-                    let width = self.shape[1];
-                    for i in 0..width {
-                        let mut value = 0.0;
-                        for j in 0..height {
-                            value += self.data[i + j * height];
-                        }
-
-                        data.push(value / width as f64);
-                    }
-
-                    Tensor::from_vec(data)
-                }
-                1 => {
-                    let mut data: Vec<f64> = Vec::new();
-
-                    let height = self.shape[0];
-                    for i in 0..height {
-                        data.push(
-                            self.data[i * height..(i + 1) * height].iter().sum::<f64>()
-                                / height as f64,
-                        );
-                    }
-
-                    Tensor::from_vec(data)
-                }
-                _ => panic!("unsupported axis {}", axis),
-            }
+    pub fn reduce_mean(self, axis: Option<usize>) -> Self {
+        if let Some(axis) = axis {
+            self.clone().reduce_sum(Some(axis)) / self.shape[axis] as f64
         } else {
-            Tensor::from_scalar(self.data.iter().sum::<f64>() / self.data.len() as f64)
-        };
+            self.clone().reduce_sum(None) / self.data.len() as f64
+        }
     }
 
     pub fn reduce_sum(self, axis: Option<usize>) -> Self {
@@ -500,7 +464,7 @@ mod tests {
     fn mean() {
         let input = Tensor::from_vec(vec![0.2294, -0.5481, 1.3288]);
 
-        let mean = input.mean(None);
+        let mean = input.reduce_mean(None);
 
         assert_eq!(mean.data, vec![0.3367]);
         assert_eq!(mean.shape, vec![1]);
@@ -518,7 +482,7 @@ mod tests {
             vec![4, 4],
         );
 
-        let mean = input.mean(Some(0));
+        let mean = input.reduce_mean(Some(0));
 
         assert_eq!(mean.data, vec![1.75, 2.25, 2.25, 2.0]);
         assert_eq!(mean.shape, vec![4]);
@@ -536,7 +500,7 @@ mod tests {
             vec![4, 4],
         );
 
-        let mean = input.mean(Some(1));
+        let mean = input.reduce_mean(Some(1));
 
         assert_eq!(mean.data, vec![1.75, 2.0, 1.75, 2.75]);
         assert_eq!(mean.shape, vec![4]);
@@ -681,10 +645,10 @@ mod tests {
             vec![3, 3],
         );
 
-        let mean = input.reduce_sum(Some(1));
+        let sum = input.reduce_sum(Some(1));
 
-        assert_eq!(mean.data, vec![6., 7., 4.]);
-        assert_eq!(mean.shape, vec![3]);
+        assert_eq!(sum.data, vec![6., 7., 4.]);
+        assert_eq!(sum.shape, vec![3]);
     }
 
     #[test]
