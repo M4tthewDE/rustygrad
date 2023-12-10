@@ -269,15 +269,16 @@ impl Tensor {
 
                 dbg!(elem, shape_pos.clone());
 
-                /*
-                for (j, _) in self.shape.iter().enumerate() {
+                let mut new_index = 0;
+                for (j, pos) in shape_pos.iter().enumerate() {
                     if j == axis {
                         continue;
                     }
 
-                    *result.get_mut(shape_pos[j]).unwrap() += elem;
+                    new_index += pos;
                 }
-                */
+
+                *result.get_mut(new_index).unwrap() += elem;
             }
 
             return Tensor::new(result, new_shape);
