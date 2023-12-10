@@ -216,9 +216,14 @@ impl Tensor {
         Self::new(result, new_shape)
     }
 
-    pub fn reduce_mean(self, axis: Option<usize>) -> Self {
+    pub fn reduce_mean(self, axis: Option<Vec<usize>>) -> Self {
         if let Some(axis) = axis {
-            self.clone().reduce_sum(Some(vec![axis])) / self.shape[axis] as f64
+            let mut result = self.clone();
+            for dim in axis.iter().rev() {
+                result = result.reduce_sum(Some(vec![*dim])) / self.shape[*dim] as f64
+            }
+
+            result
         } else {
             self.clone().reduce_sum(None) / self.data.len() as f64
         }
@@ -509,7 +514,7 @@ mod tests {
             vec![4, 4],
         );
 
-        let mean = input.reduce_mean(Some(0));
+        let mean = input.reduce_mean(Some(vec![0]));
 
         assert_eq!(mean.data, vec![1.75, 2.25, 2.25, 2.0]);
         assert_eq!(mean.shape, vec![4]);
@@ -527,7 +532,7 @@ mod tests {
             vec![4, 4],
         );
 
-        let mean = input.reduce_mean(Some(1));
+        let mean = input.reduce_mean(Some(vec![1]));
 
         assert_eq!(mean.data, vec![1.75, 2.0, 1.75, 2.75]);
         assert_eq!(mean.shape, vec![4]);
@@ -706,6 +711,27 @@ mod tests {
         let sum = input.reduce_sum(Some(vec![0, 1]));
 
         assert_eq!(sum.data, vec![36., 42.]);
+        assert_eq!(sum.shape, vec![2]);
+    }
+
+    #[test]
+    fn reduce_mean_multiple_axis_3d() {
+        let input = Tensor::new(
+            vec![
+                1., 2., //
+                3., 4., //
+                5., 6., //
+                //
+                7., 8., //
+                9., 10., //
+                11., 12., //
+            ],
+            vec![2, 3, 2],
+        );
+
+        let sum = input.reduce_mean(Some(vec![0, 1]));
+
+        assert_eq!(sum.data, vec![6., 7.]);
         assert_eq!(sum.shape, vec![2]);
     }
 }
