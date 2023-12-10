@@ -277,6 +277,10 @@ impl Tensor {
 
         Tensor::new(result, new_shape)
     }
+
+    pub fn reshape(self, shape: Vec<usize>) -> Self {
+        Tensor::new(self.data, shape)
+    }
 }
 
 #[cfg(test)]
@@ -733,5 +737,15 @@ mod tests {
 
         assert_eq!(sum.data, vec![6., 7.]);
         assert_eq!(sum.shape, vec![2]);
+    }
+
+    #[test]
+    fn reshape() {
+        let input = Tensor::new(vec![0., 1., 2., 3.], vec![4]);
+
+        let result = input.reshape(vec![2, 2]);
+
+        assert_eq!(result.data, vec![0., 1., 2., 3.]);
+        assert_eq!(result.shape, vec![2, 2]);
     }
 }
