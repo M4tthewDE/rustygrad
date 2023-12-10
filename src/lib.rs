@@ -260,27 +260,22 @@ impl Tensor {
                 let mut shape_pos: Vec<usize> = Vec::new();
                 let mut length = self.data.len();
                 let mut offset = 0;
-                for (j, shape) in self.shape.iter().enumerate() {
-                    // TODO: this can't be correct.
-                    // We should probably set the offset!
-                    if j == axis {
-                        continue;
-                    }
-
+                for (_, shape) in self.shape.iter().enumerate() {
                     length /= shape;
                     let index = (i - offset) / length;
                     shape_pos.push(index);
                     offset = length * index;
                 }
 
-                let mut length = result.len();
-                let mut index = 0;
-                for (j, shape) in new_shape.iter().enumerate() {
-                    index += (length / shape) * shape_pos[j];
-                    length /= shape;
-                }
+                dbg!(elem, shape_pos.clone());
 
-                *result.get_mut(index).unwrap() += elem;
+                for (j, _) in self.shape.iter().enumerate() {
+                    if j == axis {
+                        continue;
+                    }
+
+                    *result.get_mut(shape_pos[j]).unwrap() += elem;
+                }
             }
 
             return Tensor::new(result, new_shape);
