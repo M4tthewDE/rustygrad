@@ -267,19 +267,18 @@ impl Tensor {
                     offset += (self.data.len() / count) * index;
                 }
 
-                dbg!(elem, shape_pos.clone());
-
                 shape_pos.remove(axis);
 
-                let mut new_index = 0;
-                for ((i, pos), (_j, new_dim)) in zip(
-                    shape_pos.iter().rev().enumerate(),
-                    new_shape.iter().rev().enumerate(),
-                ) {
-                    new_index += pos * new_dim.pow(i.try_into().unwrap())
+                let mut index = 0;
+                for (j, dim) in new_shape.iter().rev().enumerate() {
+                    if j == new_shape.len() - 1 {
+                        index += shape_pos[j];
+                    } else {
+                        index += shape_pos[j] * dim;
+                    }
                 }
 
-                *result.get_mut(new_index).unwrap() += elem;
+                *result.get_mut(index).unwrap() += elem;
             }
 
             return Tensor::new(result, new_shape);
@@ -566,27 +565,6 @@ mod tests {
     }
 
     #[test]
-    fn reduce_sum_axis_last_3d() {
-        let input = Tensor::new(
-            vec![
-                1., 2., //
-                3., 4., //
-                5., 6., //
-                //
-                7., 8., //
-                9., 10., //
-                11., 12., //
-            ],
-            vec![2, 3, 2],
-        );
-
-        let sum = input.reduce_sum(Some(2));
-
-        assert_eq!(sum.data, vec![3., 7., 11., 15., 19., 23.]);
-        assert_eq!(sum.shape, vec![2, 3]);
-    }
-
-    #[test]
     fn reduce_sum_axis_middle_3d() {
         let input = Tensor::new(
             vec![
@@ -605,6 +583,27 @@ mod tests {
 
         assert_eq!(sum.data, vec![9., 12., 27., 30.0]);
         assert_eq!(sum.shape, vec![2, 2]);
+    }
+
+    #[test]
+    fn reduce_sum_axis_last_3d() {
+        let input = Tensor::new(
+            vec![
+                1., 2., //
+                3., 4., //
+                5., 6., //
+                //
+                7., 8., //
+                9., 10., //
+                11., 12., //
+            ],
+            vec![2, 3, 2],
+        );
+
+        let sum = input.reduce_sum(Some(2));
+
+        assert_eq!(sum.data, vec![3., 7., 11., 15., 19., 23.]);
+        assert_eq!(sum.shape, vec![2, 3]);
     }
 
     #[test]
