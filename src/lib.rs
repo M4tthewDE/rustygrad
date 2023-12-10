@@ -58,6 +58,19 @@ impl ops::Mul<Tensor> for Tensor {
     }
 }
 
+impl ops::Div<f64> for Tensor {
+    type Output = Tensor;
+
+    fn div(self, rhs: f64) -> Self::Output {
+        let mut result = Vec::new();
+        for elem in self.data {
+            result.push(elem / rhs);
+        }
+
+        Tensor::new(result, self.shape)
+    }
+}
+
 impl Tensor {
     pub fn empty() -> Self {
         Self {
@@ -672,5 +685,15 @@ mod tests {
 
         assert_eq!(mean.data, vec![6., 7., 4.]);
         assert_eq!(mean.shape, vec![3]);
+    }
+
+    #[test]
+    fn div() {
+        let input = Tensor::new(vec![4., 8., 10., 12.], vec![2, 2]);
+
+        let result = input / 2.0;
+
+        assert_eq!(result.data, vec![2., 4., 5., 6.]);
+        assert_eq!(result.shape, vec![2, 2]);
     }
 }
