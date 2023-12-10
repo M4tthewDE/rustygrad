@@ -258,17 +258,18 @@ impl Tensor {
 
             for (i, elem) in self.data.iter().enumerate() {
                 let mut shape_pos: Vec<usize> = Vec::new();
-                let mut length = self.data.len();
                 let mut offset = 0;
-                for (_, shape) in self.shape.iter().enumerate() {
-                    length /= shape;
-                    let index = (i - offset) / length;
+                for (j, _shape) in self.shape.iter().enumerate() {
+                    let mut count: usize = 1;
+                    self.shape[..=j].iter().for_each(|x| count *= *x);
+                    let index = (i - offset) / (self.data.len() / count);
                     shape_pos.push(index);
-                    offset = length * index;
+                    offset += (self.data.len() / count) * index;
                 }
 
                 dbg!(elem, shape_pos.clone());
 
+                /*
                 for (j, _) in self.shape.iter().enumerate() {
                     if j == axis {
                         continue;
@@ -276,6 +277,7 @@ impl Tensor {
 
                     *result.get_mut(shape_pos[j]).unwrap() += elem;
                 }
+                */
             }
 
             return Tensor::new(result, new_shape);
