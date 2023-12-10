@@ -240,11 +240,11 @@ impl Tensor {
                     let mut count: usize = 1;
                     self.shape[..=j].iter().for_each(|x| count *= *x);
                     let index = (i - offset) / (self.data.len() / count);
-                    shape_pos.push(index);
+                    if j != axis {
+                        shape_pos.push(index);
+                    }
                     offset += (self.data.len() / count) * index;
                 }
-
-                shape_pos.remove(axis);
 
                 let mut index = 0;
                 for (j, dim) in new_shape.iter().rev().enumerate() {
@@ -258,10 +258,10 @@ impl Tensor {
                 *result.get_mut(index).unwrap() += elem;
             }
 
-            return Tensor::new(result, new_shape);
+            Tensor::new(result, new_shape)
+        } else {
+            Tensor::from_scalar(self.data.into_iter().sum())
         }
-
-        Tensor::from_scalar(self.data.into_iter().sum())
     }
 }
 
