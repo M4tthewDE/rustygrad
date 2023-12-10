@@ -269,13 +269,14 @@ impl Tensor {
 
                 dbg!(elem, shape_pos.clone());
 
-                let mut new_index = 0;
-                for (j, pos) in shape_pos.iter().enumerate() {
-                    if j == axis {
-                        continue;
-                    }
+                shape_pos.remove(axis);
 
-                    new_index += pos;
+                let mut new_index = 0;
+                for ((i, pos), (_j, new_dim)) in zip(
+                    shape_pos.iter().rev().enumerate(),
+                    new_shape.iter().rev().enumerate(),
+                ) {
+                    new_index += pos * new_dim.pow(i.try_into().unwrap())
                 }
 
                 *result.get_mut(new_index).unwrap() += elem;
