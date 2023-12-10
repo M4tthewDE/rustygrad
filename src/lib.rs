@@ -546,7 +546,7 @@ mod tests {
 
         let sum = input.reduce_sum(Some(0));
 
-        assert_eq!(sum.data, vec![3.0, 7.0, 11.0]);
+        assert_eq!(sum.data, vec![5.0, 7.0, 9.0]);
         assert_eq!(sum.shape, vec![3]);
     }
 
@@ -554,15 +554,15 @@ mod tests {
     fn reduce_sum_axis_last() {
         let input = Tensor::new(
             vec![
-                1., 1., 1., //
-                1., 1., 1., //
+                1., 2., 3., //
+                4., 5., 6., //
             ],
             vec![2, 3],
         );
 
         let sum = input.reduce_sum(Some(1));
 
-        assert_eq!(sum.data, vec![3.0, 3.0]);
+        assert_eq!(sum.data, vec![6.0, 15.0]);
         assert_eq!(sum.shape, vec![2]);
     }
 
@@ -604,7 +604,7 @@ mod tests {
 
         let sum = input.reduce_sum(Some(1));
 
-        assert_eq!(sum.data, vec![6., 15., 24., 33.0]);
+        assert_eq!(sum.data, vec![9., 12., 27., 30.0]);
         assert_eq!(sum.shape, vec![2, 2]);
     }
 
@@ -621,7 +621,7 @@ mod tests {
 
         let mean = input.reduce_sum(Some(0));
 
-        assert_eq!(mean.data, vec![6., 7., 4.]);
+        assert_eq!(mean.data, vec![4., 7., 6.]);
         assert_eq!(mean.shape, vec![3]);
     }
 
@@ -638,7 +638,7 @@ mod tests {
 
         let mean = input.reduce_sum(Some(1));
 
-        assert_eq!(mean.data, vec![4., 7., 6.]);
+        assert_eq!(mean.data, vec![6., 7., 4.]);
         assert_eq!(mean.shape, vec![3]);
     }
 }
