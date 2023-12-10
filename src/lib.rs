@@ -471,6 +471,24 @@ mod tests {
     }
 
     #[test]
+    fn mean_2d() {
+        let input = Tensor::new(
+            vec![
+                1., 3., 2., 1., //
+                1., 3., 3., 1., //
+                2., 1., 1., 3., //
+                3., 2., 3., 3., //
+            ],
+            vec![4, 4],
+        );
+
+        let mean = input.reduce_mean(None);
+
+        assert_eq!(mean.data, vec![2.0625]);
+        assert_eq!(mean.shape, vec![1]);
+    }
+
+    #[test]
     fn mean_with_axis_first() {
         let input = Tensor::new(
             vec![
