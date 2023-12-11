@@ -16,9 +16,23 @@ impl ops::Add<Tensor> for Tensor {
     type Output = Tensor;
 
     fn add(self, rhs: Tensor) -> Self::Output {
-        assert_eq!(self.shape, rhs.shape);
+        assert_eq!(
+            self.shape, rhs.shape,
+            "broadcasting not supported for addition"
+        );
 
         let result: Vec<f64> = zip(self.data, rhs.data).map(|(x1, x2)| x1 + x2).collect();
+
+        Self::new(result, self.shape)
+    }
+}
+
+impl ops::Sub<Tensor> for Tensor {
+    type Output = Tensor;
+
+    fn sub(self, rhs: Tensor) -> Self::Output {
+        todo!("broadcasting");
+        let result: Vec<f64> = zip(self.data, rhs.data).map(|(x1, x2)| x1 - x2).collect();
 
         Self::new(result, self.shape)
     }
@@ -216,7 +230,7 @@ impl Tensor {
         Self::new(result, new_shape)
     }
 
-    pub fn reduce_mean(self, axis: Option<Vec<usize>>) -> Self {
+    pub fn reduce_mean(&self, axis: Option<Vec<usize>>) -> Self {
         if let Some(axis) = axis {
             let mut result = self.clone();
             for dim in axis.iter().rev() {
@@ -276,6 +290,12 @@ impl Tensor {
         }
 
         Tensor::new(result, new_shape)
+    }
+
+    pub fn variance(self, axis: Option<Vec<usize>>) -> Self {
+        let mean = self.reduce_mean(axis);
+        let _diff = self - mean;
+        todo!("variance");
     }
 
     pub fn reshape(self, shape: Vec<usize>) -> Self {
@@ -747,5 +767,45 @@ mod tests {
 
         assert_eq!(result.data, vec![0., 1., 2., 3.]);
         assert_eq!(result.shape, vec![2, 2]);
+    }
+
+    #[test]
+    fn variance() {
+        let input = Tensor::new(
+            vec![
+                0.2035, 1.2959, 1.8101, -0.4644, //
+                1.5027, -0.3270, 0.5905, 0.6538, //
+                -1.5745, 1.3330, -0.5596, -0.6548, //
+                0.1264, -0.5080, 1.6420, 0.1992, //
+            ],
+            vec![4, 4],
+        );
+
+        let result = input.variance(Some(vec![1]));
+
+        assert_eq!(result.data, vec![1.0631, 0.5590, 1.4893, 0.8258]);
+        assert_eq!(result.shape, vec![4]);
+    }
+
+    #[test]
+    fn sub() {
+        let input1 = Tensor::new(vec![0., 1., 2., 3.], vec![4]);
+        let input2 = Tensor::new(vec![0., 1., 2., 3.], vec![4]);
+
+        let result = input1 - input2;
+
+        assert_eq!(result.data, vec![0., 0., 0., 0.]);
+        assert_eq!(result.shape, vec![4]);
+    }
+
+    #[test]
+    fn sub_with_broadcasting() {
+        let input1 = Tensor::new(vec![0., 1., 2., 3.], vec![2, 2]);
+        let input2 = Tensor::new(vec![1., 1.], vec![2]);
+
+        let result = input1 - input2;
+
+        assert_eq!(result.data, vec![-1., 0., 1., 2.]);
+        assert_eq!(result.shape, vec![4]);
     }
 }
