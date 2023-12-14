@@ -30,9 +30,12 @@ impl ops::Add<Tensor> for Tensor {
 impl ops::Sub<Tensor> for Tensor {
     type Output = Tensor;
 
-    fn sub(self, mut rhs: Tensor) -> Self::Output {
-        rhs.shape.extend(vec![1].iter());
-        todo!("broadcasting: how do we extend the rhs data?");
+    fn sub(self, rhs: Tensor) -> Self::Output {
+        let mut new_shape = rhs.shape.clone();
+        new_shape.extend(vec![1].iter());
+        let rhs = rhs.reshape(new_shape);
+        dbg!(rhs);
+        todo!("broadcasting: how do we extend the rhs?");
         let result: Vec<f64> = zip(self.data, rhs.data).map(|(x1, x2)| x1 - x2).collect();
 
         Self::new(result, self.shape)
