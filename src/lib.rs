@@ -32,91 +32,10 @@ impl ops::Sub<Tensor> for Tensor {
     type Output = Tensor;
 
     fn sub(self, rhs: Tensor) -> Self::Output {
-        // https://pytorch.org/docs/stable/notes/broadcasting.html
-        assert!(!self.shape.is_empty());
-        assert!(!rhs.shape.is_empty());
+        let (lhs, rhs) = Tensor::broadcast(self, rhs);
+        let result: Vec<f64> = zip(lhs.data, rhs.data).map(|(x1, x2)| x1 - x2).collect();
 
-        let lhs = self;
-
-        // check if broadcasting is possible
-        for dim_pair in rhs.shape.iter().rev().zip_longest(lhs.shape.iter().rev()) {
-            match dim_pair {
-                EitherOrBoth::Both(left, right) => {
-                    assert!(
-                        left == right || *right == 1 || *left == 1,
-                        "tensors are not broadcastable"
-                    )
-                }
-                EitherOrBoth::Left(_) => (),
-                EitherOrBoth::Right(_) => (),
-            }
-        }
-
-        match lhs.shape.len().cmp(&rhs.shape.len()) {
-            cmp::Ordering::Greater => {
-                let mut new_shape = rhs.shape.clone();
-
-                while new_shape.len() < lhs.shape.len() {
-                    new_shape.insert(0, 1);
-                }
-
-                let new_shape: Vec<usize> = zip(lhs.shape.clone(), new_shape)
-                    .map(|(d1, d2)| cmp::max(d1, d2))
-                    .collect();
-
-                let mut new_data = rhs.data.clone();
-                let mut expected_len_lhs = 1;
-                let mut expected_len_rhs = 1;
-                for (dim_lhs, dim_rhs) in zip(lhs.shape.clone(), new_shape.clone()) {
-                    expected_len_lhs *= dim_lhs;
-                    expected_len_rhs *= dim_rhs;
-
-                    let expected_len = cmp::max(expected_len_lhs, expected_len_rhs);
-
-                    while new_data.len() < expected_len {
-                        new_data.extend(new_data.clone().iter());
-                    }
-                }
-
-                let result: Vec<f64> = zip(lhs.data, new_data).map(|(x1, x2)| x1 - x2).collect();
-                Self::new(result, new_shape)
-            }
-            cmp::Ordering::Less => {
-                let mut new_shape = lhs.shape.clone();
-
-                while new_shape.len() < rhs.shape.len() {
-                    new_shape.insert(0, 1);
-                }
-
-                let new_shape: Vec<usize> = zip(rhs.shape.clone(), new_shape)
-                    .map(|(d1, d2)| cmp::max(d1, d2))
-                    .collect();
-
-                let mut new_data = lhs.data.clone();
-
-                let mut expected_len_lhs = 1;
-                let mut expected_len_rhs = 1;
-                for (dim_lhs, dim_rhs) in zip(rhs.shape.clone(), new_shape.clone()) {
-                    expected_len_lhs *= dim_lhs;
-                    expected_len_rhs *= dim_rhs;
-
-                    let expected_len = cmp::max(expected_len_lhs, expected_len_rhs);
-
-                    while new_data.len() < expected_len {
-                        new_data.extend(new_data.clone().iter());
-                    }
-                }
-
-                let result: Vec<f64> = zip(new_data, rhs.data).map(|(x1, x2)| x1 - x2).collect();
-                Self::new(result, new_shape)
-            }
-            cmp::Ordering::Equal => {
-                // no broadcasting required
-                let result: Vec<f64> = zip(lhs.data, rhs.data).map(|(x1, x2)| x1 - x2).collect();
-
-                Self::new(result, lhs.shape.clone())
-            }
-        }
+        Self::new(result, lhs.shape.clone())
     }
 }
 
@@ -382,6 +301,88 @@ impl Tensor {
 
     pub fn reshape(self, shape: Vec<usize>) -> Self {
         Tensor::new(self.data, shape)
+    }
+
+    pub fn broadcast(lhs: Tensor, rhs: Tensor) -> (Tensor, Tensor) {
+        // https://pytorch.org/docs/stable/notes/broadcasting.html
+        assert!(!lhs.shape.is_empty());
+        assert!(!rhs.shape.is_empty());
+
+        // check if broadcasting is possible
+        for dim_pair in rhs.shape.iter().rev().zip_longest(lhs.shape.iter().rev()) {
+            match dim_pair {
+                EitherOrBoth::Both(left, right) => {
+                    assert!(
+                        left == right || *right == 1 || *left == 1,
+                        "tensors are not broadcastable"
+                    )
+                }
+                EitherOrBoth::Left(_) => (),
+                EitherOrBoth::Right(_) => (),
+            }
+        }
+
+        match lhs.shape.len().cmp(&rhs.shape.len()) {
+            cmp::Ordering::Greater => {
+                let mut new_shape = rhs.shape.clone();
+
+                while new_shape.len() < lhs.shape.len() {
+                    new_shape.insert(0, 1);
+                }
+
+                let new_shape: Vec<usize> = zip(lhs.shape.clone(), new_shape)
+                    .map(|(d1, d2)| cmp::max(d1, d2))
+                    .collect();
+
+                let mut new_data = rhs.data.clone();
+                let mut expected_len_lhs = 1;
+                let mut expected_len_rhs = 1;
+                for (dim_lhs, dim_rhs) in zip(lhs.shape.clone(), new_shape.clone()) {
+                    expected_len_lhs *= dim_lhs;
+                    expected_len_rhs *= dim_rhs;
+
+                    let expected_len = cmp::max(expected_len_lhs, expected_len_rhs);
+
+                    while new_data.len() < expected_len {
+                        new_data.extend(new_data.clone().iter());
+                    }
+                }
+
+                (lhs, Self::new(new_data, new_shape))
+            }
+            cmp::Ordering::Less => {
+                let mut new_shape = lhs.shape.clone();
+
+                while new_shape.len() < rhs.shape.len() {
+                    new_shape.insert(0, 1);
+                }
+
+                let new_shape: Vec<usize> = zip(rhs.shape.clone(), new_shape)
+                    .map(|(d1, d2)| cmp::max(d1, d2))
+                    .collect();
+
+                let mut new_data = lhs.data.clone();
+
+                let mut expected_len_lhs = 1;
+                let mut expected_len_rhs = 1;
+                for (dim_lhs, dim_rhs) in zip(rhs.shape.clone(), new_shape.clone()) {
+                    expected_len_lhs *= dim_lhs;
+                    expected_len_rhs *= dim_rhs;
+
+                    let expected_len = cmp::max(expected_len_lhs, expected_len_rhs);
+
+                    while new_data.len() < expected_len {
+                        new_data.extend(new_data.clone().iter());
+                    }
+                }
+
+                (Self::new(new_data, new_shape), rhs)
+            }
+            cmp::Ordering::Equal => {
+                // no broadcasting required
+                (lhs, rhs)
+            }
+        }
     }
 }
 
@@ -871,7 +872,7 @@ mod tests {
     }
 
     #[test]
-    fn sub_without_broadcasting() {
+    fn sub() {
         let input1 = Tensor::new(vec![0., 1., 2., 3.], vec![4]);
         let input2 = Tensor::new(vec![0., 1., 2., 3.], vec![4]);
 
@@ -882,44 +883,47 @@ mod tests {
     }
 
     #[test]
-    fn sub_with_broadcasting() {
-        let input1 = Tensor::new(vec![0., 1., 2., 3.], vec![2, 2]);
-        let input2 = Tensor::new(vec![1., 1.], vec![2]);
+    fn broadcast_noop() {
+        let input1 = Tensor::new(vec![0.; 105], vec![5, 7, 3]);
+        let input2 = Tensor::new(vec![0.; 105], vec![5, 7, 3]);
 
-        let result = input1 - input2;
-
-        assert_eq!(result.data, vec![-1., 0., 1., 2.]);
-        assert_eq!(result.shape, vec![2, 2]);
-    }
-
-    #[test]
-    fn sub_with_broadcasting_left_side() {
-        let input1 = Tensor::new(vec![1., 1.], vec![2]);
-        let input2 = Tensor::new(vec![0., 1., 2., 3.], vec![2, 2]);
-
-        let result = input1 - input2;
-
-        assert_eq!(result.data, vec![1., 0., -1., -2.]);
-        assert_eq!(result.shape, vec![2, 2]);
-    }
-
-    #[ignore]
-    #[test]
-    fn sub_with_broadcasting_both_sides() {
-        let input1 = Tensor::new(vec![0.; 20], vec![5, 1, 4, 1]);
-        let input2 = Tensor::new(vec![0.; 3], vec![3, 1, 1]);
-
-        let result = input1 - input2;
-
-        assert_eq!(result.data, vec![0.; 60]);
-        assert_eq!(result.shape, vec![5, 3, 4, 1]);
+        let (result1, result2) = Tensor::broadcast(input1, input2);
+        assert_eq!(result1.data, vec![0.; 105]);
+        assert_eq!(result1.shape, vec![5, 7, 3]);
+        assert_eq!(result2.data, vec![0.; 105]);
+        assert_eq!(result2.shape, vec![5, 7, 3]);
     }
 
     #[test]
     #[should_panic]
-    fn sub_with_broadcasting_error() {
-        let input1 = Tensor::new(vec![0.; 40], vec![5, 2, 4, 1]);
+    fn broadcast_no_dim_error() {
+        let input1 = Tensor::empty();
+        let input2 = Tensor::new(vec![0.; 4], vec![2, 2]);
+
+        let _ = Tensor::broadcast(input1, input2);
+    }
+
+    #[test]
+    fn broadcast_simple() {
+        let input1 = Tensor::new(vec![0.; 60], vec![5, 3, 4, 1]);
         let input2 = Tensor::new(vec![0.; 3], vec![3, 1, 1]);
-        let _ = input1 - input2;
+
+        let (result1, result2) = Tensor::broadcast(input1, input2);
+        assert_eq!(result1.data, vec![0.; 60]);
+        assert_eq!(result1.shape, vec![5, 3, 4, 1]);
+        assert_eq!(result2.data, vec![0.; 60]);
+        assert_eq!(result2.shape, vec![5, 3, 4, 1]);
+    }
+
+    #[test]
+    fn broadcast_both_sides() {
+        let input1 = Tensor::new(vec![0.; 20], vec![5, 1, 4, 1]);
+        let input2 = Tensor::new(vec![0.; 3], vec![3, 1, 1]);
+
+        let (result1, result2) = Tensor::broadcast(input1, input2);
+        assert_eq!(result1.data, vec![0.; 60]);
+        assert_eq!(result1.shape, vec![5, 3, 4, 1]);
+        assert_eq!(result2.data, vec![0.; 60]);
+        assert_eq!(result2.shape, vec![5, 3, 4, 1]);
     }
 }
