@@ -57,7 +57,7 @@ impl ops::Sub<Tensor> for Tensor {
                 let mut new_shape = rhs.shape.clone();
 
                 while new_shape.len() < lhs.shape.len() {
-                    new_shape.push(1);
+                    new_shape.insert(0, 1);
                 }
 
                 let new_shape: Vec<usize> = zip(lhs.shape.clone(), new_shape)
@@ -71,7 +71,7 @@ impl ops::Sub<Tensor> for Tensor {
                     expected_len_lhs *= dim_lhs;
                     expected_len_rhs *= dim_rhs;
 
-                    let expected_len = cmp::min(expected_len_lhs, expected_len_rhs);
+                    let expected_len = cmp::max(expected_len_lhs, expected_len_rhs);
 
                     while new_data.len() < expected_len {
                         new_data.extend(new_data.clone().iter());
@@ -85,7 +85,7 @@ impl ops::Sub<Tensor> for Tensor {
                 let mut new_shape = lhs.shape.clone();
 
                 while new_shape.len() < rhs.shape.len() {
-                    new_shape.push(1);
+                    new_shape.insert(0, 1);
                 }
 
                 let new_shape: Vec<usize> = zip(rhs.shape.clone(), new_shape)
@@ -100,7 +100,7 @@ impl ops::Sub<Tensor> for Tensor {
                     expected_len_lhs *= dim_lhs;
                     expected_len_rhs *= dim_rhs;
 
-                    let expected_len = cmp::min(expected_len_lhs, expected_len_rhs);
+                    let expected_len = cmp::max(expected_len_lhs, expected_len_rhs);
 
                     while new_data.len() < expected_len {
                         new_data.extend(new_data.clone().iter());
