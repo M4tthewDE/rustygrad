@@ -915,15 +915,11 @@ mod tests {
         assert_eq!(result.shape, vec![5, 3, 4, 1]);
     }
 
-    #[ignore]
     #[test]
+    #[should_panic]
     fn sub_with_broadcasting_error() {
         let input1 = Tensor::new(vec![0.; 40], vec![5, 2, 4, 1]);
         let input2 = Tensor::new(vec![0.; 3], vec![3, 1, 1]);
-
-        let result = input1 - input2;
-
-        assert_eq!(result.data, vec![0.; 60]);
-        assert_eq!(result.shape, vec![5, 3, 4, 1]);
+        let _ = input1 - input2;
     }
 }
