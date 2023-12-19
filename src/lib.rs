@@ -52,67 +52,70 @@ impl ops::Sub<Tensor> for Tensor {
             }
         }
 
-        if lhs.shape.len() > rhs.shape.len() {
-            let mut new_shape = rhs.shape.clone();
+        match lhs.shape.len().cmp(&rhs.shape.len()) {
+            cmp::Ordering::Greater => {
+                let mut new_shape = rhs.shape.clone();
 
-            while new_shape.len() < lhs.shape.len() {
-                new_shape.push(1);
-            }
-
-            let new_shape: Vec<usize> = zip(lhs.shape.clone(), new_shape)
-                .map(|(d1, d2)| cmp::max(d1, d2))
-                .collect();
-
-            let mut new_data = rhs.data.clone();
-            let mut expected_len_lhs = 1;
-            let mut expected_len_rhs = 1;
-            for (dim_lhs, dim_rhs) in zip(lhs.shape.clone(), new_shape.clone()) {
-                expected_len_lhs *= dim_lhs;
-                expected_len_rhs *= dim_rhs;
-
-                let expected_len = cmp::min(expected_len_lhs, expected_len_rhs);
-
-                while new_data.len() < expected_len {
-                    new_data.extend(new_data.clone().iter());
+                while new_shape.len() < lhs.shape.len() {
+                    new_shape.push(1);
                 }
-            }
 
-            let result: Vec<f64> = zip(lhs.data, new_data).map(|(x1, x2)| x1 - x2).collect();
-            return Self::new(result, new_shape);
-        }
-        if rhs.shape.len() > lhs.shape.len() {
-            let mut new_shape = lhs.shape.clone();
+                let new_shape: Vec<usize> = zip(lhs.shape.clone(), new_shape)
+                    .map(|(d1, d2)| cmp::max(d1, d2))
+                    .collect();
 
-            while new_shape.len() < rhs.shape.len() {
-                new_shape.push(1);
-            }
+                let mut new_data = rhs.data.clone();
+                let mut expected_len_lhs = 1;
+                let mut expected_len_rhs = 1;
+                for (dim_lhs, dim_rhs) in zip(lhs.shape.clone(), new_shape.clone()) {
+                    expected_len_lhs *= dim_lhs;
+                    expected_len_rhs *= dim_rhs;
 
-            let new_shape: Vec<usize> = zip(rhs.shape.clone(), new_shape)
-                .map(|(d1, d2)| cmp::max(d1, d2))
-                .collect();
+                    let expected_len = cmp::min(expected_len_lhs, expected_len_rhs);
 
-            let mut new_data = lhs.data.clone();
-
-            let mut expected_len_lhs = 1;
-            let mut expected_len_rhs = 1;
-            for (dim_lhs, dim_rhs) in zip(rhs.shape.clone(), new_shape.clone()) {
-                expected_len_lhs *= dim_lhs;
-                expected_len_rhs *= dim_rhs;
-
-                let expected_len = cmp::min(expected_len_lhs, expected_len_rhs);
-
-                while new_data.len() < expected_len {
-                    new_data.extend(new_data.clone().iter());
+                    while new_data.len() < expected_len {
+                        new_data.extend(new_data.clone().iter());
+                    }
                 }
+
+                let result: Vec<f64> = zip(lhs.data, new_data).map(|(x1, x2)| x1 - x2).collect();
+                Self::new(result, new_shape)
             }
+            cmp::Ordering::Less => {
+                let mut new_shape = lhs.shape.clone();
 
-            let result: Vec<f64> = zip(new_data, rhs.data).map(|(x1, x2)| x1 - x2).collect();
-            return Self::new(result, new_shape);
-        } else {
-            // no broadcasting rqeuired
-            let result: Vec<f64> = zip(lhs.data, rhs.data).map(|(x1, x2)| x1 - x2).collect();
+                while new_shape.len() < rhs.shape.len() {
+                    new_shape.push(1);
+                }
 
-            Self::new(result, lhs.shape.clone())
+                let new_shape: Vec<usize> = zip(rhs.shape.clone(), new_shape)
+                    .map(|(d1, d2)| cmp::max(d1, d2))
+                    .collect();
+
+                let mut new_data = lhs.data.clone();
+
+                let mut expected_len_lhs = 1;
+                let mut expected_len_rhs = 1;
+                for (dim_lhs, dim_rhs) in zip(rhs.shape.clone(), new_shape.clone()) {
+                    expected_len_lhs *= dim_lhs;
+                    expected_len_rhs *= dim_rhs;
+
+                    let expected_len = cmp::min(expected_len_lhs, expected_len_rhs);
+
+                    while new_data.len() < expected_len {
+                        new_data.extend(new_data.clone().iter());
+                    }
+                }
+
+                let result: Vec<f64> = zip(new_data, rhs.data).map(|(x1, x2)| x1 - x2).collect();
+                Self::new(result, new_shape)
+            }
+            cmp::Ordering::Equal => {
+                // no broadcasting required
+                let result: Vec<f64> = zip(lhs.data, rhs.data).map(|(x1, x2)| x1 - x2).collect();
+
+                Self::new(result, lhs.shape.clone())
+            }
         }
     }
 }
