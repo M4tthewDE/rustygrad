@@ -904,6 +904,15 @@ mod tests {
     }
 
     #[test]
+    #[should_panic]
+    fn broadcast_incompatible_dims_error() {
+        let input1 = Tensor::new(vec![0.; 40], vec![5, 2, 4, 1]);
+        let input2 = Tensor::new(vec![0.; 3], vec![3, 1, 1]);
+
+        let _ = Tensor::broadcast(input1, input2);
+    }
+
+    #[test]
     fn broadcast_simple() {
         let input1 = Tensor::new(vec![0.; 60], vec![5, 3, 4, 1]);
         let input2 = Tensor::new(vec![0.; 3], vec![3, 1, 1]);
