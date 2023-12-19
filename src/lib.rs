@@ -87,10 +87,27 @@ impl ops::Sub<Tensor> for Tensor {
                 new_shape.push(1);
             }
 
-            let new_shape: Vec<usize> = zip(rhs.shape, new_shape)
+            let new_shape: Vec<usize> = zip(rhs.shape.clone(), new_shape)
                 .map(|(d1, d2)| cmp::max(d1, d2))
                 .collect();
-            todo!();
+
+            let mut new_data = lhs.data.clone();
+
+            let mut expected_len_lhs = 1;
+            let mut expected_len_rhs = 1;
+            for (dim_lhs, dim_rhs) in zip(rhs.shape.clone(), new_shape.clone()) {
+                expected_len_lhs *= dim_lhs;
+                expected_len_rhs *= dim_rhs;
+
+                let expected_len = cmp::min(expected_len_lhs, expected_len_rhs);
+
+                while new_data.len() < expected_len {
+                    new_data.extend(new_data.clone().iter());
+                }
+            }
+
+            let result: Vec<f64> = zip(new_data, rhs.data).map(|(x1, x2)| x1 - x2).collect();
+            return Self::new(result, new_shape);
         } else {
             // no broadcasting rqeuired
             let result: Vec<f64> = zip(lhs.data, rhs.data).map(|(x1, x2)| x1 - x2).collect();
@@ -872,7 +889,6 @@ mod tests {
         assert_eq!(result.shape, vec![2, 2]);
     }
 
-    #[ignore]
     #[test]
     fn sub_with_broadcasting_left_side() {
         let input1 = Tensor::new(vec![1., 1.], vec![2]);
@@ -880,8 +896,8 @@ mod tests {
 
         let result = input1 - input2;
 
-        assert_eq!(result.data, vec![-1., 0., 1., 2.]);
-        assert_eq!(result.shape, vec![4]);
+        assert_eq!(result.data, vec![1., 0., -1., -2.]);
+        assert_eq!(result.shape, vec![2, 2]);
     }
 
     #[ignore]
