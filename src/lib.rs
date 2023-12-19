@@ -64,11 +64,21 @@ impl ops::Sub<Tensor> for Tensor {
                 .collect();
 
             let mut new_data = rhs.data.clone();
+            let mut expected_len_lhs = 1;
+            let mut expected_len_rhs = 1;
+            for (dim_lhs, dim_rhs) in zip(lhs.shape.clone(), new_shape.clone()) {
+                expected_len_lhs *= dim_lhs;
+                expected_len_rhs *= dim_rhs;
 
-            for (dim_lhs, dim_rhs) in zip(lhs.shape, new_shape) {
-                dbg!(dim_lhs, dim_rhs);
+                let expected_len = cmp::min(expected_len_lhs, expected_len_rhs);
+
+                while new_data.len() < expected_len {
+                    new_data.extend(new_data.clone().iter());
+                }
             }
-            todo!();
+
+            let result: Vec<f64> = zip(lhs.data, new_data).map(|(x1, x2)| x1 - x2).collect();
+            return Self::new(result, new_shape);
         }
         if rhs.shape.len() > lhs.shape.len() {
             let mut new_shape = lhs.shape.clone();
@@ -859,7 +869,7 @@ mod tests {
         let result = input1 - input2;
 
         assert_eq!(result.data, vec![-1., 0., 1., 2.]);
-        assert_eq!(result.shape, vec![4]);
+        assert_eq!(result.shape, vec![2, 2]);
     }
 
     #[ignore]
