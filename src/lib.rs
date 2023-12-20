@@ -385,11 +385,11 @@ impl Tensor {
         Tensor::new(result, new_shape)
     }
 
+    // FIXME: inaccurate compared to torch!
     pub fn variance(self, axis: Option<Vec<usize>>) -> Self {
         let mean = self.reduce_mean(None);
         let diff = self.clone() - mean;
-        let a = diff.clone() * diff;
-        (a).reduce_sum(axis) / ((self.data.len() - 1) as f64)
+        (diff.clone() * diff).reduce_mean(axis)
     }
 
     pub fn reshape(self, shape: Vec<usize>) -> Self {
@@ -899,7 +899,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn variance() {
         let input = Tensor::new(
             vec![
