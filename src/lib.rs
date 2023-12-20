@@ -323,10 +323,10 @@ impl Tensor {
         Self::new(result, new_shape)
     }
 
-    pub fn reduce_mean(&self, axis: Option<Vec<usize>>) -> Self {
-        if let Some(axis) = axis {
+    pub fn reduce_mean(&self, dims: Option<Vec<usize>>) -> Self {
+        if let Some(dims) = dims {
             let mut result = self.clone();
-            for dim in axis.iter().rev() {
+            for dim in dims.iter().rev() {
                 result = result.reduce_sum(Some(vec![*dim])) / self.shape[*dim] as f64
             }
 
@@ -336,10 +336,10 @@ impl Tensor {
         }
     }
 
-    pub fn reduce_sum(self, axis: Option<Vec<usize>>) -> Self {
-        if let Some(axis) = axis {
+    pub fn reduce_sum(self, dims: Option<Vec<usize>>) -> Self {
+        if let Some(dims) = dims {
             let mut result = self.clone();
-            for dim in axis.iter().rev() {
+            for dim in dims.iter().rev() {
                 result = result.reduce_sum_with_axis(*dim);
             }
 
@@ -386,10 +386,15 @@ impl Tensor {
     }
 
     // FIXME: inaccurate compared to torch!
-    pub fn variance(self, axis: Option<Vec<usize>>) -> Self {
+    //
+    // torch.var(a, dim=1, unbiased=False)
+    // torch.mean((a - torch.mean(a, dim=1, keepdim=True)) ** 2, dim=1)
+    //
+    // These two do the same! Need to add keepdim and account for bias!
+    pub fn variance(self, dims: Option<Vec<usize>>) -> Self {
         let mean = self.reduce_mean(None);
         let diff = self.clone() - mean;
-        (diff.clone() * diff).reduce_mean(axis)
+        (diff.clone() * diff).reduce_mean(dims)
     }
 
     pub fn reshape(self, shape: Vec<usize>) -> Self {
@@ -912,7 +917,10 @@ mod tests {
 
         let result = input.variance(Some(vec![1]));
 
-        assert_eq!(result.data, vec![1.0631, 0.5590, 1.4893, 0.8258]);
+        assert_eq!(
+            result.data,
+            vec![1.0630833092, 0.5590269933, 1.4893144158, 0.8257591867]
+        );
         assert_eq!(result.shape, vec![4]);
     }
 
