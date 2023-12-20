@@ -106,36 +106,10 @@ impl ops::Sub<Tensor> for Tensor {
 }
 
 impl ops::Mul<Tensor> for Tensor {
-    type Output = Self;
+    type Output = Tensor;
 
-    fn mul(self, rhs: Tensor) -> Self::Output {
-        assert!(
-            self.shape.len() == 2 && rhs.shape.len() == 2,
-            "only supporting 2d tensors for now"
-        );
-
-        let rows: Vec<_> = self.data.chunks(self.shape[1]).collect();
-
-        let mut cols: Vec<Vec<f64>> = Vec::new();
-
-        for (i, val) in rhs.data.iter().enumerate() {
-            let remainder = i % rhs.shape[1];
-            if let Some(col) = cols.get_mut(remainder) {
-                col.push(*val);
-            } else {
-                cols.push(vec![*val]);
-            }
-        }
-
-        let mut result = Vec::new();
-
-        for row in rows {
-            for col in &cols {
-                result.push(zip(row, col).map(|(x1, x2)| x1 * x2).sum());
-            }
-        }
-
-        Self::new(result, vec![self.shape[0], rhs.shape[1]])
+    fn mul(self, _rhs: Tensor) -> Self::Output {
+        todo!("element-wise multiplication");
     }
 }
 
@@ -193,6 +167,36 @@ impl Tensor {
         }
 
         Tensor::new(data, shape)
+    }
+
+    pub fn matmul(lhs: Tensor, rhs: Tensor) -> Tensor {
+        assert!(
+            lhs.shape.len() == 2 && rhs.shape.len() == 2,
+            "only supporting 2d tensors for now"
+        );
+
+        let rows: Vec<_> = lhs.data.chunks(lhs.shape[1]).collect();
+
+        let mut cols: Vec<Vec<f64>> = Vec::new();
+
+        for (i, val) in rhs.data.iter().enumerate() {
+            let remainder = i % rhs.shape[1];
+            if let Some(col) = cols.get_mut(remainder) {
+                col.push(*val);
+            } else {
+                cols.push(vec![*val]);
+            }
+        }
+
+        let mut result = Vec::new();
+
+        for row in rows {
+            for col in &cols {
+                result.push(zip(row, col).map(|(x1, x2)| x1 * x2).sum());
+            }
+        }
+
+        Tensor::new(result, vec![lhs.shape[0], rhs.shape[1]])
     }
 
     fn point_from_shape_pos(&self, shape_pos: &[usize], broadcasting: bool) -> f64 {
@@ -375,9 +379,10 @@ impl Tensor {
     }
 
     pub fn variance(self, axis: Option<Vec<usize>>) -> Self {
-        let mean = self.reduce_mean(axis);
-        let _diff = self - mean;
-        todo!("variance");
+        let mean = self.reduce_mean(None);
+        let diff = self.clone() - mean;
+        let a = diff.clone() * diff;
+        (a).reduce_sum(axis) / ((self.data.len() - 1) as f64)
     }
 
     pub fn reshape(self, shape: Vec<usize>) -> Self {
@@ -417,13 +422,34 @@ mod tests {
     }
 
     #[test]
-    fn multiplication_matrix_2d() {
+    fn matmul_matrix_2d() {
         let a = Tensor::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]);
         let b = Tensor::new(vec![1.0, 2.0, 3.0, 1.0, 2.0, 3.0], vec![3, 2]);
-        let result = a * b;
+        let result = Tensor::matmul(a, b);
 
         assert_eq!(result.data, vec![13.0, 13.0, 31.0, 31.0]);
         assert_eq!(result.shape, vec![2, 2]);
+    }
+
+    #[test]
+    fn element_wise_multiplication() {
+        let a = Tensor::new(
+            vec![
+                -0.1258, 0.9666, 1.4808, -0.7937, 1.1734, -0.6563, 0.2612, 0.3245, -1.9038, 1.0037,
+                -0.8889, -0.9841, -0.2029, -0.8373, 1.3127, -0.1301,
+            ],
+            vec![4, 4],
+        );
+
+        let result = a.clone() * a;
+        assert_eq!(
+            result.data,
+            vec![
+                0.0158, 0.9343, 2.1928, 0.6300, 1.3769, 0.4307, 0.0682, 0.1053, 3.6245, 1.0074,
+                0.7901, 0.9685, 0.0412, 0.7011, 1.7232, 0.0169
+            ]
+        );
+        assert_eq!(result.shape, vec![4, 4]);
     }
 
     #[test]
@@ -851,8 +877,8 @@ mod tests {
         assert_eq!(result.shape, vec![2, 2]);
     }
 
-    #[ignore]
     #[test]
+    #[ignore]
     fn variance() {
         let input = Tensor::new(
             vec![
