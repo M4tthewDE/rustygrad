@@ -418,6 +418,10 @@ impl Tensor {
 
 #[cfg(test)]
 mod tests {
+    use std::iter::zip;
+
+    use assert_approx_eq::assert_approx_eq;
+
     use crate::Tensor;
 
     #[test]
@@ -949,10 +953,13 @@ mod tests {
 
         let result = input.variance(Some(vec![1]));
 
-        assert_eq!(
+        for (a, b) in zip(
             result.data,
-            vec![1.0630833092, 0.5590269933, 1.4893144158, 0.8257591867]
-        );
+            vec![1.0630833092, 0.5590269933, 1.4893144158, 0.8257591867],
+        ) {
+            assert_approx_eq!(a, b, 1.0e-9);
+        }
+
         assert_eq!(result.shape, vec![4]);
     }
 
