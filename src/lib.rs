@@ -32,7 +32,8 @@ impl ops::Sub<Tensor> for Tensor {
     type Output = Tensor;
 
     fn sub(self, rhs: Tensor) -> Self::Output {
-        let lhs = self;
+        let mut lhs = self;
+        let mut rhs = rhs;
         // https://pytorch.org/docs/stable/notes/broadcasting.html
         assert!(!lhs.shape.is_empty());
         assert!(!rhs.shape.is_empty());
@@ -84,9 +85,10 @@ impl ops::Sub<Tensor> for Tensor {
         };
 
         dbg!(&lhs_shape, &rhs_shape);
-
-        let output_shape: Vec<usize> = zip(rhs_shape, lhs_shape)
-            .map(|(d1, d2)| cmp::max(d1, d2))
+        lhs.shape = lhs_shape;
+        rhs.shape = rhs_shape;
+        let output_shape: Vec<usize> = zip(&lhs.shape, &rhs.shape)
+            .map(|(d1, d2)| cmp::max(*d1, *d2))
             .collect();
 
         dbg!(&output_shape);
@@ -94,16 +96,18 @@ impl ops::Sub<Tensor> for Tensor {
         let mut output_size: usize = 1;
         output_shape.iter().for_each(|x| output_size *= *x);
 
-        let mut result_data = vec![0.; output_size];
+        let result_data = vec![0.; output_size];
         let result_length = result_data.len();
 
+        let mut result_tensor = Tensor::new(result_data, output_shape);
+
         // 2. loop over output data (size known via output shape)
-        for (i, elem) in result_data.iter_mut().enumerate() {
+        for (i, elem) in result_tensor.data.iter_mut().enumerate() {
             let mut shape_pos: Vec<usize> = Vec::new();
             let mut offset = 0;
-            for (j, _shape) in output_shape.iter().enumerate() {
+            for (j, _shape) in result_tensor.shape.iter().enumerate() {
                 let mut count: usize = 1;
-                output_shape[..=j].iter().for_each(|x| count *= *x);
+                result_tensor.shape[..=j].iter().for_each(|x| count *= *x);
                 let index = (i - offset) / (result_length / count);
                 shape_pos.push(index);
                 offset += (result_length / count) * index;
@@ -111,10 +115,11 @@ impl ops::Sub<Tensor> for Tensor {
 
             // 3. fetch correct element from rhs/lhs for index
             // 4. subtract them, change elem
-            todo!();
+            *elem = lhs.shape_pos_to_data_index(&shape_pos, true)
+                - rhs.shape_pos_to_data_index(&shape_pos, true);
         }
 
-        Tensor::new(result_data, output_shape)
+        result_tensor
     }
 }
 
@@ -206,6 +211,22 @@ impl Tensor {
         }
 
         Tensor::new(data, shape)
+    }
+
+    // TODO: rename this
+    fn shape_pos_to_data_index(&self, shape_pos: &[usize], broadcasting: bool) -> f64 {
+        let mut index = 0;
+        let mut divisor = 1;
+        for (i, dim) in self.shape.iter().enumerate() {
+            if broadcasting && *dim == 1 {
+                continue;
+            }
+            assert!(shape_pos[i] < *dim);
+            divisor *= dim;
+            index += (self.data.len() / divisor) * shape_pos[i];
+        }
+
+        self.data[index]
     }
 
     pub fn transpose(self) -> Self {
@@ -934,5 +955,37 @@ mod tests {
             vec![-4., -3., -6., -7., -8., 0., -1., 0., -3., -4., -5., 3.]
         );
         assert_eq!(result.shape, vec![2, 3, 2]);
+    }
+
+    #[test]
+    fn shape_pos_to_data_index() {
+        let t = Tensor::new(
+            vec![0., 1., 2., 3., 4., 5., 6., 7., 8., 9., 10., 11.],
+            vec![2, 3, 2],
+        );
+
+        assert_eq!(t.shape_pos_to_data_index(&[1, 2, 0], false), 10.);
+        assert_eq!(t.shape_pos_to_data_index(&[1, 2, 1], false), 11.);
+
+        assert_eq!(t.shape_pos_to_data_index(&[0, 1, 1], false), 3.);
+        assert_eq!(t.shape_pos_to_data_index(&[0, 0, 1], false), 1.);
+    }
+
+    #[test]
+    fn shape_pos_to_data_broadcasting() {
+        let t = Tensor::new(vec![0., 1., 2., 3., 4., 5.], vec![1, 3, 2]);
+
+        assert_eq!(t.shape_pos_to_data_index(&[1, 2, 0], true), 4.);
+    }
+
+    #[test]
+    #[should_panic]
+    fn shape_pos_to_data_index_invalid_shape_pos() {
+        let t = Tensor::new(
+            vec![0., 1., 2., 3., 4., 5., 6., 7., 8., 9., 10., 11.],
+            vec![2, 3, 2],
+        );
+
+        t.shape_pos_to_data_index(&[0, 0, 2], false);
     }
 }
