@@ -70,9 +70,7 @@ impl ops::Sub<Tensor> for Tensor {
                     lhs.shape.insert(0, 1);
                 }
             }
-            cmp::Ordering::Equal => {
-                panic!("case should be handled by the no broadcast branch above")
-            }
+            cmp::Ordering::Equal => (),
         }
 
         let output_shape: Vec<usize> = zip(&lhs.shape, &rhs.shape)
