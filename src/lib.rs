@@ -115,8 +115,8 @@ impl ops::Sub<Tensor> for Tensor {
 
             // 3. fetch correct element from rhs/lhs for index
             // 4. subtract them, change elem
-            *elem = lhs.shape_pos_to_data_index(&shape_pos, true)
-                - rhs.shape_pos_to_data_index(&shape_pos, true);
+            *elem = lhs.point_from_shape_pos(&shape_pos, true)
+                - rhs.point_from_shape_pos(&shape_pos, true);
         }
 
         result_tensor
@@ -213,8 +213,7 @@ impl Tensor {
         Tensor::new(data, shape)
     }
 
-    // TODO: rename this
-    fn shape_pos_to_data_index(&self, shape_pos: &[usize], broadcasting: bool) -> f64 {
+    fn point_from_shape_pos(&self, shape_pos: &[usize], broadcasting: bool) -> f64 {
         let mut index = 0;
         let mut divisor = 1;
         for (i, dim) in self.shape.iter().enumerate() {
@@ -958,34 +957,34 @@ mod tests {
     }
 
     #[test]
-    fn shape_pos_to_data_index() {
+    fn point_from_shape_pos() {
         let t = Tensor::new(
             vec![0., 1., 2., 3., 4., 5., 6., 7., 8., 9., 10., 11.],
             vec![2, 3, 2],
         );
 
-        assert_eq!(t.shape_pos_to_data_index(&[1, 2, 0], false), 10.);
-        assert_eq!(t.shape_pos_to_data_index(&[1, 2, 1], false), 11.);
+        assert_eq!(t.point_from_shape_pos(&[1, 2, 0], false), 10.);
+        assert_eq!(t.point_from_shape_pos(&[1, 2, 1], false), 11.);
 
-        assert_eq!(t.shape_pos_to_data_index(&[0, 1, 1], false), 3.);
-        assert_eq!(t.shape_pos_to_data_index(&[0, 0, 1], false), 1.);
+        assert_eq!(t.point_from_shape_pos(&[0, 1, 1], false), 3.);
+        assert_eq!(t.point_from_shape_pos(&[0, 0, 1], false), 1.);
     }
 
     #[test]
-    fn shape_pos_to_data_broadcasting() {
+    fn point_from_shape_pos_broadcasting() {
         let t = Tensor::new(vec![0., 1., 2., 3., 4., 5.], vec![1, 3, 2]);
 
-        assert_eq!(t.shape_pos_to_data_index(&[1, 2, 0], true), 4.);
+        assert_eq!(t.point_from_shape_pos(&[1, 2, 0], true), 4.);
     }
 
     #[test]
     #[should_panic]
-    fn shape_pos_to_data_index_invalid_shape_pos() {
+    fn point_from_shape_pos_invalid_shape_pos() {
         let t = Tensor::new(
             vec![0., 1., 2., 3., 4., 5., 6., 7., 8., 9., 10., 11.],
             vec![2, 3, 2],
         );
 
-        t.shape_pos_to_data_index(&[0, 0, 2], false);
+        t.point_from_shape_pos(&[0, 0, 2], false);
     }
 }
