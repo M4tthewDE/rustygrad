@@ -909,21 +909,30 @@ mod tests {
 
     #[test]
     fn sub_broadcast_simple() {
-        let input1 = Tensor::new(vec![0.; 60], vec![5, 3, 4, 1]);
-        let input2 = Tensor::new(vec![0.; 3], vec![3, 1, 1]);
+        let input1 = Tensor::new(
+            vec![0., 1., 2., 3., 4., 5., 6., 7., 8., 9., 10., 11.],
+            vec![2, 3, 2],
+        );
+        let input2 = Tensor::new(vec![4., 3., 7., 8., 10., 2.], vec![3, 2]);
 
         let result = input1 - input2;
-        assert_eq!(result.data, vec![0.; 60]);
-        assert_eq!(result.shape, vec![5, 3, 4, 1]);
+        assert_eq!(
+            result.data,
+            vec![-4., -2., -5., -5., -6., 3., 2., 4., 1., 1., 0., 9.]
+        );
+        assert_eq!(result.shape, vec![2, 3, 2]);
     }
 
     #[test]
     fn sub_broadcast_both_sides() {
-        let input1 = Tensor::new(vec![0.; 20], vec![5, 1, 4, 1]);
-        let input2 = Tensor::new(vec![0.; 3], vec![3, 1, 1]);
+        let input1 = Tensor::new(vec![0., 1., 2., 3., 4., 5.], vec![2, 3, 1]);
+        let input2 = Tensor::new(vec![4., 3., 7., 8., 10., 2.], vec![3, 2]);
 
         let result = input1 - input2;
-        assert_eq!(result.data, vec![0.; 60]);
-        assert_eq!(result.shape, vec![5, 3, 4, 1]);
+        assert_eq!(
+            result.data,
+            vec![-4., -3., -6., -7., -8., 0., -1., 0., -3., -4., -5., 3.]
+        );
+        assert_eq!(result.shape, vec![2, 3, 2]);
     }
 }
