@@ -11,6 +11,7 @@ impl BatchNorm2d {
     pub fn forward(input: Tensor, training: bool) {
         if training {
             let _mean = input.reduce_mean(Some(vec![0, 2, 3]), false, None);
+            let _var = input.variance(Some(vec![0, 2, 3]));
         }
     }
 }
