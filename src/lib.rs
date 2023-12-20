@@ -303,10 +303,15 @@ impl Tensor {
         Tensor::new(self.data, shape)
     }
 
+    // TODO: this should not create new tensors, because of performance reasons
     pub fn broadcast(lhs: Tensor, rhs: Tensor) -> (Tensor, Tensor) {
         // https://pytorch.org/docs/stable/notes/broadcasting.html
         assert!(!lhs.shape.is_empty());
         assert!(!rhs.shape.is_empty());
+
+        if lhs.shape == rhs.shape {
+            return (lhs, rhs);
+        }
 
         // check if broadcasting is possible
         for dim_pair in rhs.shape.iter().rev().zip_longest(lhs.shape.iter().rev()) {
@@ -322,67 +327,64 @@ impl Tensor {
             }
         }
 
-        match lhs.shape.len().cmp(&rhs.shape.len()) {
+        // 1. calculate output shape
+
+        let (lhs_shape, rhs_shape) = match lhs.shape.len().cmp(&rhs.shape.len()) {
             cmp::Ordering::Greater => {
-                let mut new_shape = rhs.shape.clone();
+                let lhs_shape = lhs.shape.clone();
+                let mut rhs_shape = rhs.shape.clone();
 
-                while new_shape.len() < lhs.shape.len() {
-                    new_shape.insert(0, 1);
+                while rhs_shape.len() < lhs_shape.len() {
+                    rhs_shape.insert(0, 1);
                 }
 
-                let new_shape: Vec<usize> = zip(lhs.shape.clone(), new_shape)
-                    .map(|(d1, d2)| cmp::max(d1, d2))
-                    .collect();
-
-                let mut new_data = rhs.data.clone();
-                let mut expected_len_lhs = 1;
-                let mut expected_len_rhs = 1;
-                for (dim_lhs, dim_rhs) in zip(lhs.shape.clone(), new_shape.clone()) {
-                    expected_len_lhs *= dim_lhs;
-                    expected_len_rhs *= dim_rhs;
-
-                    let expected_len = cmp::max(expected_len_lhs, expected_len_rhs);
-
-                    while new_data.len() < expected_len {
-                        new_data.extend(new_data.clone().iter());
-                    }
-                }
-
-                (lhs, Self::new(new_data, new_shape))
+                (lhs_shape, rhs_shape)
             }
             cmp::Ordering::Less => {
-                let mut new_shape = lhs.shape.clone();
+                let mut lhs_shape = lhs.shape.clone();
+                let rhs_shape = rhs.shape.clone();
 
-                while new_shape.len() < rhs.shape.len() {
-                    new_shape.insert(0, 1);
+                while lhs_shape.len() < rhs_shape.len() {
+                    lhs_shape.insert(0, 1);
                 }
 
-                let new_shape: Vec<usize> = zip(rhs.shape.clone(), new_shape)
-                    .map(|(d1, d2)| cmp::max(d1, d2))
-                    .collect();
-
-                let mut new_data = lhs.data.clone();
-
-                let mut expected_len_lhs = 1;
-                let mut expected_len_rhs = 1;
-                for (dim_lhs, dim_rhs) in zip(rhs.shape.clone(), new_shape.clone()) {
-                    expected_len_lhs *= dim_lhs;
-                    expected_len_rhs *= dim_rhs;
-
-                    let expected_len = cmp::max(expected_len_lhs, expected_len_rhs);
-
-                    while new_data.len() < expected_len {
-                        new_data.extend(new_data.clone().iter());
-                    }
-                }
-
-                (Self::new(new_data, new_shape), rhs)
+                (lhs_shape, rhs_shape)
             }
-            cmp::Ordering::Equal => {
-                // no broadcasting required
-                (lhs, rhs)
+            cmp::Ordering::Equal => todo!(),
+        };
+
+        dbg!(&lhs_shape, &rhs_shape);
+
+        let output_shape: Vec<usize> = zip(rhs_shape, lhs_shape)
+            .map(|(d1, d2)| cmp::max(d1, d2))
+            .collect();
+
+        dbg!(&output_shape);
+
+        let mut output_size: usize = 1;
+        output_shape.iter().for_each(|x| output_size *= *x);
+
+        let mut result_data = vec![0.; output_size];
+        let result_length = result_data.len();
+
+        // 2. loop over output data (size known via output shape)
+        for (i, elem) in result_data.iter_mut().enumerate() {
+            let mut shape_pos: Vec<usize> = Vec::new();
+            let mut offset = 0;
+            for (j, _shape) in output_shape.iter().enumerate() {
+                let mut count: usize = 1;
+                output_shape[..=j].iter().for_each(|x| count *= *x);
+                let index = (i - offset) / (result_length / count);
+                shape_pos.push(index);
+                offset += (result_length / count) * index;
             }
+
+            // 3. fetch correct element from rhs/lhs for index
+            // 4. subtract them, change elem
         }
+
+        todo!();
+        Tensor::new(result_data, output_shape);
     }
 }
 
