@@ -108,8 +108,15 @@ impl ops::Sub<Tensor> for Tensor {
 impl ops::Mul<Tensor> for Tensor {
     type Output = Tensor;
 
-    fn mul(self, _rhs: Tensor) -> Self::Output {
-        todo!("element-wise multiplication");
+    fn mul(self, rhs: Tensor) -> Self::Output {
+        assert_eq!(
+            self.shape, rhs.shape,
+            "broadcasting not supported for multiplication"
+        );
+
+        let result: Vec<f64> = zip(self.data, rhs.data).map(|(x1, x2)| x1 * x2).collect();
+
+        Tensor::new(result, self.shape)
     }
 }
 
@@ -445,8 +452,22 @@ mod tests {
         assert_eq!(
             result.data,
             vec![
-                0.0158, 0.9343, 2.1928, 0.6300, 1.3769, 0.4307, 0.0682, 0.1053, 3.6245, 1.0074,
-                0.7901, 0.9685, 0.0412, 0.7011, 1.7232, 0.0169
+                0.01582564,
+                0.93431556,
+                2.1927686399999997,
+                0.62995969,
+                1.37686756,
+                0.43072969,
+                0.06822544,
+                0.10530025000000001,
+                3.6244544399999996,
+                1.0074136900000001,
+                0.7901432100000001,
+                0.9684528099999999,
+                0.041168409999999996,
+                0.7010712900000001,
+                1.7231812899999999,
+                0.01692601
             ]
         );
         assert_eq!(result.shape, vec![4, 4]);
