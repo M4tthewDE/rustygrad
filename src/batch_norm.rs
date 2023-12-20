@@ -10,7 +10,7 @@ impl BatchNorm2d {
 
     pub fn forward(input: Tensor, training: bool) {
         if training {
-            let _mean = input.reduce_mean(Some(vec![0, 2, 3]));
+            let _mean = input.reduce_mean(Some(vec![0, 2, 3]), false);
         }
     }
 }

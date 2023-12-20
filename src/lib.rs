@@ -323,11 +323,18 @@ impl Tensor {
         Self::new(result, new_shape)
     }
 
-    pub fn reduce_mean(&self, dims: Option<Vec<usize>>) -> Self {
+    pub fn reduce_mean(&self, dims: Option<Vec<usize>>, keepdim: bool) -> Tensor {
         if let Some(dims) = dims {
             let mut result = self.clone();
             for dim in dims.iter().rev() {
                 result = result.reduce_sum(Some(vec![*dim])) / self.shape[*dim] as f64
+            }
+
+            if keepdim {
+                result.shape = self.shape.clone();
+                for dim in dims {
+                    result.shape[dim] = 1;
+                }
             }
 
             result
@@ -392,9 +399,9 @@ impl Tensor {
     //
     // These two do the same! Need to add keepdim and account for bias!
     pub fn variance(self, dims: Option<Vec<usize>>) -> Self {
-        let mean = self.reduce_mean(None);
+        let mean = self.reduce_mean(dims.clone(), true);
         let diff = self.clone() - mean;
-        (diff.clone() * diff).reduce_mean(dims)
+        (diff.clone() * diff).reduce_mean(dims, false)
     }
 
     pub fn reshape(self, shape: Vec<usize>) -> Self {
@@ -636,7 +643,7 @@ mod tests {
     fn mean() {
         let input = Tensor::from_vec(vec![0.2294, -0.5481, 1.3288]);
 
-        let mean = input.reduce_mean(None);
+        let mean = input.reduce_mean(None, false);
 
         assert_eq!(mean.data, vec![0.3367]);
         assert_eq!(mean.shape, vec![1]);
@@ -654,10 +661,28 @@ mod tests {
             vec![4, 4],
         );
 
-        let mean = input.reduce_mean(None);
+        let mean = input.reduce_mean(None, false);
 
         assert_eq!(mean.data, vec![2.0625]);
         assert_eq!(mean.shape, vec![1]);
+    }
+
+    #[test]
+    fn mean_2d_keepdim() {
+        let input = Tensor::new(
+            vec![
+                1., 3., 2., 1., //
+                1., 3., 3., 1., //
+                2., 1., 1., 3., //
+                3., 2., 3., 3., //
+            ],
+            vec![4, 4],
+        );
+
+        let mean = input.reduce_mean(Some(vec![0]), true);
+
+        assert_eq!(mean.data, vec![1.75, 2.25, 2.25, 2.0]);
+        assert_eq!(mean.shape, vec![1, 4]);
     }
 
     #[test]
@@ -672,7 +697,7 @@ mod tests {
             vec![4, 4],
         );
 
-        let mean = input.reduce_mean(Some(vec![0]));
+        let mean = input.reduce_mean(Some(vec![0]), false);
 
         assert_eq!(mean.data, vec![1.75, 2.25, 2.25, 2.0]);
         assert_eq!(mean.shape, vec![4]);
@@ -690,7 +715,7 @@ mod tests {
             vec![4, 4],
         );
 
-        let mean = input.reduce_mean(Some(vec![1]));
+        let mean = input.reduce_mean(Some(vec![1]), false);
 
         assert_eq!(mean.data, vec![1.75, 2.0, 1.75, 2.75]);
         assert_eq!(mean.shape, vec![4]);
@@ -887,7 +912,7 @@ mod tests {
             vec![2, 3, 2],
         );
 
-        let sum = input.reduce_mean(Some(vec![0, 1]));
+        let sum = input.reduce_mean(Some(vec![0, 1]), false);
 
         assert_eq!(sum.data, vec![6., 7.]);
         assert_eq!(sum.shape, vec![2]);
