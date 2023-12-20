@@ -409,12 +409,6 @@ impl Tensor {
         Tensor::new(result, new_shape)
     }
 
-    // FIXME: inaccurate compared to torch!
-    //
-    // torch.var(a, dim=1, unbiased=False)
-    // torch.mean((a - torch.mean(a, dim=1, keepdim=True)) ** 2, dim=1)
-    //
-    //
     pub fn variance(&self, dims: Option<Vec<usize>>) -> Self {
         let mean = self.reduce_mean(dims.clone(), true, None);
         let diff = self.clone() - mean;
