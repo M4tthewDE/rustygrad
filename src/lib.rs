@@ -32,10 +32,89 @@ impl ops::Sub<Tensor> for Tensor {
     type Output = Tensor;
 
     fn sub(self, rhs: Tensor) -> Self::Output {
-        let (lhs, rhs) = Tensor::broadcast(self, rhs);
-        let result: Vec<f64> = zip(lhs.data, rhs.data).map(|(x1, x2)| x1 - x2).collect();
+        let lhs = self;
+        // https://pytorch.org/docs/stable/notes/broadcasting.html
+        assert!(!lhs.shape.is_empty());
+        assert!(!rhs.shape.is_empty());
 
-        Self::new(result, lhs.shape.clone())
+        if lhs.shape == rhs.shape {
+            let result: Vec<f64> = zip(lhs.data, rhs.data).map(|(x1, x2)| x1 - x2).collect();
+
+            return Tensor::new(result, lhs.shape.clone());
+        }
+
+        // check if broadcasting is possible
+        for dim_pair in rhs.shape.iter().rev().zip_longest(lhs.shape.iter().rev()) {
+            match dim_pair {
+                EitherOrBoth::Both(left, right) => {
+                    assert!(
+                        left == right || *right == 1 || *left == 1,
+                        "tensors are not broadcastable"
+                    )
+                }
+                EitherOrBoth::Left(_) => (),
+                EitherOrBoth::Right(_) => (),
+            }
+        }
+
+        // 1. calculate output shape
+
+        let (lhs_shape, rhs_shape) = match lhs.shape.len().cmp(&rhs.shape.len()) {
+            cmp::Ordering::Greater => {
+                let lhs_shape = lhs.shape.clone();
+                let mut rhs_shape = rhs.shape.clone();
+
+                while rhs_shape.len() < lhs_shape.len() {
+                    rhs_shape.insert(0, 1);
+                }
+
+                (lhs_shape, rhs_shape)
+            }
+            cmp::Ordering::Less => {
+                let mut lhs_shape = lhs.shape.clone();
+                let rhs_shape = rhs.shape.clone();
+
+                while lhs_shape.len() < rhs_shape.len() {
+                    lhs_shape.insert(0, 1);
+                }
+
+                (lhs_shape, rhs_shape)
+            }
+            cmp::Ordering::Equal => todo!(),
+        };
+
+        dbg!(&lhs_shape, &rhs_shape);
+
+        let output_shape: Vec<usize> = zip(rhs_shape, lhs_shape)
+            .map(|(d1, d2)| cmp::max(d1, d2))
+            .collect();
+
+        dbg!(&output_shape);
+
+        let mut output_size: usize = 1;
+        output_shape.iter().for_each(|x| output_size *= *x);
+
+        let mut result_data = vec![0.; output_size];
+        let result_length = result_data.len();
+
+        // 2. loop over output data (size known via output shape)
+        for (i, elem) in result_data.iter_mut().enumerate() {
+            let mut shape_pos: Vec<usize> = Vec::new();
+            let mut offset = 0;
+            for (j, _shape) in output_shape.iter().enumerate() {
+                let mut count: usize = 1;
+                output_shape[..=j].iter().for_each(|x| count *= *x);
+                let index = (i - offset) / (result_length / count);
+                shape_pos.push(index);
+                offset += (result_length / count) * index;
+            }
+
+            // 3. fetch correct element from rhs/lhs for index
+            // 4. subtract them, change elem
+            todo!();
+        }
+
+        Tensor::new(result_data, output_shape)
     }
 }
 
@@ -301,90 +380,6 @@ impl Tensor {
 
     pub fn reshape(self, shape: Vec<usize>) -> Self {
         Tensor::new(self.data, shape)
-    }
-
-    // TODO: this should not create new tensors, because of performance reasons
-    pub fn broadcast(lhs: Tensor, rhs: Tensor) -> (Tensor, Tensor) {
-        // https://pytorch.org/docs/stable/notes/broadcasting.html
-        assert!(!lhs.shape.is_empty());
-        assert!(!rhs.shape.is_empty());
-
-        if lhs.shape == rhs.shape {
-            return (lhs, rhs);
-        }
-
-        // check if broadcasting is possible
-        for dim_pair in rhs.shape.iter().rev().zip_longest(lhs.shape.iter().rev()) {
-            match dim_pair {
-                EitherOrBoth::Both(left, right) => {
-                    assert!(
-                        left == right || *right == 1 || *left == 1,
-                        "tensors are not broadcastable"
-                    )
-                }
-                EitherOrBoth::Left(_) => (),
-                EitherOrBoth::Right(_) => (),
-            }
-        }
-
-        // 1. calculate output shape
-
-        let (lhs_shape, rhs_shape) = match lhs.shape.len().cmp(&rhs.shape.len()) {
-            cmp::Ordering::Greater => {
-                let lhs_shape = lhs.shape.clone();
-                let mut rhs_shape = rhs.shape.clone();
-
-                while rhs_shape.len() < lhs_shape.len() {
-                    rhs_shape.insert(0, 1);
-                }
-
-                (lhs_shape, rhs_shape)
-            }
-            cmp::Ordering::Less => {
-                let mut lhs_shape = lhs.shape.clone();
-                let rhs_shape = rhs.shape.clone();
-
-                while lhs_shape.len() < rhs_shape.len() {
-                    lhs_shape.insert(0, 1);
-                }
-
-                (lhs_shape, rhs_shape)
-            }
-            cmp::Ordering::Equal => todo!(),
-        };
-
-        dbg!(&lhs_shape, &rhs_shape);
-
-        let output_shape: Vec<usize> = zip(rhs_shape, lhs_shape)
-            .map(|(d1, d2)| cmp::max(d1, d2))
-            .collect();
-
-        dbg!(&output_shape);
-
-        let mut output_size: usize = 1;
-        output_shape.iter().for_each(|x| output_size *= *x);
-
-        let mut result_data = vec![0.; output_size];
-        let result_length = result_data.len();
-
-        // 2. loop over output data (size known via output shape)
-        for (i, elem) in result_data.iter_mut().enumerate() {
-            let mut shape_pos: Vec<usize> = Vec::new();
-            let mut offset = 0;
-            for (j, _shape) in output_shape.iter().enumerate() {
-                let mut count: usize = 1;
-                output_shape[..=j].iter().for_each(|x| count *= *x);
-                let index = (i - offset) / (result_length / count);
-                shape_pos.push(index);
-                offset += (result_length / count) * index;
-            }
-
-            // 3. fetch correct element from rhs/lhs for index
-            // 4. subtract them, change elem
-        }
-
-        todo!();
-        Tensor::new(result_data, output_shape);
     }
 }
 
@@ -885,56 +880,50 @@ mod tests {
     }
 
     #[test]
-    fn broadcast_noop() {
+    fn sub_no_broadcast() {
         let input1 = Tensor::new(vec![0.; 105], vec![5, 7, 3]);
         let input2 = Tensor::new(vec![0.; 105], vec![5, 7, 3]);
 
-        let (result1, result2) = Tensor::broadcast(input1, input2);
-        assert_eq!(result1.data, vec![0.; 105]);
-        assert_eq!(result1.shape, vec![5, 7, 3]);
-        assert_eq!(result2.data, vec![0.; 105]);
-        assert_eq!(result2.shape, vec![5, 7, 3]);
+        let result = input1 - input2;
+        assert_eq!(result.data, vec![0.; 105]);
+        assert_eq!(result.shape, vec![5, 7, 3]);
     }
 
     #[test]
     #[should_panic]
-    fn broadcast_no_dim_error() {
+    fn sub_broadcast_no_dim_error() {
         let input1 = Tensor::empty();
         let input2 = Tensor::new(vec![0.; 4], vec![2, 2]);
 
-        let _ = Tensor::broadcast(input1, input2);
+        let _ = input1 - input2;
     }
 
     #[test]
     #[should_panic]
-    fn broadcast_incompatible_dims_error() {
+    fn sub_broadcast_incompatible_dims_error() {
         let input1 = Tensor::new(vec![0.; 40], vec![5, 2, 4, 1]);
         let input2 = Tensor::new(vec![0.; 3], vec![3, 1, 1]);
 
-        let _ = Tensor::broadcast(input1, input2);
+        let _ = input1 - input2;
     }
 
     #[test]
-    fn broadcast_simple() {
+    fn sub_broadcast_simple() {
         let input1 = Tensor::new(vec![0.; 60], vec![5, 3, 4, 1]);
         let input2 = Tensor::new(vec![0.; 3], vec![3, 1, 1]);
 
-        let (result1, result2) = Tensor::broadcast(input1, input2);
-        assert_eq!(result1.data, vec![0.; 60]);
-        assert_eq!(result1.shape, vec![5, 3, 4, 1]);
-        assert_eq!(result2.data, vec![0.; 60]);
-        assert_eq!(result2.shape, vec![5, 3, 4, 1]);
+        let result = input1 - input2;
+        assert_eq!(result.data, vec![0.; 60]);
+        assert_eq!(result.shape, vec![5, 3, 4, 1]);
     }
 
     #[test]
-    fn broadcast_both_sides() {
+    fn sub_broadcast_both_sides() {
         let input1 = Tensor::new(vec![0.; 20], vec![5, 1, 4, 1]);
         let input2 = Tensor::new(vec![0.; 3], vec![3, 1, 1]);
 
-        let (result1, result2) = Tensor::broadcast(input1, input2);
-        assert_eq!(result1.data, vec![0.; 60]);
-        assert_eq!(result1.shape, vec![5, 3, 4, 1]);
-        assert_eq!(result2.data, vec![0.; 60]);
-        assert_eq!(result2.shape, vec![5, 3, 4, 1]);
+        let result = input1 - input2;
+        assert_eq!(result.data, vec![0.; 60]);
+        assert_eq!(result.shape, vec![5, 3, 4, 1]);
     }
 }
