@@ -31,16 +31,16 @@ impl ops::Add<Tensor> for Tensor {
 impl ops::Sub<Tensor> for Tensor {
     type Output = Tensor;
 
+    // https://pytorch.org/docs/stable/notes/broadcasting.html
     fn sub(self, rhs: Tensor) -> Self::Output {
         let mut lhs = self;
         let mut rhs = rhs;
-        // https://pytorch.org/docs/stable/notes/broadcasting.html
         assert!(!lhs.shape.is_empty());
         assert!(!rhs.shape.is_empty());
 
+        // no broadcasting case
         if lhs.shape == rhs.shape {
             let result: Vec<f64> = zip(lhs.data, rhs.data).map(|(x1, x2)| x1 - x2).collect();
-
             return Tensor::new(result, lhs.shape.clone());
         }
 
@@ -58,8 +58,7 @@ impl ops::Sub<Tensor> for Tensor {
             }
         }
 
-        // 1. calculate output shape
-
+        // 1. calculate new shapes
         let (lhs_shape, rhs_shape) = match lhs.shape.len().cmp(&rhs.shape.len()) {
             cmp::Ordering::Greater => {
                 let lhs_shape = lhs.shape.clone();
@@ -84,14 +83,11 @@ impl ops::Sub<Tensor> for Tensor {
             cmp::Ordering::Equal => todo!(),
         };
 
-        dbg!(&lhs_shape, &rhs_shape);
         lhs.shape = lhs_shape;
         rhs.shape = rhs_shape;
         let output_shape: Vec<usize> = zip(&lhs.shape, &rhs.shape)
             .map(|(d1, d2)| cmp::max(*d1, *d2))
             .collect();
-
-        dbg!(&output_shape);
 
         let mut output_size: usize = 1;
         output_shape.iter().for_each(|x| output_size *= *x);
@@ -101,7 +97,7 @@ impl ops::Sub<Tensor> for Tensor {
 
         let mut result_tensor = Tensor::new(result_data, output_shape);
 
-        // 2. loop over output data (size known via output shape)
+        // 2. calculate output tensor
         for (i, elem) in result_tensor.data.iter_mut().enumerate() {
             let mut shape_pos: Vec<usize> = Vec::new();
             let mut offset = 0;
@@ -113,8 +109,6 @@ impl ops::Sub<Tensor> for Tensor {
                 offset += (result_length / count) * index;
             }
 
-            // 3. fetch correct element from rhs/lhs for index
-            // 4. subtract them, change elem
             *elem = lhs.point_from_shape_pos(&shape_pos, true)
                 - rhs.point_from_shape_pos(&shape_pos, true);
         }
