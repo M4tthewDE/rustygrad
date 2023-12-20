@@ -127,6 +127,7 @@ impl ops::Mul<f64> for Tensor {
         Tensor::new(result, self.shape)
     }
 }
+
 impl ops::Div<f64> for Tensor {
     type Output = Tensor;
 
