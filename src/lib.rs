@@ -405,7 +405,7 @@ impl Tensor {
     // torch.mean((a - torch.mean(a, dim=1, keepdim=True)) ** 2, dim=1)
     //
     //
-    pub fn variance(self, dims: Option<Vec<usize>>) -> Self {
+    pub fn variance(&self, dims: Option<Vec<usize>>) -> Self {
         let mean = self.reduce_mean(dims.clone(), true, None);
         let diff = self.clone() - mean;
         (diff.clone() * diff).reduce_mean(dims, false, Some(1.0))
@@ -413,6 +413,18 @@ impl Tensor {
 
     pub fn reshape(self, shape: Vec<usize>) -> Self {
         Tensor::new(self.data, shape)
+    }
+
+    pub fn numel(&self) -> usize {
+        self.data.len()
+    }
+
+    pub fn size(self, dim: Option<usize>) -> Vec<usize> {
+        if let Some(dim) = dim {
+            vec![self.shape[dim]]
+        } else {
+            self.shape
+        }
     }
 }
 
