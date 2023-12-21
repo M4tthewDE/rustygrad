@@ -167,7 +167,6 @@ impl Tensor {
         let mut rng = rand::thread_rng();
 
         let data: Vec<f64> = (0..util::shape_size(&shape))
-            .into_iter()
             .map(|_| uniform.sample(&mut rng))
             .collect();
 
