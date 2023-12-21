@@ -110,7 +110,6 @@ impl ops::Mul<Tensor> for Tensor {
         );
 
         let result: Vec<f64> = zip(self.data, rhs.data).map(|(x1, x2)| x1 * x2).collect();
-
         Tensor::new(result, self.shape)
     }
 }
@@ -120,7 +119,6 @@ impl ops::Mul<f64> for Tensor {
 
     fn mul(self, rhs: f64) -> Self::Output {
         let result: Vec<f64> = self.data.iter().map(|x| x * rhs).collect();
-
         Tensor::new(result, self.shape)
     }
 }
@@ -129,11 +127,7 @@ impl ops::Div<f64> for Tensor {
     type Output = Tensor;
 
     fn div(self, rhs: f64) -> Self::Output {
-        let mut result = Vec::new();
-        for elem in self.data {
-            result.push(elem / rhs);
-        }
-
+        let result: Vec<f64> = self.data.iter().map(|x| x / rhs).collect();
         Tensor::new(result, self.shape)
     }
 }
