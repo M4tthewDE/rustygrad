@@ -24,7 +24,7 @@ impl ops::Add<Tensor> for Tensor {
 
         let result: Vec<f64> = zip(self.data, rhs.data).map(|(x1, x2)| x1 + x2).collect();
 
-        Self::new(result, self.shape)
+        Tensor::new(result, self.shape)
     }
 }
 
@@ -142,22 +142,22 @@ impl ops::Div<f64> for Tensor {
 }
 
 impl Tensor {
-    pub fn empty() -> Self {
-        Self {
+    pub fn empty() -> Tensor {
+        Tensor {
             data: vec![],
             shape: vec![],
         }
     }
-    pub fn from_scalar(data: f64) -> Self {
-        Self::new(vec![data], vec![1])
+    pub fn from_scalar(data: f64) -> Tensor {
+        Tensor::new(vec![data], vec![1])
     }
 
-    pub fn from_vec(data: Vec<f64>) -> Self {
+    pub fn from_vec(data: Vec<f64>) -> Tensor {
         let len = data.len();
-        Self::new(data, vec![len])
+        Tensor::new(data, vec![len])
     }
 
-    pub fn new(data: Vec<f64>, shape: Vec<usize>) -> Self {
+    pub fn new(data: Vec<f64>, shape: Vec<usize>) -> Tensor {
         // empty tensors are an exception
         if !(data.is_empty() && shape.is_empty()) {
             let mut count: usize = 1;
@@ -165,10 +165,10 @@ impl Tensor {
             assert_eq!(data.len(), count, "invalid shape for data length");
         }
 
-        Self { data, shape }
+        Tensor { data, shape }
     }
 
-    pub fn glorot_uniform(fan_in: usize, fan_out: usize, shape: Vec<usize>) -> Self {
+    pub fn glorot_uniform(fan_in: usize, fan_out: usize, shape: Vec<usize>) -> Tensor {
         let limit = (6. / (fan_in + fan_out) as f64).sqrt();
         let uniform = Uniform::from(0.0..limit);
 
@@ -229,7 +229,7 @@ impl Tensor {
         self.data[index]
     }
 
-    pub fn transpose(self) -> Self {
+    pub fn transpose(self) -> Tensor {
         let mut cols: Vec<Vec<f64>> = Vec::new();
 
         // TODO: do this in one pass!
@@ -245,26 +245,26 @@ impl Tensor {
         let mut shape = self.shape.clone();
         shape.reverse();
 
-        Self::new(cols.concat(), shape)
+        Tensor::new(cols.concat(), shape)
     }
 
-    pub fn max(self) -> Self {
+    pub fn max(self) -> Tensor {
         match self
             .data
             .into_iter()
             .max_by(|a, b| a.partial_cmp(b).unwrap())
         {
-            Some(val) => Self::new(vec![val], vec![1]),
-            None => Self::empty(),
+            Some(val) => Tensor::new(vec![val], vec![1]),
+            None => Tensor::empty(),
         }
     }
 
     pub fn conv2d(
         self,
-        kernel: Self,
+        kernel: Tensor,
         padding: Option<(f64, usize)>,
         stride: Option<usize>,
-    ) -> Self {
+    ) -> Tensor {
         if let Some((padding_value, padding_size)) = padding {
             return self
                 .pad2d(padding_value, padding_size)
@@ -299,10 +299,10 @@ impl Tensor {
             }
         }
 
-        Self::new(output_data, vec![output_height, output_width])
+        Tensor::new(output_data, vec![output_height, output_width])
     }
 
-    pub fn pad2d(self, value: f64, size: usize) -> Self {
+    pub fn pad2d(self, value: f64, size: usize) -> Tensor {
         let mut result = Vec::new();
         for _ in 0..(self.shape[0] + 2 * size) * size {
             result.push(value);
@@ -328,7 +328,7 @@ impl Tensor {
         new_shape[0] = self.shape[0] + 2 * size;
         new_shape[1] = self.shape[1] + 2 * size;
 
-        Self::new(result, new_shape)
+        Tensor::new(result, new_shape)
     }
 
     pub fn reduce_mean(
@@ -360,7 +360,7 @@ impl Tensor {
         }
     }
 
-    pub fn reduce_sum(self, dims: Option<Vec<usize>>) -> Self {
+    pub fn reduce_sum(self, dims: Option<Vec<usize>>) -> Tensor {
         if let Some(dims) = dims {
             let mut result = self.clone();
             for dim in dims.iter().rev() {
@@ -373,7 +373,7 @@ impl Tensor {
         }
     }
 
-    fn reduce_sum_with_axis(self, axis: usize) -> Self {
+    fn reduce_sum_with_axis(self, axis: usize) -> Tensor {
         let mut new_shape = self.shape.clone();
         new_shape.remove(axis);
 
@@ -409,13 +409,13 @@ impl Tensor {
         Tensor::new(result, new_shape)
     }
 
-    pub fn variance(&self, dims: Option<Vec<usize>>) -> Self {
+    pub fn variance(&self, dims: Option<Vec<usize>>) -> Tensor {
         let mean = self.reduce_mean(dims.clone(), true, None);
         let diff = self.clone() - mean;
         (diff.clone() * diff).reduce_mean(dims, false, Some(1.0))
     }
 
-    pub fn reshape(self, shape: Vec<usize>) -> Self {
+    pub fn reshape(self, shape: Vec<usize>) -> Tensor {
         Tensor::new(self.data, shape)
     }
 
