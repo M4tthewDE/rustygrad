@@ -28,6 +28,15 @@ impl ops::Add<Tensor> for Tensor {
     }
 }
 
+impl ops::Add<f64> for Tensor {
+    type Output = Tensor;
+
+    fn add(self, rhs: f64) -> Self::Output {
+        let result: Vec<f64> = self.data.iter().map(|x| x + rhs).collect();
+        Tensor::new(result, self.shape)
+    }
+}
+
 impl ops::Sub<Tensor> for Tensor {
     type Output = Tensor;
 
@@ -128,6 +137,20 @@ impl ops::Div<f64> for Tensor {
 
     fn div(self, rhs: f64) -> Self::Output {
         let result: Vec<f64> = self.data.iter().map(|x| x / rhs).collect();
+        Tensor::new(result, self.shape)
+    }
+}
+
+impl ops::Div<Tensor> for Tensor {
+    type Output = Tensor;
+
+    fn div(self, rhs: Tensor) -> Self::Output {
+        assert_eq!(
+            self.shape, rhs.shape,
+            "broadcasting not supported for division"
+        );
+
+        let result: Vec<f64> = zip(self.data, rhs.data).map(|(x1, x2)| x1 / x2).collect();
         Tensor::new(result, self.shape)
     }
 }
@@ -410,11 +433,11 @@ impl Tensor {
         self.data.len()
     }
 
-    pub fn size(self, dim: Option<usize>) -> Vec<usize> {
+    pub fn size(&self, dim: Option<usize>) -> Vec<usize> {
         if let Some(dim) = dim {
             vec![self.shape[dim]]
         } else {
-            self.shape
+            self.shape.clone()
         }
     }
 
@@ -899,6 +922,17 @@ mod tests {
         let result = input / 2.0;
 
         assert_eq!(result.data, vec![2., 4., 5., 6.]);
+        assert_eq!(result.shape, vec![2, 2]);
+    }
+
+    #[test]
+    fn div_tensor() {
+        let t1 = Tensor::new(vec![4., 8., 10., 12.], vec![2, 2]);
+        let t2 = Tensor::new(vec![2., 2., 5., 4.], vec![2, 2]);
+
+        let result = t1 / t2;
+
+        assert_eq!(result.data, vec![2., 4., 2., 3.]);
         assert_eq!(result.shape, vec![2, 2]);
     }
 
