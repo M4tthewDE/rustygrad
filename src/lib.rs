@@ -417,10 +417,17 @@ impl Tensor {
             self.shape
         }
     }
+
+    pub fn sqrt(&self) -> Tensor {
+        let result: Vec<f64> = self.data.iter().map(|x| x.sqrt()).collect();
+        Tensor::new(result, self.shape.clone())
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::f64::NAN;
+
     use crate::{util::assert_aprox_eq_vec, Tensor};
 
     #[test]
@@ -964,6 +971,7 @@ mod tests {
         assert_aprox_eq_vec(
             result.data,
             vec![1.0630833092, 0.5590269933, 1.4893144158, 0.8257591867],
+            1e-9,
         );
         assert_eq!(result.shape, vec![4]);
     }
@@ -1066,5 +1074,22 @@ mod tests {
         );
 
         t.point_from_shape_pos(&[0, 0, 2], false);
+    }
+
+    #[test]
+    fn test_sqrt() {
+        let t = Tensor::from_vec(vec![
+            -2.0755000114,
+            1.0226000547,
+            0.0830999985,
+            0.4805999994,
+        ]);
+        let result = t.sqrt();
+
+        assert_aprox_eq_vec(
+            result.data,
+            vec![NAN, 1.0112369061, 0.2882707119, 0.6932532191],
+            1e-6,
+        )
     }
 }
