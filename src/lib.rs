@@ -77,10 +77,7 @@ impl ops::Sub<Tensor> for Tensor {
             .map(|(d1, d2)| cmp::max(*d1, *d2))
             .collect();
 
-        let mut output_size: usize = 1;
-        output_shape.iter().for_each(|x| output_size *= *x);
-
-        let mut result = Tensor::new(vec![0.; output_size], output_shape);
+        let mut result = Tensor::new(vec![0.; util::shape_size(&output_shape)], output_shape);
         let result_len = result.data.len();
 
         // 2. calculate output tensor
@@ -160,9 +157,11 @@ impl Tensor {
     pub fn new(data: Vec<f64>, shape: Vec<usize>) -> Tensor {
         // empty tensors are an exception
         if !(data.is_empty() && shape.is_empty()) {
-            let mut count: usize = 1;
-            shape.iter().for_each(|x| count *= *x);
-            assert_eq!(data.len(), count, "invalid shape for data length");
+            assert_eq!(
+                data.len(),
+                util::shape_size(&shape),
+                "invalid shape for data length"
+            );
         }
 
         Tensor { data, shape }
@@ -172,12 +171,9 @@ impl Tensor {
         let limit = (6. / (fan_in + fan_out) as f64).sqrt();
         let uniform = Uniform::from(0.0..limit);
 
-        let mut count: usize = 1;
-        shape.iter().for_each(|x| count *= *x);
-
         let mut rng = rand::thread_rng();
         let mut data = Vec::new();
-        for _ in 0..count {
+        for _ in 0..util::shape_size(&shape) {
             data.push(uniform.sample(&mut rng))
         }
 
@@ -377,9 +373,7 @@ impl Tensor {
         let mut new_shape = self.shape.clone();
         new_shape.remove(axis);
 
-        let mut count: usize = 1;
-        new_shape.iter().for_each(|x| count *= *x);
-        let mut result: Vec<f64> = vec![0.; count];
+        let mut result: Vec<f64> = vec![0.; util::shape_size(&new_shape)];
 
         for (i, elem) in self.data.iter().enumerate() {
             let mut shape_pos: Vec<usize> = Vec::new();

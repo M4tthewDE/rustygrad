@@ -1,4 +1,7 @@
+use anyhow::anyhow;
+use anyhow::Result;
 use assert_approx_eq::assert_approx_eq;
+use serde::Deserialize;
 use std::fs::create_dir;
 use std::fs::File;
 use std::io::copy;
@@ -6,10 +9,6 @@ use std::io::BufReader;
 use std::iter::zip;
 use std::path::PathBuf;
 use std::process::Command;
-
-use anyhow::anyhow;
-use anyhow::Result;
-use serde::Deserialize;
 use tracing::info;
 
 pub fn load_torch_model(url: &str) -> Result<ModelData> {
@@ -112,4 +111,11 @@ pub fn assert_aprox_eq_vec(a: Vec<f64>, b: Vec<f64>) {
     for (a1, b1) in zip(a, b) {
         assert_approx_eq!(a1, b1, 1.0e-9);
     }
+}
+
+pub fn shape_size(shape: &[usize]) -> usize {
+    let mut count: usize = 1;
+    shape.iter().for_each(|x| count *= *x);
+
+    count
 }
