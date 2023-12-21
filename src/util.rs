@@ -1,7 +1,9 @@
+use assert_approx_eq::assert_approx_eq;
 use std::fs::create_dir;
 use std::fs::File;
 use std::io::copy;
 use std::io::BufReader;
+use std::iter::zip;
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -104,4 +106,10 @@ fn get_cache_dir() -> Result<PathBuf> {
     }
 
     Ok(path)
+}
+
+pub fn assert_aprox_eq_vec(a: Vec<f64>, b: Vec<f64>) {
+    for (a1, b1) in zip(a, b) {
+        assert_approx_eq!(a1, b1, 1.0e-9);
+    }
 }
