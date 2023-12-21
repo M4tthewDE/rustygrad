@@ -13,8 +13,15 @@ pub struct BatchNorm2d {
 
 // https://github.com/ptrblck/pytorch_misc/blob/master/batch_norm_manual.py
 impl BatchNorm2d {
-    pub fn new(_sz: usize) -> Self {
-        todo!("BatchNorm2d");
+    pub fn new(_num_features: usize) -> BatchNorm2d {
+        BatchNorm2d {
+            running_mean: Tensor::empty(),
+            running_var: Tensor::empty(),
+            eps: 1e-5,
+            affine: true,
+            weight: Tensor::empty(),
+            bias: Tensor::empty(),
+        }
     }
 
     pub fn forward(&mut self, input: Tensor, training: bool) -> Tensor {

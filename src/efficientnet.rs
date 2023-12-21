@@ -88,9 +88,10 @@ impl Default for Efficientnet {
 
         let out_channels = round_filters(32., global_params.width_coefficient);
         // NOTE: are we using the correct arguments?
-        let conv_stem = Tensor::glorot_uniform(3, out_channels, vec![3, 3]);
+        let _conv_stem = Tensor::glorot_uniform(3, out_channels, vec![3, 3]);
         let _bn0 = BatchNorm2d::new(out_channels);
-        dbg!(conv_stem);
+
+        dbg!("TODO: https://github.com/lukemelas/EfficientNet-PyTorch/blob/master/efficientnet_pytorch/model.py#L183");
 
         Self {
             global_params,
