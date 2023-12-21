@@ -162,14 +162,14 @@ impl Tensor {
     }
 
     pub fn glorot_uniform(fan_in: usize, fan_out: usize, shape: Vec<usize>) -> Tensor {
-        let limit = (6. / (fan_in + fan_out) as f64).sqrt();
+        let limit = (6.0 / (fan_in + fan_out) as f64).sqrt();
         let uniform = Uniform::from(0.0..limit);
-
         let mut rng = rand::thread_rng();
-        let mut data = Vec::new();
-        for _ in 0..util::shape_size(&shape) {
-            data.push(uniform.sample(&mut rng))
-        }
+
+        let data: Vec<f64> = (0..util::shape_size(&shape))
+            .into_iter()
+            .map(|_| uniform.sample(&mut rng))
+            .collect();
 
         Tensor::new(data, shape)
     }
