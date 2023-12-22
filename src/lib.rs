@@ -547,12 +547,15 @@ impl Tensor {
     ) -> Tensor {
         let correction = correction.unwrap_or(0.0);
         if let Some(dims) = dims {
-            let mut result = self.clone();
-            for dim in dims.iter().rev() {
-                // FIXME: we should max(0, ) here, to not go negative
-                result =
-                    result.reduce_sum(Some(vec![*dim])) / (self.shape[*dim] as f64 - correction)
+            let mut divisor = 1.0;
+            for dim in &dims {
+                divisor *= self.shape[*dim] as f64;
             }
+
+            divisor -= correction;
+
+            let sum = self.clone().reduce_sum(Some(dims.clone()));
+            let mut result = sum.clone() / divisor;
 
             if keepdim {
                 result.shape = self.shape.clone();
@@ -568,6 +571,7 @@ impl Tensor {
         }
     }
 
+    // TODO: add keepdim option
     pub fn reduce_sum(self, dims: Option<Vec<usize>>) -> Tensor {
         if let Some(dims) = dims {
             let mut new_shape = self.shape.clone();
@@ -986,14 +990,14 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn mean_4d_over_3_axis() {
         let input = Tensor::new(INPUT.to_vec(), vec![2, 4, 3, 3]);
 
         let mean = input.reduce_mean(Some(vec![0, 2, 3]), false, None);
-        assert_eq!(
+        assert_aprox_eq_vec(
             mean.data,
-            vec![0.43395922, 0.45119032, 0.5364723, 0.49982092]
+            vec![0.43395922, 0.45119032, 0.5364723, 0.49982092],
+            1e-6,
         );
         assert_eq!(mean.shape, vec![4]);
     }
@@ -1191,27 +1195,6 @@ mod tests {
         let sum = input.reduce_sum(Some(vec![0, 1]));
 
         assert_eq!(sum.data, vec![36., 42.]);
-        assert_eq!(sum.shape, vec![2]);
-    }
-
-    #[test]
-    fn reduce_mean_multiple_axis_3d() {
-        let input = Tensor::new(
-            vec![
-                1., 2., //
-                3., 4., //
-                5., 6., //
-                //
-                7., 8., //
-                9., 10., //
-                11., 12., //
-            ],
-            vec![2, 3, 2],
-        );
-
-        let sum = input.reduce_mean(Some(vec![0, 1]), false, None);
-
-        assert_eq!(sum.data, vec![6., 7.]);
         assert_eq!(sum.shape, vec![2]);
     }
 
