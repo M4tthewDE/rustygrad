@@ -1,4 +1,4 @@
-use crate::{is_training, Tensor};
+use crate::Tensor;
 
 #[derive(Debug)]
 pub struct BatchNorm2d {
@@ -15,12 +15,12 @@ pub struct BatchNorm2d {
 
 // https://github.com/ptrblck/pytorch_misc/blob/master/batch_norm_manual.py
 impl BatchNorm2d {
-    pub fn forward(&mut self, input: Tensor) -> Tensor {
+    pub fn forward(&mut self, input: Tensor, training: bool) -> Tensor {
         let mut mean: Tensor;
         let mut var: Tensor;
         let mut expo_avg_factor = 0.0;
 
-        if is_training() && self.track_running_stats {
+        if training && self.track_running_stats {
             self.num_batches_tracked += 1;
 
             if let Some(momentum) = self.momentum {
@@ -30,7 +30,7 @@ impl BatchNorm2d {
             }
         }
 
-        if is_training() {
+        if training {
             mean = input.reduce_mean(Some(vec![0, 2, 3]), false, None);
             var = input.variance(Some(vec![0, 2, 3]));
             let n = (input.numel() / input.size(Some(1)).first().unwrap()) as f64;
@@ -129,7 +129,7 @@ impl BatchNorm2dBuilder {
 mod tests {
     use std::f64::NAN;
 
-    use crate::{batch_norm::BatchNorm2dBuilder, set_training, util, Tensor};
+    use crate::{batch_norm::BatchNorm2dBuilder, util, Tensor};
 
     const WEIGHTS: [f64; 4] = [-0.23390397, 0.80346787, -0.8997578, -0.72561103];
     const BIAS: [f64; 4] = [0.05118884, -1.8861961, -0.48187035, 0.77148885];
@@ -361,8 +361,6 @@ mod tests {
 
     #[test]
     fn test_batchnorm2d_no_training() {
-        set_training(false);
-
         let num_features = 4;
         let mut bn = BatchNorm2dBuilder::new(num_features).eps(1e-5).build();
         bn.weight = Some(Tensor::from_vec(WEIGHTS.to_vec()));
@@ -371,15 +369,13 @@ mod tests {
         bn.running_var = Tensor::from_vec(RUNNING_VAR.to_vec());
 
         let input = Tensor::new(INPUT.to_vec(), vec![2, num_features, 3, 3]);
-        let out = bn.forward(input);
+        let out = bn.forward(input, false);
 
         util::assert_aprox_eq_vec(out.data, OUTPUT_4.to_vec(), 1e-6);
     }
 
     #[test]
     fn test_batchnorm2d_training() {
-        set_training(true);
-
         let num_features = 4;
         let mut bn = BatchNorm2dBuilder::new(num_features)
             .eps(1e-5)
@@ -391,7 +387,7 @@ mod tests {
         bn.running_var = Tensor::from_vec(RUNNING_VAR.to_vec());
 
         let input = Tensor::new(INPUT.to_vec(), vec![2, num_features, 3, 3]);
-        let out = bn.forward(input);
+        let out = bn.forward(input, true);
 
         util::assert_aprox_eq_vec(out.data, OUTPUT_4_TRAINING.to_vec(), 1e-6);
         todo!("run through torch and get running_mean/running_var to compare with");
