@@ -21,7 +21,6 @@ impl ops::Add<Tensor> for Tensor {
         let mut rhs = rhs;
         assert!(!lhs.shape.is_empty());
         assert!(!rhs.shape.is_empty());
-
         // no broadcasting needed
         if lhs.shape == rhs.shape {
             let result: Vec<f64> = zip(lhs.data, rhs.data).map(|(x1, x2)| x1 + x2).collect();
@@ -637,6 +636,15 @@ impl Tensor {
 
     pub fn sqrt(&self) -> Tensor {
         let result: Vec<f64> = self.data.iter().map(|x| x.sqrt()).collect();
+        Tensor::new(result, self.shape.clone())
+    }
+
+    pub fn relu(&self) -> Tensor {
+        let result: Vec<f64> = self
+            .data
+            .iter()
+            .map(|x| if x < &0.0 { 0.0 } else { *x })
+            .collect();
         Tensor::new(result, self.shape.clone())
     }
 }
@@ -1358,5 +1366,15 @@ mod tests {
             vec![NAN, 1.0112369061, 0.2882707119, 0.6932532191],
             1e-6,
         )
+    }
+
+    #[test]
+    fn test_relu() {
+        let t = Tensor::from_vec(vec![0.1421, -0.2579, 1.5635, -0.4066]);
+
+        let result = t.relu();
+
+        assert_eq!(result.data, vec![0.1421, 0.0000, 1.5635, 0.0000]);
+        assert_eq!(result.shape, vec![4]);
     }
 }
