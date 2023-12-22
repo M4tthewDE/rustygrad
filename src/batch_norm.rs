@@ -2,6 +2,7 @@ use crate::Tensor;
 
 #[derive(Debug)]
 pub struct BatchNorm2d {
+    num_features: usize,
     running_mean: Tensor,
     running_var: Tensor,
     eps: f64,
@@ -24,15 +25,22 @@ impl BatchNorm2d {
             var = self.running_var.clone();
         }
 
-        mean.shape = vec![1, mean.shape[0], 1, 1];
-        var.shape = vec![1, var.shape[0], 1, 1];
+        // FIXME: if we use keepdim=true, we shouldn't have to do this here
+        mean = mean.reshape(vec![1, self.num_features, 1, 1]);
+        var = var.reshape(vec![1, self.num_features, 1, 1]);
 
         let mut input = (input - mean) / (var + self.eps).sqrt();
 
-        let mut weight = self.weight.clone().unwrap();
-        let mut bias = self.bias.clone().unwrap();
-        weight.shape = vec![1, weight.shape[0], 1, 1];
-        bias.shape = vec![1, bias.shape[0], 1, 1];
+        let weight = self
+            .weight
+            .clone()
+            .unwrap()
+            .reshape(vec![1, self.num_features, 1, 1]);
+        let bias = self
+            .bias
+            .clone()
+            .unwrap()
+            .reshape(vec![1, self.num_features, 1, 1]);
 
         if self.affine {
             input = input * weight + bias;
@@ -77,6 +85,7 @@ impl BatchNorm2dBuilder {
         };
 
         BatchNorm2d {
+            num_features: self.num_features,
             running_mean: Tensor::zeros(self.num_features),
             running_var: Tensor::ones(self.num_features),
             eps: self.eps,
@@ -341,7 +350,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn test_batchnorm2d_training() {
         let num_features = 4;
         let mut bn = BatchNorm2dBuilder::new(num_features).eps(1e-5).build();
