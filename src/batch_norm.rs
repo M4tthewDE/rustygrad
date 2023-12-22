@@ -36,6 +36,16 @@ impl BatchNorm2d {
 
         let mut input = (input - mean) / (var + self.eps).sqrt();
 
+        // FIXME: mess
+        self.weight = Some(Tensor::new(
+            self.weight.clone().unwrap().data,
+            vec![1, self.weight.clone().unwrap().shape[0], 1, 1],
+        ));
+        self.bias = Some(Tensor::new(
+            self.bias.clone().unwrap().data,
+            vec![1, self.bias.clone().unwrap().shape[0], 1, 1],
+        ));
+
         if self.affine {
             input = input * self.weight.clone().unwrap() + self.bias.clone().unwrap();
         }
