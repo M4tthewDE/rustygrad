@@ -612,10 +612,11 @@ impl Tensor {
         }
     }
 
-    pub fn variance(&self, dims: Option<Vec<usize>>) -> Tensor {
+    pub fn variance(&self, dims: Option<Vec<usize>>, correction: Option<f64>) -> Tensor {
+        let correction = correction.unwrap_or(1.0);
         let mean = self.reduce_mean(dims.clone(), true, None);
         let diff = self.clone() - mean;
-        (diff.clone() * diff).reduce_mean(dims, false, Some(1.0))
+        (diff.clone() * diff).reduce_mean(dims, false, Some(correction))
     }
 
     pub fn reshape(self, shape: Vec<usize>) -> Tensor {
@@ -1219,7 +1220,7 @@ mod tests {
             vec![4, 4],
         );
 
-        let result = input.variance(Some(vec![1]));
+        let result = input.variance(Some(vec![1]), None);
 
         assert_aprox_eq_vec(
             result.data,
@@ -1232,7 +1233,7 @@ mod tests {
     #[test]
     fn variance_4d_over_3_axis() {
         let input = Tensor::new(INPUT.to_vec(), vec![2, 4, 3, 3]);
-        let var = input.variance(Some(vec![0, 2, 3]));
+        let var = input.variance(Some(vec![0, 2, 3]), None);
 
         assert_aprox_eq_vec(
             var.data,
