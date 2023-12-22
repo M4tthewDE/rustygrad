@@ -639,8 +639,8 @@ impl Tensor {
         (diff.clone() * diff).reduce_mean(dims, false, Some(correction))
     }
 
-    pub fn reshape(self, shape: Vec<usize>) -> Tensor {
-        Tensor::new(self.data, shape)
+    pub fn reshape(&self, shape: Vec<usize>) -> Tensor {
+        Tensor::new(self.data.clone(), shape)
     }
 
     pub fn numel(&self) -> usize {
@@ -681,6 +681,10 @@ impl Tensor {
         } else {
             self.matmul(weight)
         }
+    }
+
+    pub fn flatten(&self, _start_dim: Option<usize>) -> Tensor {
+        return self.reshape(vec![util::shape_size(&self.shape)]);
     }
 }
 
@@ -1418,5 +1422,13 @@ mod tests {
         let t = Tensor::rand(vec![128, 20]);
         let result = t.linear(20, 30, None);
         dbg!(result.shape, vec![128, 30]);
+    }
+
+    #[test]
+    fn test_flatten() {
+        let t = Tensor::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], vec![2, 2, 2]);
+        let result = t.flatten(None);
+        assert_eq!(result.data, vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
+        assert_eq!(result.shape, vec![8]);
     }
 }
