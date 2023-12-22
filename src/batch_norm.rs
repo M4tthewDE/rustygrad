@@ -15,8 +15,8 @@ pub struct BatchNorm2d {
 // https://github.com/ptrblck/pytorch_misc/blob/master/batch_norm_manual.py
 impl BatchNorm2d {
     pub fn forward(&mut self, input: Tensor, training: bool) -> Tensor {
-        let mean: Tensor;
-        let var: Tensor;
+        let mut mean: Tensor;
+        let mut var: Tensor;
         if training {
             mean = input.reduce_mean(Some(vec![0, 2, 3]), false, None);
             var = input.variance(Some(vec![0, 2, 3]));
@@ -31,7 +31,9 @@ impl BatchNorm2d {
             var = self.running_var.clone();
         }
 
-        // FIXME: reshape mean and var
+        mean.shape = vec![1, mean.shape[0], 1, 1];
+        var.shape = vec![1, var.shape[0], 1, 1];
+
         let mut input = (input - mean) / (var + self.eps).sqrt();
 
         if self.affine {
