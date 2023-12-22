@@ -60,6 +60,7 @@ def run_batchnorm2d():
        [1.4133233e-01, 1.1132270e-01, 9.3504202e-01],
        [8.0020428e-01, 4.0364802e-01, 2.0521462e-02]]]])
 
+    print("SUM", torch.sum(inn, [0, 2, 3]).detach().numpy())
     print("MEAN", torch.mean(inn, [0, 2, 3]).detach().numpy())
     print("VAR", torch.var(inn, [0, 2, 3]).detach().numpy())
     #print("INPUT")

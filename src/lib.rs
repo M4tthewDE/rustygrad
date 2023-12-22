@@ -581,6 +581,7 @@ impl Tensor {
         }
     }
 
+    // FIXME: this shouldn't exist! one pass for all axis
     fn reduce_sum_with_axis(self, axis: usize) -> Tensor {
         let mut new_shape = self.shape.clone();
         new_shape.remove(axis);
@@ -1091,6 +1092,15 @@ mod tests {
 
         assert_eq!(sum.data, vec![9., 12., 27., 30.0]);
         assert_eq!(sum.shape, vec![2, 2]);
+    }
+
+    #[test]
+    fn reduce_sum_multiple_axis() {
+        let input = Tensor::new(INPUT.to_vec(), vec![2, 4, 3, 3]);
+        let sum = input.reduce_sum(Some(vec![0, 2, 3]));
+
+        assert_aprox_eq_vec(sum.data, vec![7.811266, 8.121426, 9.656502, 8.996777], 1e-6);
+        assert_eq!(sum.shape, vec![4]);
     }
 
     #[test]
