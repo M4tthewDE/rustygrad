@@ -349,6 +349,27 @@ impl Tensor {
             shape: vec![],
         }
     }
+
+    pub fn rand(shape: Vec<usize>) -> Tensor {
+        let uniform = Uniform::new(-1.0, 1.0);
+        let mut rng = rand::thread_rng();
+        let data: Vec<f64> = (0..util::shape_size(&shape))
+            .map(|_| uniform.sample(&mut rng))
+            .collect();
+
+        Tensor::new(data, shape)
+    }
+
+    pub fn rand_with_range(shape: Vec<usize>, range: (f64, f64)) -> Tensor {
+        let uniform = Uniform::new(range.0, range.1);
+        let mut rng = rand::thread_rng();
+        let data: Vec<f64> = (0..util::shape_size(&shape))
+            .map(|_| uniform.sample(&mut rng))
+            .collect();
+
+        Tensor::new(data, shape)
+    }
+
     pub fn from_scalar(data: f64) -> Tensor {
         Tensor::new(vec![data], vec![1])
     }
@@ -391,13 +412,13 @@ impl Tensor {
         Tensor::new(data, shape)
     }
 
-    pub fn matmul(lhs: Tensor, rhs: Tensor) -> Tensor {
+    pub fn matmul(&self, rhs: Tensor) -> Tensor {
         assert!(
-            lhs.shape.len() == 2 && rhs.shape.len() == 2,
+            self.shape.len() == 2 && rhs.shape.len() == 2,
             "only supporting 2d tensors for now"
         );
 
-        let rows: Vec<_> = lhs.data.chunks(lhs.shape[1]).collect();
+        let rows: Vec<_> = self.data.chunks(self.shape[1]).collect();
 
         let mut cols: Vec<Vec<f64>> = Vec::new();
 
@@ -418,7 +439,7 @@ impl Tensor {
             }
         }
 
-        Tensor::new(result, vec![lhs.shape[0], rhs.shape[1]])
+        Tensor::new(result, vec![self.shape[0], rhs.shape[1]])
     }
 
     fn point_from_shape_pos(&self, shape_pos: &[usize], broadcasting: bool) -> f64 {
@@ -647,6 +668,20 @@ impl Tensor {
             .collect();
         Tensor::new(result, self.shape.clone())
     }
+
+    pub fn linear(&self, in_features: usize, out_features: usize, bias: Option<bool>) -> Tensor {
+        // Kaiming uniform
+        let a = (6.0 / in_features as f64).sqrt();
+        let weight = Tensor::rand(vec![in_features, out_features]) * a;
+
+        if bias.unwrap_or(true) {
+            let k: f64 = 1.0 / in_features as f64;
+            let bias = Tensor::rand_with_range(vec![out_features], (-k.sqrt(), k.sqrt()));
+            self.matmul(weight) + bias
+        } else {
+            self.matmul(weight)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -702,7 +737,7 @@ mod tests {
     fn matmul_matrix_2d() {
         let a = Tensor::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]);
         let b = Tensor::new(vec![1.0, 2.0, 3.0, 1.0, 2.0, 3.0], vec![3, 2]);
-        let result = Tensor::matmul(a, b);
+        let result = a.matmul(b);
 
         assert_eq!(result.data, vec![13.0, 13.0, 31.0, 31.0]);
         assert_eq!(result.shape, vec![2, 2]);
@@ -1376,5 +1411,12 @@ mod tests {
 
         assert_eq!(result.data, vec![0.1421, 0.0000, 1.5635, 0.0000]);
         assert_eq!(result.shape, vec![4]);
+    }
+
+    #[test]
+    fn test_linear() {
+        let t = Tensor::rand(vec![128, 20]);
+        let result = t.linear(20, 30, None);
+        dbg!(result.shape, vec![128, 30]);
     }
 }
