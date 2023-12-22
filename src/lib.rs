@@ -140,6 +140,15 @@ impl ops::Mul<f64> for Tensor {
     }
 }
 
+impl ops::Mul<Tensor> for f64 {
+    type Output = Tensor;
+
+    fn mul(self, rhs: Tensor) -> Self::Output {
+        let result: Vec<f64> = rhs.data.iter().map(|x| self * x).collect();
+        Tensor::new(result, rhs.shape)
+    }
+}
+
 impl ops::Div<f64> for Tensor {
     type Output = Tensor;
 
@@ -553,6 +562,15 @@ mod tests {
     fn element_wise_mul_scalar() {
         let a = Tensor::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]);
         let result = a * 2.0;
+
+        assert_eq!(result.data, vec![2.0, 4.0, 6.0, 8.0, 10.0, 12.0]);
+        assert_eq!(result.shape, vec![2, 3]);
+    }
+
+    #[test]
+    fn element_wise_mul_scalar_left_side() {
+        let a = Tensor::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]);
+        let result = 2.0 * a;
 
         assert_eq!(result.data, vec![2.0, 4.0, 6.0, 8.0, 10.0, 12.0]);
         assert_eq!(result.shape, vec![2, 3]);
