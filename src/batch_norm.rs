@@ -37,15 +37,8 @@ impl BatchNorm2d {
 
         let mut input = (input - mean) / (var + self.eps).sqrt();
 
-        // FIXME: mess
-        self.weight = Some(Tensor::new(
-            self.weight.clone().unwrap().data,
-            vec![1, self.weight.clone().unwrap().shape[0], 1, 1],
-        ));
-        self.bias = Some(Tensor::new(
-            self.bias.clone().unwrap().data,
-            vec![1, self.bias.clone().unwrap().shape[0], 1, 1],
-        ));
+        self.weight.as_mut().unwrap().shape = vec![1, self.weight.as_ref().unwrap().shape[0], 1, 1];
+        self.bias.as_mut().unwrap().shape = vec![1, self.bias.as_ref().unwrap().shape[0], 1, 1];
 
         if self.affine {
             input = input * self.weight.clone().unwrap() + self.bias.clone().unwrap();
@@ -275,5 +268,24 @@ mod tests {
         let out = bn.forward(input);
 
         util::assert_aprox_eq_vec(out.data, OUTPUT_4.to_vec(), 1e-6);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_batchnorm2d_training() {
+        set_training(true);
+
+        let num_features = 4;
+        let mut bn = BatchNorm2dBuilder::new(num_features).eps(1e-5).build();
+        bn.weight = Some(Tensor::from_vec(WEIGHTS.to_vec()));
+        bn.bias = Some(Tensor::from_vec(BIAS.to_vec()));
+        bn.running_mean = Tensor::from_vec(RUNNING_MEAN.to_vec());
+        bn.running_var = Tensor::from_vec(RUNNING_VAR.to_vec());
+
+        let input = Tensor::new(INPUT.to_vec(), vec![2, num_features, 3, 3]);
+        let _out = bn.forward(input);
+
+        //util::assert_aprox_eq_vec(out.data, OUTPUT_4.to_vec(), 1e-6);
+        todo!("run through torch and get running_mean/running_var/out to compare with");
     }
 }
