@@ -26,7 +26,7 @@ impl BatchNorm2d {
             if let Some(momentum) = self.momentum {
                 expo_avg_factor = momentum;
             } else {
-                expo_avg_factor = 1.0 / self.num_batches_tracked as f64
+                expo_avg_factor = 1.0 / (self.num_batches_tracked as f64)
             }
         }
 
@@ -37,8 +37,8 @@ impl BatchNorm2d {
 
             self.running_mean = expo_avg_factor * mean.clone()
                 + (1.0 - expo_avg_factor) * self.running_mean.clone();
-            self.running_var = var.clone() * n * expo_avg_factor / (n - 1.0)
-                + self.running_var.clone() * (1.0 - expo_avg_factor);
+            self.running_var = expo_avg_factor * var.clone() * n / (n - 1.0)
+                + (1.0 - expo_avg_factor) * self.running_var.clone();
         } else {
             mean = self.running_mean.clone();
             var = self.running_var.clone();
@@ -49,11 +49,13 @@ impl BatchNorm2d {
 
         let mut input = (input - mean) / (var + self.eps).sqrt();
 
-        self.weight.as_mut().unwrap().shape = vec![1, self.weight.as_ref().unwrap().shape[0], 1, 1];
-        self.bias.as_mut().unwrap().shape = vec![1, self.bias.as_ref().unwrap().shape[0], 1, 1];
+        let mut weight = self.weight.clone().unwrap();
+        let mut bias = self.bias.clone().unwrap();
+        weight.shape = vec![1, weight.shape[0], 1, 1];
+        bias.shape = vec![1, bias.shape[0], 1, 1];
 
         if self.affine {
-            input = input * self.weight.clone().unwrap() + self.bias.clone().unwrap();
+            input = input * weight + bias;
         }
 
         input
@@ -282,6 +284,81 @@ mod tests {
         NAN,
     ];
 
+    const OUTPUT_4_TRAINING: [f64; 72] = [
+        -0.23414426,
+        0.21685188,
+        0.3188891,
+        -0.4171313,
+        0.31793097,
+        0.2236939,
+        0.01603156,
+        0.07067694,
+        0.0584753,
+        -1.433309,
+        -2.2809026,
+        -0.9612753,
+        -2.1897693,
+        -2.4401085,
+        -2.8400025,
+        -0.9997697,
+        -1.8581352,
+        -1.6486944,
+        -0.35483286,
+        -1.2984207,
+        -2.116379,
+        -0.0090739,
+        -0.93044347,
+        -0.17979965,
+        -0.32680392,
+        -1.7077881,
+        0.6801796,
+        -0.03903629,
+        0.5331754,
+        -0.20416911,
+        0.03613578,
+        1.344045,
+        0.53440404,
+        0.60202914,
+        0.31759462,
+        0.66653156,
+        -0.20218807,
+        -0.3035467,
+        0.44318417,
+        0.11448476,
+        0.1728768,
+        -0.09209195,
+        -0.16502361,
+        0.27245072,
+        0.10997911,
+        -1.8027488,
+        -0.78910935,
+        -2.781207,
+        -1.4270091,
+        -3.0337582,
+        -0.6127988,
+        -2.903456,
+        -0.9649183,
+        -2.9845605,
+        -2.1747806,
+        -0.10345996,
+        0.23877016,
+        -0.71206796,
+        1.5299035,
+        -0.39199105,
+        -0.3561782,
+        -0.08448144,
+        -0.3760192,
+        1.8147825,
+        1.0857414,
+        1.0430928,
+        1.7021654,
+        1.7800738,
+        -0.35839352,
+        -0.00833968,
+        1.0211647,
+        2.0158038,
+    ];
+
     #[test]
     fn test_batchnorm2d_no_training() {
         set_training(false);
@@ -300,7 +377,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn test_batchnorm2d_training() {
         set_training(true);
 
@@ -314,11 +390,10 @@ mod tests {
         bn.running_mean = Tensor::from_vec(RUNNING_MEAN.to_vec());
         bn.running_var = Tensor::from_vec(RUNNING_VAR.to_vec());
 
-        dbg!(&bn);
         let input = Tensor::new(INPUT.to_vec(), vec![2, num_features, 3, 3]);
-        let _out = bn.forward(input);
+        let out = bn.forward(input);
 
-        //util::assert_aprox_eq_vec(out.data, OUTPUT_4.to_vec(), 1e-6);
-        todo!("run through torch and get running_mean/running_var/out to compare with");
+        util::assert_aprox_eq_vec(out.data, OUTPUT_4_TRAINING.to_vec(), 1e-6);
+        todo!("run through torch and get running_mean/running_var to compare with");
     }
 }
