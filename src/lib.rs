@@ -578,7 +578,6 @@ impl Tensor {
             for (i, dim) in dims.iter().enumerate() {
                 new_shape.remove(*dim - i);
             }
-            dbg!(&new_shape);
 
             let mut result: Vec<f64> = vec![0.; util::shape_size(&new_shape)];
 
