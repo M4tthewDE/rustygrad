@@ -188,6 +188,14 @@ impl Tensor {
         Tensor::new(data, vec![len])
     }
 
+    pub fn zeros(size: usize) -> Tensor {
+        Tensor::from_vec(vec![0.0; size])
+    }
+
+    pub fn ones(size: usize) -> Tensor {
+        Tensor::from_vec(vec![1.0; size])
+    }
+
     pub fn new(data: Vec<f64>, shape: Vec<usize>) -> Tensor {
         // empty tensors are an exception
         if !(data.is_empty() && shape.is_empty()) {

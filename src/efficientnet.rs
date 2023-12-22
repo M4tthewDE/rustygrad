@@ -1,10 +1,9 @@
 // https://github.com/lukemelas/EfficientNet-PyTorch/blob/master/efficientnet_pytorch/model.py
 
-use crate::{batch_norm::BatchNorm2d, Tensor};
+use crate::Tensor;
 
 pub static MODEL_URLS: [&str; 8] = [
-      "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b0-355c32eb.pth",
-      "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b1-f1951068.pth",
+      "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b0-355c32eb.pth", "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b1-f1951068.pth",
       "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b2-8bb594d6.pth",
       "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b3-5fb5a3c3.pth",
       "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b4-6ed6700e.pth",
@@ -89,7 +88,7 @@ impl Default for Efficientnet {
         let out_channels = round_filters(32., global_params.width_coefficient);
         // NOTE: are we using the correct arguments?
         let _conv_stem = Tensor::glorot_uniform(3, out_channels, vec![3, 3]);
-        let _bn0 = BatchNorm2d::new(out_channels);
+        //let _bn0 = BatchNorm2d::new(out_channels);
 
         dbg!("TODO: https://github.com/lukemelas/EfficientNet-PyTorch/blob/master/efficientnet_pytorch/model.py#L183");
 

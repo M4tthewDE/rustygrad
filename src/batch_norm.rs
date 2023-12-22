@@ -7,20 +7,35 @@ pub struct BatchNorm2d {
     running_var: Tensor,
     eps: f64,
     affine: bool,
-    weight: Tensor,
-    bias: Tensor,
+    weight: Option<Tensor>,
+    bias: Option<Tensor>,
+    _num_batches_tracked: usize,
 }
 
 // https://github.com/ptrblck/pytorch_misc/blob/master/batch_norm_manual.py
 impl BatchNorm2d {
-    pub fn new(_num_features: usize) -> BatchNorm2d {
+    pub fn new(num_features: usize, affine: Option<bool>) -> BatchNorm2d {
+        let (weight, bias) = if let Some(affine) = affine {
+            if affine {
+                (
+                    Some(Tensor::ones(num_features)),
+                    Some(Tensor::zeros(num_features)),
+                )
+            } else {
+                (None, None)
+            }
+        } else {
+            (None, None)
+        };
+
         BatchNorm2d {
-            running_mean: Tensor::empty(),
-            running_var: Tensor::empty(),
+            running_mean: Tensor::zeros(num_features),
+            running_var: Tensor::ones(num_features),
             eps: 1e-5,
             affine: true,
-            weight: Tensor::empty(),
-            bias: Tensor::empty(),
+            weight,
+            bias,
+            _num_batches_tracked: 0,
         }
     }
 
@@ -45,9 +60,17 @@ impl BatchNorm2d {
         let mut input = (input - mean) / (var + self.eps).sqrt();
 
         if self.affine {
-            input = input * self.weight.clone() + self.bias.clone();
+            input = input * self.weight.clone().unwrap() + self.bias.clone().unwrap();
         }
 
         input
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_batchnorm2d() {
+        todo!("https://github.com/tinygrad/tinygrad/blob/38554322659fbe7e19c3cc7052465645274db5b9/test/test_nn.py#L25");
     }
 }
