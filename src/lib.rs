@@ -647,7 +647,7 @@ impl Tensor {
 mod tests {
     use std::f64::NAN;
 
-    use crate::{util::assert_aprox_eq_vec, Tensor};
+    use crate::{batch_norm::INPUT, util::assert_aprox_eq_vec, Tensor};
 
     #[test]
     fn addition_scalar() {
@@ -992,6 +992,18 @@ mod tests {
     }
 
     #[test]
+    fn mean_4d_over_3_axis() {
+        let input = Tensor::new(INPUT.to_vec(), vec![2, 4, 3, 3]);
+
+        let mean = input.reduce_mean(Some(vec![0, 2, 3]), false, None);
+        assert_eq!(
+            mean.data,
+            vec![0.43395922, 0.45119032, 0.5364723, 0.49982092]
+        );
+        assert_eq!(mean.shape, vec![4]);
+    }
+
+    #[test]
     fn reduce_sum() {
         let input = Tensor::new(
             vec![
@@ -1229,6 +1241,18 @@ mod tests {
             1e-9,
         );
         assert_eq!(result.shape, vec![4]);
+    }
+
+    #[test]
+    fn variance_4d_over_3_axis() {
+        let input = Tensor::new(INPUT.to_vec(), vec![2, 4, 3, 3]);
+
+        let var = input.variance(Some(vec![0, 2, 3]));
+        assert_eq!(
+            var.data,
+            vec![0.06047015, 0.1051994, 0.05764891, 0.08270448]
+        );
+        assert_eq!(var.shape, vec![4]);
     }
 
     #[test]

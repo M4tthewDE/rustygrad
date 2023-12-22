@@ -20,6 +20,7 @@ def run_batchnorm2d():
     with torch.no_grad():
         bn = torch.nn.BatchNorm2d(num_features).eval()
         bn.training = True 
+        bn.track_running_stats = False
         bn.weight[:] = weight
         bn.bias[:] = bias
         bn.running_mean[:] = running_mean
@@ -58,13 +59,16 @@ def run_batchnorm2d():
       [[9.7953200e-02, 3.7877357e-01, 3.9520144e-01],
        [1.4133233e-01, 1.1132270e-01, 9.3504202e-01],
        [8.0020428e-01, 4.0364802e-01, 2.0521462e-02]]]])
-    print("INPUT")
-    print(inn.detach().numpy())
 
-    out = bn(inn)
-    print("OUTPUT")
-    print(out.shape)
-    print(out.detach().numpy())
+    print("MEAN", torch.mean(inn, [0, 2, 3]).detach().numpy())
+    print("VAR", torch.var(inn, [0, 2, 3]).detach().numpy())
+    #print("INPUT")
+    #print(inn.detach().numpy())
+
+    #out = bn(inn)
+    #print("OUTPUT")
+    #print(out.shape)
+    #print(out.detach().numpy())
 
 
 if __name__ == "__main__":
