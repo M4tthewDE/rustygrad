@@ -1,4 +1,4 @@
-use crate::Tensor;
+use crate::{is_training, Tensor};
 
 const EXPO_AVG_FACTOR: f64 = 0.0;
 
@@ -14,10 +14,11 @@ pub struct BatchNorm2d {
 
 // https://github.com/ptrblck/pytorch_misc/blob/master/batch_norm_manual.py
 impl BatchNorm2d {
-    pub fn forward(&mut self, input: Tensor, training: bool) -> Tensor {
+    pub fn forward(&mut self, input: Tensor) -> Tensor {
         let mut mean: Tensor;
         let mut var: Tensor;
-        if training {
+
+        if is_training() {
             mean = input.reduce_mean(Some(vec![0, 2, 3]), false, None);
             var = input.variance(Some(vec![0, 2, 3]));
             let n = (input.numel() / input.size(Some(1)).first().unwrap()) as f64;
@@ -104,7 +105,7 @@ impl BatchNorm2dBuilder {
 mod tests {
     use std::f64::NAN;
 
-    use crate::{batch_norm::BatchNorm2dBuilder, util, Tensor};
+    use crate::{batch_norm::BatchNorm2dBuilder, set_training, util, Tensor};
 
     const WEIGHTS: [f64; 4] = [-0.23390397, 0.80346787, -0.8997578, -0.72561103];
     const BIAS: [f64; 4] = [0.05118884, -1.8861961, -0.48187035, 0.77148885];
@@ -260,7 +261,9 @@ mod tests {
     ];
 
     #[test]
-    fn test_batchnorm2d() {
+    fn test_batchnorm2d_no_training() {
+        set_training(false);
+
         let num_features = 4;
         let mut bn = BatchNorm2dBuilder::new(num_features).eps(1e-5).build();
         bn.weight = Some(Tensor::from_vec(WEIGHTS.to_vec()));
@@ -269,7 +272,7 @@ mod tests {
         bn.running_var = Tensor::from_vec(RUNNING_VAR.to_vec());
 
         let input = Tensor::new(INPUT.to_vec(), vec![2, num_features, 3, 3]);
-        let out = bn.forward(input, false);
+        let out = bn.forward(input);
 
         util::assert_aprox_eq_vec(out.data, OUTPUT_4.to_vec(), 1e-6);
     }

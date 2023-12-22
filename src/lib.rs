@@ -1,11 +1,29 @@
-use std::{cmp, iter::zip, ops};
+use std::{
+    cmp,
+    iter::zip,
+    ops,
+    sync::{Arc, Mutex},
+};
 
 use itertools::{EitherOrBoth, Itertools};
+use lazy_static::lazy_static;
 use rand::distributions::{Distribution, Uniform};
 
 pub mod batch_norm;
 pub mod efficientnet;
 pub mod util;
+
+lazy_static! {
+    static ref TRAINING: Arc<Mutex<bool>> = Arc::new(Mutex::new(false));
+}
+
+pub fn set_training(training: bool) {
+    *TRAINING.lock().unwrap() = training;
+}
+
+pub fn is_training() -> bool {
+    *TRAINING.lock().unwrap()
+}
 
 #[derive(Debug, Clone)]
 pub struct Tensor {
