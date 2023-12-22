@@ -19,7 +19,7 @@ impl BatchNorm2d {
 
         if training {
             mean = input.reduce_mean(Some(vec![0, 2, 3]), false, None);
-            var = input.variance(Some(vec![0, 2, 3]));
+            var = input.variance(Some(vec![0, 2, 3]), Some(0.0));
         } else {
             mean = self.running_mean.clone();
             var = self.running_var.clone();
@@ -362,6 +362,6 @@ mod tests {
         let out = bn.forward(input, true);
 
         util::assert_aprox_eq_vec(out.data, OUTPUT_4_TRAINING.to_vec(), 1e-6);
-        todo!("run through torch and get running_mean/running_var to compare with");
+        // TODO: run through torch and get running_mean/running_var to compare with
     }
 }
