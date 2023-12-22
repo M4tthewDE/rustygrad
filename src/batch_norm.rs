@@ -9,6 +9,9 @@ pub struct BatchNorm2d {
     affine: bool,
     weight: Option<Tensor>,
     bias: Option<Tensor>,
+    track_running_stats: bool,
+    num_batches_tracked: usize,
+    momentum: f64,
 }
 
 // https://github.com/ptrblck/pytorch_misc/blob/master/batch_norm_manual.py
@@ -17,9 +20,19 @@ impl BatchNorm2d {
         let mut mean: Tensor;
         let mut var: Tensor;
 
+        if training && self.track_running_stats {
+            self.num_batches_tracked += 1;
+        }
+
         if training {
             mean = input.reduce_mean(Some(vec![0, 2, 3]), false, None);
             var = input.variance(Some(vec![0, 2, 3]), Some(0.0));
+
+            let n = (input.numel() / input.size(Some(1)).first().unwrap()) as f64;
+            self.running_mean =
+                self.momentum * mean.clone() + (1.0 - self.momentum) * self.running_mean.clone();
+            self.running_var = var.clone() * n * self.momentum / (n - 1.0)
+                + self.running_var.clone() * (1.0 - self.momentum);
         } else {
             mean = self.running_mean.clone();
             var = self.running_var.clone();
@@ -54,6 +67,9 @@ pub struct BatchNorm2dBuilder {
     num_features: usize,
     eps: f64,
     affine: bool,
+    track_running_stats: bool,
+    num_batches_tracked: usize,
+    momentum: f64,
 }
 
 impl BatchNorm2dBuilder {
@@ -62,6 +78,9 @@ impl BatchNorm2dBuilder {
             num_features,
             eps: 1e-5,
             affine: true,
+            track_running_stats: false,
+            num_batches_tracked: 0,
+            momentum: 0.1,
         }
     }
 
@@ -74,6 +93,17 @@ impl BatchNorm2dBuilder {
         self.affine = affine;
         self
     }
+
+    pub fn track_running_stats(mut self, track_running_stats: bool) -> BatchNorm2dBuilder {
+        self.track_running_stats = track_running_stats;
+        self
+    }
+
+    pub fn num_batches_tracked(mut self, num_batches_tracked: usize) -> BatchNorm2dBuilder {
+        self.num_batches_tracked = num_batches_tracked;
+        self
+    }
+
     pub fn build(self) -> BatchNorm2d {
         let (weight, bias) = if self.affine {
             (
@@ -92,6 +122,9 @@ impl BatchNorm2dBuilder {
             affine: self.affine,
             weight,
             bias,
+            track_running_stats: self.track_running_stats,
+            num_batches_tracked: self.num_batches_tracked,
+            momentum: self.momentum,
         }
     }
 }
@@ -352,7 +385,10 @@ mod tests {
     #[test]
     fn test_batchnorm2d_training() {
         let num_features = 4;
-        let mut bn = BatchNorm2dBuilder::new(num_features).eps(1e-5).build();
+        let mut bn = BatchNorm2dBuilder::new(num_features)
+            .eps(1e-5)
+            .track_running_stats(true)
+            .build();
         bn.weight = Some(Tensor::from_vec(WEIGHTS.to_vec()));
         bn.bias = Some(Tensor::from_vec(BIAS.to_vec()));
         bn.running_mean = Tensor::from_vec(RUNNING_MEAN.to_vec());
@@ -362,6 +398,15 @@ mod tests {
         let out = bn.forward(input, true);
 
         util::assert_aprox_eq_vec(out.data, OUTPUT_4_TRAINING.to_vec(), 1e-6);
-        // TODO: run through torch and get running_mean/running_var to compare with
+        util::assert_aprox_eq_vec(
+            bn.running_mean.data,
+            vec![-0.76092917, 0.83851254, 0.51035416, -0.522697],
+            1e-6,
+        );
+        util::assert_aprox_eq_vec(
+            bn.running_var.data,
+            vec![1.7957723, 1.3120139, 0.62142795, -0.2849974],
+            1e-6,
+        );
     }
 }
