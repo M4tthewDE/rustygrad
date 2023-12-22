@@ -23,8 +23,16 @@ impl ops::Add<Tensor> for Tensor {
         );
 
         let result: Vec<f64> = zip(self.data, rhs.data).map(|(x1, x2)| x1 + x2).collect();
-
         Tensor::new(result, self.shape)
+    }
+}
+
+impl ops::Add<Tensor> for f64 {
+    type Output = Tensor;
+
+    fn add(self, rhs: Tensor) -> Self::Output {
+        let result: Vec<f64> = rhs.data.iter().map(|x| x + self).collect();
+        Tensor::new(result, rhs.shape)
     }
 }
 
@@ -469,6 +477,22 @@ mod tests {
         let result = a + b;
 
         assert_eq!(result.data, vec![10.0, 10.0]);
+    }
+
+    #[test]
+    fn addition_f64() {
+        let a = Tensor::from_vec(vec![2.0, 3.0]);
+        let result = a + 5.0;
+
+        assert_eq!(result.data, vec![7.0, 8.0]);
+    }
+
+    #[test]
+    fn addition_f64_left_side() {
+        let a = Tensor::from_vec(vec![2.0, 3.0]);
+        let result = 5.0 + a;
+
+        assert_eq!(result.data, vec![7.0, 8.0]);
     }
 
     #[test]
