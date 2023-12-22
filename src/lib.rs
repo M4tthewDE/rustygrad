@@ -17,13 +17,70 @@ impl ops::Add<Tensor> for Tensor {
     type Output = Tensor;
 
     fn add(self, rhs: Tensor) -> Self::Output {
-        assert_eq!(
-            self.shape, rhs.shape,
-            "broadcasting not supported for addition"
-        );
+        let mut lhs = self;
+        let mut rhs = rhs;
+        assert!(!lhs.shape.is_empty());
+        assert!(!rhs.shape.is_empty());
 
-        let result: Vec<f64> = zip(self.data, rhs.data).map(|(x1, x2)| x1 + x2).collect();
-        Tensor::new(result, self.shape)
+        // no broadcasting needed
+        if lhs.shape == rhs.shape {
+            let result: Vec<f64> = zip(lhs.data, rhs.data).map(|(x1, x2)| x1 + x2).collect();
+            return Tensor::new(result, lhs.shape.clone());
+        }
+
+        // check if broadcasting is possible
+        for dim_pair in rhs.shape.iter().rev().zip_longest(lhs.shape.iter().rev()) {
+            match dim_pair {
+                EitherOrBoth::Both(left, right) => {
+                    assert!(
+                        left == right || *right == 1 || *left == 1,
+                        "tensors are not broadcastable"
+                    )
+                }
+                EitherOrBoth::Left(_) => (),
+                EitherOrBoth::Right(_) => (),
+            }
+        }
+
+        // 1. calculate new shapes
+        match lhs.shape.len().cmp(&rhs.shape.len()) {
+            cmp::Ordering::Greater => {
+                while rhs.shape.len() < lhs.shape.len() {
+                    rhs.shape.insert(0, 1);
+                }
+            }
+            cmp::Ordering::Less => {
+                while lhs.shape.len() < rhs.shape.len() {
+                    lhs.shape.insert(0, 1);
+                }
+            }
+            cmp::Ordering::Equal => (),
+        }
+
+        let output_shape: Vec<usize> = zip(&lhs.shape, &rhs.shape)
+            .map(|(d1, d2)| cmp::max(*d1, *d2))
+            .collect();
+
+        let mut result = Tensor::new(vec![0.; util::shape_size(&output_shape)], output_shape);
+        let result_len = result.data.len();
+
+        // 2. calculate output tensor
+        for (i, elem) in result.data.iter_mut().enumerate() {
+            let mut shape_pos: Vec<usize> = Vec::new();
+            let mut offset = 0;
+            for (j, _shape) in result.shape.iter().enumerate() {
+                let mut count: usize = 1;
+                result.shape[..=j].iter().for_each(|x| count *= *x);
+                let index = (i - offset) / (result_len / count);
+                shape_pos.push(index);
+                offset += (result_len / count) * index;
+            }
+
+            *elem = lhs.point_from_shape_pos(&shape_pos, true)
+                + rhs.point_from_shape_pos(&shape_pos, true);
+        }
+
+        result
     }
 }
 
