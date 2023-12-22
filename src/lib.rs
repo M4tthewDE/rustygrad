@@ -1231,14 +1231,14 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn variance_4d_over_3_axis() {
         let input = Tensor::new(INPUT.to_vec(), vec![2, 4, 3, 3]);
-
         let var = input.variance(Some(vec![0, 2, 3]));
-        assert_eq!(
+
+        assert_aprox_eq_vec(
             var.data,
-            vec![0.06047015, 0.1051994, 0.05764891, 0.08270448]
+            vec![0.06047015, 0.1051994, 0.05764891, 0.08270448],
+            1e-6,
         );
         assert_eq!(var.shape, vec![4]);
     }

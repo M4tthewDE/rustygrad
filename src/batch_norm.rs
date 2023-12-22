@@ -66,7 +66,6 @@ impl BatchNorm2dBuilder {
         self.affine = affine;
         self
     }
-
     pub fn build(self) -> BatchNorm2d {
         let (weight, bias) = if self.affine {
             (
