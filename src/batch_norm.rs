@@ -272,10 +272,8 @@ mod tests {
             let input = Tensor::new(INPUT_4.to_vec(), vec![2, num_features, 3, 3]);
             let out = bn.forward(input, false);
 
-            util::assert_aprox_eq_vec(out.data, OUTPUT_4.to_vec(), 1e-6)
+            util::assert_aprox_eq_vec(out.data, OUTPUT_4.to_vec(), 1e-6);
         }
-        // https://github.com/tinygrad/tinygrad/blob/38554322659fbe7e19c3cc7052465645274db5b9/test/test_nn.py#L25
-        todo!("make script to generate test data with pytorch");
     }
 
     /*
