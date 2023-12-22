@@ -683,8 +683,22 @@ impl Tensor {
         }
     }
 
-    pub fn flatten(&self, _start_dim: Option<usize>) -> Tensor {
-        return self.reshape(vec![util::shape_size(&self.shape)]);
+    pub fn flatten(&self, start_dim: Option<usize>) -> Tensor {
+        let start_dim = start_dim.unwrap_or(0);
+
+        let mut last_dim = 1;
+        for (i, dim) in self.shape.iter().rev().enumerate() {
+            if self.shape.len() - i == start_dim {
+                break;
+            }
+
+            last_dim *= dim;
+        }
+
+        let mut new_shape = self.shape.clone()[..start_dim].to_owned();
+        new_shape.push(last_dim);
+
+        self.reshape(new_shape)
     }
 }
 
@@ -1428,6 +1442,22 @@ mod tests {
     fn test_flatten() {
         let t = Tensor::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], vec![2, 2, 2]);
         let result = t.flatten(None);
+        assert_eq!(result.data, vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
+        assert_eq!(result.shape, vec![8]);
+    }
+
+    #[test]
+    fn test_flatten_with_start_dim() {
+        let t = Tensor::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], vec![2, 2, 2]);
+        let result = t.flatten(Some(1));
+        assert_eq!(result.data, vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
+        assert_eq!(result.shape, vec![2, 4]);
+    }
+
+    #[test]
+    fn test_flatten_with_start_dim_zero() {
+        let t = Tensor::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], vec![2, 2, 2]);
+        let result = t.flatten(Some(0));
         assert_eq!(result.data, vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
         assert_eq!(result.shape, vec![8]);
     }
