@@ -502,14 +502,12 @@ impl Tensor {
     pub fn conv2d(
         self,
         kernel: Tensor,
-        padding: Option<(f64, usize)>,
+        padding: Option<Vec<usize>>,
         stride: Option<usize>,
     ) -> Tensor {
         assert_eq!(self.shape.len(), 2, "only supporting 2d tensors");
-        if let Some((padding_value, padding_size)) = padding {
-            return self
-                .pad2d(padding_value, padding_size)
-                .conv2d(kernel, None, stride);
+        if let Some(padding) = padding {
+            return self.pad(0.0, padding).conv2d(kernel, None, stride);
         }
 
         let stride = stride.unwrap_or(1);
@@ -578,33 +576,57 @@ impl Tensor {
         Tensor::new(output_data, vec![output_height, output_width])
     }
 
-    pub fn pad2d(self, value: f64, size: usize) -> Tensor {
-        let mut result = Vec::new();
-        for _ in 0..(self.shape[0] + 2 * size) * size {
-            result.push(value);
+    pub fn pad(self, value: f64, dims: Vec<usize>) -> Tensor {
+        if dims.len() != self.shape.len() {
+            panic!("Padding dimensions must match the tensor dimensions.");
         }
 
-        for row in self.data.chunks(self.shape[1]) {
-            for _ in 0..size {
-                result.push(value);
+        // Calculating the new shape
+        let new_shape: Vec<usize> = self
+            .shape
+            .iter()
+            .zip(dims.iter())
+            .map(|(&dim, &pad)| dim + pad * 2)
+            .collect();
+
+        let mut new_data = vec![value; new_shape.iter().product()];
+
+        // Iterate through each element in the old tensor
+        for i in 0..self.data.len() {
+            let mut temp_index = i;
+            let mut multi_dim_index = Vec::new();
+
+            // Decompose the 1D index into an N-dimensional index
+            for &size in self.shape.iter().rev() {
+                multi_dim_index.push(temp_index % size);
+                temp_index /= size;
             }
-            for element in row {
-                result.push(*element);
+            multi_dim_index.reverse();
+
+            // Adjust the multi-dimensional index based on the padding
+            let padded_multi_dim_index: Vec<usize> = multi_dim_index
+                .iter()
+                .zip(dims.iter())
+                .map(|(&index, &pad)| index + pad)
+                .collect();
+
+            // Recompose the N-dimensional index back into a 1D index for the new, padded tensor
+            let mut new_index = 0;
+            let mut stride = 1;
+            for (&size, &index) in new_shape
+                .iter()
+                .rev()
+                .zip(padded_multi_dim_index.iter().rev())
+            {
+                new_index += index * stride;
+                stride *= size;
             }
-            for _ in 0..size {
-                result.push(value);
-            }
+
+            // Place the original data into its new position in the padded tensor
+            new_data[new_index] = self.data[i];
         }
 
-        for _ in 0..(self.shape[0] + 2 * size) * size {
-            result.push(value);
-        }
-
-        let mut new_shape = self.shape.clone();
-        new_shape[0] = self.shape[0] + 2 * size;
-        new_shape[1] = self.shape[1] + 2 * size;
-
-        Tensor::new(result, new_shape)
+        Tensor::new(new_data, new_shape)
     }
 
     pub fn reduce_mean(
@@ -958,7 +980,7 @@ mod tests {
             ],
             vec![3, 3],
         );
-        let output = input.conv2d(kernel, Some((0., 1)), None);
+        let output = input.conv2d(kernel, Some(vec![1, 1]), None);
 
         assert_eq!(
             output.data,
@@ -1005,7 +1027,7 @@ mod tests {
     }
 
     #[test]
-    fn pad2d() {
+    fn pad_2d() {
         let input = Tensor::new(
             vec![
                 1., 3., //
@@ -1013,7 +1035,7 @@ mod tests {
             ],
             vec![2, 2],
         );
-        let output = input.pad2d(0., 1);
+        let output = input.pad(0., vec![1, 1]);
 
         assert_eq!(
             output.data,
@@ -1033,7 +1055,7 @@ mod tests {
             ],
             vec![2, 2],
         );
-        let output = input.pad2d(1., 2);
+        let output = input.pad(1., vec![2, 2]);
 
         assert_eq!(
             output.data,

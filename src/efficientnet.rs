@@ -79,6 +79,7 @@ pub struct Efficientnet {
     number: usize,
     pub global_params: GlobalParams,
     pub blocks_args: Vec<BlockArgs>,
+    conv_stem: Tensor,
 }
 
 impl Default for Efficientnet {
@@ -89,13 +90,14 @@ impl Default for Efficientnet {
 
         let out_channels = round_filters(32., global_params.width_coefficient);
         // NOTE: are we using the correct arguments?
-        let _conv_stem = Tensor::glorot_uniform(3, out_channels, vec![3, 3]);
+        let conv_stem = Tensor::glorot_uniform(3, out_channels, vec![3, 3]);
         let _bn0 = BatchNorm2dBuilder::new(out_channels).build();
 
         Self {
             number,
             global_params,
             blocks_args,
+            conv_stem,
         }
     }
 }
@@ -106,7 +108,8 @@ impl Efficientnet {
         todo!();
     }
 
-    pub fn forward(&self, _input: Tensor) {
+    pub fn forward(&self, x: Tensor) {
+        x.conv2d(self.conv_stem.clone(), Some(vec![0, 1, 0, 1]), Some(2));
         todo!()
     }
 }
