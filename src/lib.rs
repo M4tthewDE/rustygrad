@@ -8,6 +8,68 @@ pub mod batch_norm;
 pub mod efficientnet;
 pub mod util;
 
+pub fn broadcastable(shape1: &[usize], shape2: &[usize]) -> bool {
+    for dim_pair in shape1.iter().rev().zip_longest(shape2.iter().rev()) {
+        match dim_pair {
+            EitherOrBoth::Both(left, right) => {
+                if !(left == right || *right == 1 || *left == 1) {
+                    return false;
+                }
+            }
+            EitherOrBoth::Left(_) => (),
+            EitherOrBoth::Right(_) => (),
+        }
+    }
+
+    true
+}
+
+type BroadcastOp = fn(lhs: f64, rhs: f64) -> f64;
+
+fn broadcast_op(mut lhs: Tensor, mut rhs: Tensor, op: BroadcastOp) -> Tensor {
+    assert!(broadcastable(&lhs.shape, &rhs.shape));
+
+    match lhs.shape.len().cmp(&rhs.shape.len()) {
+        cmp::Ordering::Greater => {
+            while rhs.shape.len() < lhs.shape.len() {
+                rhs.shape.insert(0, 1);
+            }
+        }
+        cmp::Ordering::Less => {
+            while lhs.shape.len() < rhs.shape.len() {
+                lhs.shape.insert(0, 1);
+            }
+        }
+        cmp::Ordering::Equal => (),
+    }
+
+    let output_shape: Vec<usize> = zip(&lhs.shape, &rhs.shape)
+        .map(|(d1, d2)| cmp::max(*d1, *d2))
+        .collect();
+
+    let result_len = output_shape.iter().product();
+    let mut result = Tensor::new(vec![0.; result_len], output_shape);
+
+    for (i, elem) in result.data.iter_mut().enumerate() {
+        let mut shape_pos: Vec<usize> = Vec::new();
+        let mut offset = 0;
+        for (j, _shape) in result.shape.iter().enumerate() {
+            let mut count: usize = 1;
+            result.shape[..=j].iter().for_each(|x| count *= *x);
+            let index = (i - offset) / (result_len / count);
+            shape_pos.push(index);
+            offset += (result_len / count) * index;
+        }
+
+        *elem = (op)(
+            lhs.point_from_shape_pos(&shape_pos, true),
+            rhs.point_from_shape_pos(&shape_pos, true),
+        );
+    }
+
+    result
+}
+
 #[derive(Debug, Clone)]
 pub struct Tensor {
     pub data: Vec<f64>,
@@ -18,69 +80,7 @@ impl ops::Add<Tensor> for Tensor {
     type Output = Tensor;
 
     fn add(self, rhs: Tensor) -> Self::Output {
-        let mut lhs = self;
-        let mut rhs = rhs;
-        assert!(!lhs.shape.is_empty());
-        assert!(!rhs.shape.is_empty());
-        // no broadcasting needed
-        if lhs.shape == rhs.shape {
-            let result: Vec<f64> = zip(lhs.data, rhs.data).map(|(x1, x2)| x1 + x2).collect();
-            return Tensor::new(result, lhs.shape.clone());
-        }
-
-        // check if broadcasting is possible
-        for dim_pair in rhs.shape.iter().rev().zip_longest(lhs.shape.iter().rev()) {
-            match dim_pair {
-                EitherOrBoth::Both(left, right) => {
-                    assert!(
-                        left == right || *right == 1 || *left == 1,
-                        "tensors are not broadcastable"
-                    )
-                }
-                EitherOrBoth::Left(_) => (),
-                EitherOrBoth::Right(_) => (),
-            }
-        }
-
-        // 1. calculate new shapes
-        match lhs.shape.len().cmp(&rhs.shape.len()) {
-            cmp::Ordering::Greater => {
-                while rhs.shape.len() < lhs.shape.len() {
-                    rhs.shape.insert(0, 1);
-                }
-            }
-            cmp::Ordering::Less => {
-                while lhs.shape.len() < rhs.shape.len() {
-                    lhs.shape.insert(0, 1);
-                }
-            }
-            cmp::Ordering::Equal => (),
-        }
-
-        let output_shape: Vec<usize> = zip(&lhs.shape, &rhs.shape)
-            .map(|(d1, d2)| cmp::max(*d1, *d2))
-            .collect();
-
-        let mut result = Tensor::new(vec![0.; output_shape.iter().product()], output_shape);
-        let result_len = result.data.len();
-
-        // 2. calculate output tensor
-        for (i, elem) in result.data.iter_mut().enumerate() {
-            let mut shape_pos: Vec<usize> = Vec::new();
-            let mut offset = 0;
-            for (j, _shape) in result.shape.iter().enumerate() {
-                let mut count: usize = 1;
-                result.shape[..=j].iter().for_each(|x| count *= *x);
-                let index = (i - offset) / (result_len / count);
-                shape_pos.push(index);
-                offset += (result_len / count) * index;
-            }
-
-            *elem = lhs.point_from_shape_pos(&shape_pos, true)
-                + rhs.point_from_shape_pos(&shape_pos, true);
-        }
-
-        result
+        broadcast_op(self, rhs, |x1, x2| x1 + x2)
     }
 }
 
