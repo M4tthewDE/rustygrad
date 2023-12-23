@@ -186,6 +186,7 @@ impl Tensor {
     pub fn ones(size: usize) -> Tensor {
         Tensor::from_vec(vec![1.0; size])
     }
+
     pub fn from_image(img: DynamicImage) -> Tensor {
         let shape = vec![img.width() as usize, img.height() as usize, 3];
         let data: Vec<f64> = img
@@ -212,11 +213,9 @@ impl Tensor {
 
     pub fn glorot_uniform(fan_in: usize, fan_out: usize, shape: Vec<usize>) -> Tensor {
         let limit = (6.0 / (fan_in + fan_out) as f64).sqrt();
-        let uniform = Uniform::from(0.0..limit);
-        let mut rng = rand::thread_rng();
-
-        let data: Vec<f64> = (0..shape.iter().product())
-            .map(|_| uniform.sample(&mut rng))
+        let data = Uniform::new(0.0, limit)
+            .sample_iter(rand::thread_rng())
+            .take(shape.iter().product::<usize>())
             .collect();
 
         Tensor::new(data, shape)
