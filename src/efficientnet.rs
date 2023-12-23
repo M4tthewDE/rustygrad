@@ -105,6 +105,10 @@ impl Efficientnet {
         let _model_data = util::load_torch_model(MODEL_URLS[self.number]).unwrap();
         todo!();
     }
+
+    pub fn forward(&self, _input: Tensor) {
+        todo!()
+    }
 }
 
 fn get_global_params(number: usize) -> GlobalParams {

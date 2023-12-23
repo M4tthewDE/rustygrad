@@ -18,7 +18,10 @@ fn main() {
     infer(efficientnet, img);
 }
 
-fn infer(_model: Efficientnet, mut image: DynamicImage) {
+const BIAS: [f64; 3] = [0.485, 0.456, 0.406];
+const SCALE: [f64; 3] = [0.229, 0.224, 0.225];
+
+fn infer(model: Efficientnet, mut image: DynamicImage) {
     let aspect_ratio = image.width() as f64 / image.height() as f64;
     image = image.resize_exact(
         (224.0 * aspect_ratio.max(1.0)) as u32,
@@ -29,7 +32,14 @@ fn infer(_model: Efficientnet, mut image: DynamicImage) {
     // cropping towards the top left corner!
     // TODO: crop towards the center
     image = image.crop_imm(0, 0, 224, 224);
-    let input = Tensor::from_image(image);
-    let _input = input.permute(vec![2, 0, 1]);
-    todo!();
+
+    let bias = Tensor::new(BIAS.to_vec(), vec![1, 3, 1, 1]);
+    let scale = Tensor::new(SCALE.to_vec(), vec![1, 3, 1, 1]);
+
+    let mut input = Tensor::from_image(image);
+    input = input.permute(vec![2, 0, 1]);
+    input = input / 255.0;
+    input = input - bias;
+    input = input / scale;
+    model.forward(input);
 }
