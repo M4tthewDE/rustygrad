@@ -529,12 +529,12 @@ impl Tensor {
 
     pub fn linear(&self, in_features: usize, out_features: usize, bias: Option<bool>) -> Tensor {
         // Kaiming uniform
-        let a = (6.0 / in_features as f64).sqrt();
-        let weight = Tensor::rand(vec![in_features, out_features]) * a;
+        let weight =
+            Tensor::rand(vec![in_features, out_features]) * (6.0 / in_features as f64).sqrt();
 
         if bias.unwrap_or(true) {
-            let k: f64 = 1.0 / in_features as f64;
-            let bias = Tensor::rand_with_range(vec![out_features], (-k.sqrt(), k.sqrt()));
+            let bias_range = (1.0 / in_features as f64).sqrt();
+            let bias = Tensor::rand_with_range(vec![out_features], (-bias_range, bias_range));
             self.matmul(weight) + bias
         } else {
             self.matmul(weight)
