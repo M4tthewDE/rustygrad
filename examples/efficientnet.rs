@@ -19,15 +19,15 @@ fn main() {
 }
 
 fn infer(_model: Efficientnet, mut image: DynamicImage) {
-    // preprocess image
     let aspect_ratio = image.width() as f64 / image.height() as f64;
-    image = image.resize(
+    image = image.resize_exact(
         (224.0 * aspect_ratio.max(1.0)) as u32,
         (224.0 * (1.0 / aspect_ratio).max(1.0)) as u32,
         FilterType::Nearest,
     );
     image = image.crop_imm(0, 0, 224, 224);
+    let input = Tensor::from_image(image);
 
-    let _img_tensor = Tensor::from_image(image);
+    dbg!(&input.shape);
     todo!();
 }

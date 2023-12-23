@@ -389,7 +389,7 @@ impl Tensor {
     }
 
     pub fn from_image(img: DynamicImage) -> Tensor {
-        let shape = vec![1, img.width() as usize, img.height() as usize, 3];
+        let shape = vec![img.width() as usize, img.height() as usize, 3];
         let data: Vec<f64> = img
             .to_rgb8()
             .pixels()
