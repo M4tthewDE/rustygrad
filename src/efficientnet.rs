@@ -118,6 +118,7 @@ impl Efficientnet {
             x.conv2d(self.conv_stem.clone(), Some(vec![0, 1, 0, 1]), Some(2)),
             false,
         );
+        dbg!(&x);
         todo!()
     }
 }

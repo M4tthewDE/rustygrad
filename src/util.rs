@@ -118,10 +118,3 @@ pub fn assert_aprox_eq_vec(a: Vec<f64>, b: Vec<f64>, tolerance: f64) {
         }
     }
 }
-
-pub fn shape_size(shape: &[usize]) -> usize {
-    let mut count: usize = 1;
-    shape.iter().for_each(|x| count *= *x);
-
-    count
-}

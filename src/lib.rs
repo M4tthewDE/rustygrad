@@ -61,7 +61,7 @@ impl ops::Add<Tensor> for Tensor {
             .map(|(d1, d2)| cmp::max(*d1, *d2))
             .collect();
 
-        let mut result = Tensor::new(vec![0.; util::shape_size(&output_shape)], output_shape);
+        let mut result = Tensor::new(vec![0.; output_shape.iter().product()], output_shape);
         let result_len = result.data.len();
 
         // 2. calculate output tensor
@@ -151,7 +151,7 @@ impl ops::Sub<Tensor> for Tensor {
             .map(|(d1, d2)| cmp::max(*d1, *d2))
             .collect();
 
-        let mut result = Tensor::new(vec![0.; util::shape_size(&output_shape)], output_shape);
+        let mut result = Tensor::new(vec![0.; output_shape.iter().product()], output_shape);
         let result_len = result.data.len();
 
         // 2. calculate output tensor
@@ -222,7 +222,7 @@ impl ops::Mul<Tensor> for Tensor {
             .map(|(d1, d2)| cmp::max(*d1, *d2))
             .collect();
 
-        let mut result = Tensor::new(vec![0.; util::shape_size(&output_shape)], output_shape);
+        let mut result = Tensor::new(vec![0.; output_shape.iter().product()], output_shape);
         let result_len = result.data.len();
 
         // 2. calculate output tensor
@@ -320,7 +320,7 @@ impl ops::Div<Tensor> for Tensor {
             .map(|(d1, d2)| cmp::max(*d1, *d2))
             .collect();
 
-        let mut result = Tensor::new(vec![0.; util::shape_size(&output_shape)], output_shape);
+        let mut result = Tensor::new(vec![0.; output_shape.iter().product()], output_shape);
         let result_len = result.data.len();
 
         // 2. calculate output tensor
@@ -354,7 +354,7 @@ impl Tensor {
     pub fn rand(shape: Vec<usize>) -> Tensor {
         let uniform = Uniform::new(-1.0, 1.0);
         let mut rng = rand::thread_rng();
-        let data: Vec<f64> = (0..util::shape_size(&shape))
+        let data: Vec<f64> = (0..shape.iter().product())
             .map(|_| uniform.sample(&mut rng))
             .collect();
 
@@ -364,7 +364,7 @@ impl Tensor {
     pub fn rand_with_range(shape: Vec<usize>, range: (f64, f64)) -> Tensor {
         let uniform = Uniform::new(range.0, range.1);
         let mut rng = rand::thread_rng();
-        let data: Vec<f64> = (0..util::shape_size(&shape))
+        let data: Vec<f64> = (0..shape.iter().product())
             .map(|_| uniform.sample(&mut rng))
             .collect();
 
@@ -404,7 +404,7 @@ impl Tensor {
         if !(data.is_empty() && shape.is_empty()) {
             assert_eq!(
                 data.len(),
-                util::shape_size(&shape),
+                shape.iter().product::<usize>(),
                 "invalid shape for data length"
             );
         }
@@ -417,7 +417,7 @@ impl Tensor {
         let uniform = Uniform::from(0.0..limit);
         let mut rng = rand::thread_rng();
 
-        let data: Vec<f64> = (0..util::shape_size(&shape))
+        let data: Vec<f64> = (0..shape.iter().product())
             .map(|_| uniform.sample(&mut rng))
             .collect();
 
@@ -669,7 +669,7 @@ impl Tensor {
                 new_shape.remove(*dim - i);
             }
 
-            let mut result: Vec<f64> = vec![0.; util::shape_size(&new_shape)];
+            let mut result: Vec<f64> = vec![0.; new_shape.iter().product()];
 
             for (i, elem) in self.data.iter().enumerate() {
                 let mut shape_pos: Vec<usize> = Vec::new();
