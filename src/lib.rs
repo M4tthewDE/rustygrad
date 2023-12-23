@@ -429,17 +429,13 @@ impl Tensor {
         keepdim: bool,
         correction: Option<f64>,
     ) -> Tensor {
-        let divisor = match dims {
-            Some(dims) => {
-                let mut divisor = 1.0;
-                for dim in dims {
-                    divisor *= self.shape[*dim] as f64;
-                }
-
-                divisor
-            }
-            None => self.data.len() as f64,
-        };
+        let divisor = dims
+            .map(|dims| {
+                dims.iter()
+                    .map(|&dim| self.shape[dim] as f64)
+                    .product::<f64>()
+            })
+            .unwrap_or(self.data.len() as f64);
 
         self.reduce_sum(dims, keepdim) / (divisor - correction.unwrap_or(0.0)).max(1.0)
     }
