@@ -439,21 +439,19 @@ impl Tensor {
         keepdim: bool,
         correction: Option<f64>,
     ) -> Tensor {
-        let correction = correction.unwrap_or(0.0);
+        let divisor = match dims {
+            Some(ref dims) => {
+                let mut divisor = 1.0;
+                for dim in dims {
+                    divisor *= self.shape[*dim] as f64;
+                }
 
-        if let Some(dims) = dims {
-            let mut divisor = 1.0;
-            for dim in &dims {
-                divisor *= self.shape[*dim] as f64;
+                divisor
             }
+            None => self.data.len() as f64,
+        };
 
-            divisor -= correction;
-
-            let sum = self.clone().reduce_sum(Some(dims.clone()), keepdim);
-            sum.clone() / divisor.max(1.0)
-        } else {
-            self.clone().reduce_sum(None, keepdim) / (self.data.len() as f64 - correction).max(1.0)
-        }
+        self.clone().reduce_sum(dims, keepdim) / (divisor - correction.unwrap_or(0.0)).max(1.0)
     }
 
     pub fn reduce_sum(self, dims: Option<Vec<usize>>, keepdim: bool) -> Tensor {
