@@ -500,14 +500,14 @@ impl Tensor {
     }
 
     pub fn conv2d(
-        self,
+        mut self,
         kernel: Tensor,
         padding: Option<Vec<usize>>,
         stride: Option<usize>,
     ) -> Tensor {
         assert_eq!(self.shape.len(), 2, "only supporting 2d tensors");
         if let Some(padding) = padding {
-            return self.pad(0.0, padding).conv2d(kernel, None, stride);
+            self = self.pad(0.0, padding);
         }
 
         let stride = stride.unwrap_or(1);
