@@ -114,8 +114,8 @@ impl Efficientnet {
         todo!();
     }
 
-    pub fn forward(&mut self, mut x: Tensor) {
-        x = self.bn0.forward(
+    pub fn forward(&mut self, x: Tensor) {
+        let _x = self.bn0.forward(
             x.conv2d(self.conv_stem.clone(), Some(vec![0, 1, 0, 1]), Some(2)),
             false,
         );

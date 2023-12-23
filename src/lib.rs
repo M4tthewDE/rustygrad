@@ -197,7 +197,6 @@ impl Tensor {
     pub fn ones(size: usize) -> Tensor {
         Tensor::from_vec(vec![1.0; size])
     }
-
     pub fn from_image(img: DynamicImage) -> Tensor {
         let shape = vec![img.width() as usize, img.height() as usize, 3];
         let data: Vec<f64> = img
@@ -291,7 +290,7 @@ impl Tensor {
             }
         }
 
-        Tensor::new(cols.concat(), self.shape.iter().rev().map(|d| *d).collect())
+        Tensor::new(cols.concat(), self.shape.iter().rev().copied().collect())
     }
 
     pub fn max(self) -> Tensor {
