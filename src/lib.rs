@@ -349,10 +349,10 @@ impl Tensor {
     }
 
     pub fn max_pool2d(&self, kernel_size: usize, stride: Option<usize>) -> Tensor {
-        assert_eq!(self.shape.len(), 2, "only supporting 2d tensors");
+        assert_eq!(self.shape.len(), 4, "only supporting 4d tensors");
         let stride = stride.unwrap_or(1);
 
-        let (height, width) = (self.shape[0], self.shape[1]);
+        let (height, width) = (self.shape[2], self.shape[3]);
         let (kernel_height, kernel_width) = (kernel_size, kernel_size);
 
         let output_height = ((height - kernel_height) / stride) + 1;
@@ -1381,7 +1381,7 @@ mod tests {
                 8., 6., 6., 8., //
                 9., 7., 7., 9., //
             ],
-            vec![4, 4],
+            vec![1, 1, 4, 4],
         );
 
         let output = input.max_pool2d(2, None);
@@ -1405,7 +1405,7 @@ mod tests {
                 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, //
                 9.0, 8.0, 7.0, 6.0, 5.0, 4.0, 3.0, 2.0, //
             ],
-            vec![8, 8],
+            vec![1, 1, 8, 8],
         );
 
         let output = input.max_pool2d(2, Some(2));
