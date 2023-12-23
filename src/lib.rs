@@ -581,7 +581,6 @@ impl Tensor {
             panic!("Padding dimensions must match the tensor dimensions.");
         }
 
-        // Calculating the new shape
         let new_shape: Vec<usize> = self
             .shape
             .iter()
@@ -591,26 +590,22 @@ impl Tensor {
 
         let mut new_data = vec![value; new_shape.iter().product()];
 
-        // Iterate through each element in the old tensor
         for i in 0..self.data.len() {
             let mut temp_index = i;
             let mut multi_dim_index = Vec::new();
 
-            // Decompose the 1D index into an N-dimensional index
             for &size in self.shape.iter().rev() {
                 multi_dim_index.push(temp_index % size);
                 temp_index /= size;
             }
             multi_dim_index.reverse();
 
-            // Adjust the multi-dimensional index based on the padding
             let padded_multi_dim_index: Vec<usize> = multi_dim_index
                 .iter()
                 .zip(dims.iter())
                 .map(|(&index, &pad)| index + pad)
                 .collect();
 
-            // Recompose the N-dimensional index back into a 1D index for the new, padded tensor
             let mut new_index = 0;
             let mut stride = 1;
             for (&size, &index) in new_shape
@@ -622,7 +617,6 @@ impl Tensor {
                 stride *= size;
             }
 
-            // Place the original data into its new position in the padded tensor
             new_data[new_index] = self.data[i];
         }
 
