@@ -6,9 +6,9 @@ fn main() {
     // https://github.com/tinygrad/tinygrad/blob/master/examples/efficientnet.py
     tracing_subscriber::fmt::init();
 
-    let efficientnet = Efficientnet::default();
+    let mut efficientnet = Efficientnet::default();
     // FIXME: this is crazy slow
-    //efficientnet.load_from_pretrained();
+    efficientnet.load_from_pretrained();
 
     let img = Reader::open("examples/chicken.jpg")
         .unwrap()

@@ -2,7 +2,7 @@ use crate::Tensor;
 
 #[derive(Debug)]
 pub struct BatchNorm2d {
-    num_features: usize,
+    pub num_features: usize,
     running_mean: Tensor,
     running_var: Tensor,
     eps: f64,

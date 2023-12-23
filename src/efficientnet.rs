@@ -93,6 +93,7 @@ impl Default for Efficientnet {
         let blocks_args = BLOCKS_ARGS.map(BlockArgs::from_tuple).to_vec();
 
         let out_channels = round_filters(32., global_params.width_coefficient);
+        // FIXME: out_channels differ from tinygrad implementation!
         // NOTE: are we using the correct arguments?
         let conv_stem = Tensor::glorot_uniform(3, out_channels, vec![3, 3]);
         let bn0 = BatchNorm2dBuilder::new(out_channels).build();
@@ -118,7 +119,6 @@ impl Efficientnet {
             x.conv2d(self.conv_stem.clone(), Some(vec![0, 1, 0, 1]), Some(2)),
             false,
         );
-        dbg!(&x);
         todo!()
     }
 }

@@ -5,10 +5,11 @@ use serde::Deserialize;
 use std::fs::create_dir;
 use std::fs::File;
 use std::io::copy;
-use std::io::BufReader;
+use std::io::Read;
 use std::iter::zip;
 use std::path::PathBuf;
 use std::process::Command;
+use std::time::Instant;
 use tracing::info;
 
 pub fn load_torch_model(url: &str) -> Result<ModelData> {
@@ -66,11 +67,14 @@ pub struct ModelData {
 }
 
 fn load_model(path: &PathBuf) -> Result<ModelData> {
+    let start = Instant::now();
     info!("loading model from {path:?}, this might take a while...");
 
-    let file = File::open(path)?;
-    let reader = BufReader::new(file);
-    let model_data: ModelData = serde_json::from_reader(reader)?;
+    let mut content = String::new();
+    File::open(path)?.read_to_string(&mut content)?;
+    let model_data: ModelData = serde_json::from_str(&content)?;
+
+    info!("loaded model in {:?}", start.elapsed());
     Ok(model_data)
 }
 
