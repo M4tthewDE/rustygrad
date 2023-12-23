@@ -451,10 +451,10 @@ impl Tensor {
             None => self.data.len() as f64,
         };
 
-        self.clone().reduce_sum(dims, keepdim) / (divisor - correction.unwrap_or(0.0)).max(1.0)
+        self.reduce_sum(dims, keepdim) / (divisor - correction.unwrap_or(0.0)).max(1.0)
     }
 
-    pub fn reduce_sum(self, dims: Option<&Vec<usize>>, keepdim: bool) -> Tensor {
+    pub fn reduce_sum(&self, dims: Option<&Vec<usize>>, keepdim: bool) -> Tensor {
         if let Some(dims) = dims {
             let mut reduced_shape = self.shape.clone();
             for (i, dim) in dims.iter().enumerate() {
@@ -501,7 +501,7 @@ impl Tensor {
 
             Tensor::new(result, new_shape)
         } else {
-            Tensor::from_scalar(self.data.into_iter().sum())
+            Tensor::from_scalar(self.data.iter().sum())
         }
     }
 
