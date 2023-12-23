@@ -29,18 +29,13 @@ type BroadcastOp = fn(lhs: f64, rhs: f64) -> f64;
 fn broadcast_op(mut lhs: Tensor, mut rhs: Tensor, op: BroadcastOp) -> Tensor {
     assert!(broadcastable(&lhs.shape, &rhs.shape));
 
-    match lhs.shape.len().cmp(&rhs.shape.len()) {
-        cmp::Ordering::Greater => {
-            while rhs.shape.len() < lhs.shape.len() {
-                rhs.shape.insert(0, 1);
-            }
-        }
-        cmp::Ordering::Less => {
-            while lhs.shape.len() < rhs.shape.len() {
-                lhs.shape.insert(0, 1);
-            }
-        }
-        cmp::Ordering::Equal => (),
+    let max_len = lhs.shape.len().max(rhs.shape.len());
+    while rhs.shape.len() < max_len {
+        rhs.shape.insert(0, 1);
+    }
+
+    while lhs.shape.len() < max_len {
+        lhs.shape.insert(0, 1);
     }
 
     let output_shape: Vec<usize> = zip(&lhs.shape, &rhs.shape)
@@ -50,12 +45,12 @@ fn broadcast_op(mut lhs: Tensor, mut rhs: Tensor, op: BroadcastOp) -> Tensor {
     let result_len = output_shape.iter().product();
     let mut result = Tensor::new(vec![0.; result_len], output_shape);
 
+    let mut shape_pos = Vec::with_capacity(result.shape.len());
     for (i, elem) in result.data.iter_mut().enumerate() {
-        let mut shape_pos: Vec<usize> = Vec::new();
+        shape_pos.clear();
         let mut offset = 0;
-        for (j, _shape) in result.shape.iter().enumerate() {
-            let mut count: usize = 1;
-            result.shape[..=j].iter().for_each(|x| count *= *x);
+        for (j, _) in result.shape.iter().enumerate() {
+            let count = result.shape[..=j].iter().product::<usize>();
             let index = (i - offset) / (result_len / count);
             shape_pos.push(index);
             offset += (result_len / count) * index;
