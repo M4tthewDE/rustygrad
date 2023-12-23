@@ -530,6 +530,40 @@ impl Tensor {
         Tensor::new(output_data, vec![output_height, output_width])
     }
 
+    pub fn max_pool2d(&self, kernel_size: usize, stride: Option<usize>) -> Tensor {
+        assert_eq!(self.shape.len(), 2, "only supporting 2d tensors");
+        let stride = stride.unwrap_or(1);
+
+        let (height, width) = (self.shape[0], self.shape[1]);
+        let (kernel_height, kernel_width) = (kernel_size, kernel_size);
+
+        let output_height = (height - kernel_height) / stride + 1;
+        let output_width = (width - kernel_width) / stride + 1;
+
+        let mut output_data = Vec::new();
+        for i in 0..output_height {
+            for j in 0..output_width {
+                let patch: Vec<Vec<f64>> = (0..kernel_height)
+                    .map(|k| {
+                        (i * height + j + k * height)..(i * height + kernel_width + j + k * height)
+                    })
+                    .map(|range| self.data[range.clone()].to_vec())
+                    .collect();
+
+                // FIXME: strides are not working, it's doing stride 1
+                let mut value: f64 = 0.0;
+                for (_, row) in patch.iter().enumerate() {
+                    for (_, cell) in row.iter().enumerate() {
+                        value = value.max(*cell);
+                    }
+                }
+                output_data.push(value);
+            }
+        }
+
+        Tensor::new(output_data, vec![output_height, output_width])
+    }
+
     pub fn pad2d(self, value: f64, size: usize) -> Tensor {
         let mut result = Vec::new();
         for _ in 0..(self.shape[0] + 2 * size) * size {
@@ -1460,5 +1494,49 @@ mod tests {
         let result = t.flatten(Some(0));
         assert_eq!(result.data, vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
         assert_eq!(result.shape, vec![8]);
+    }
+
+    #[test]
+    fn test_max_pool2d() {
+        let input = Tensor::new(
+            vec![
+                8., 6., 6., 8., //
+                9., 7., 7., 9., //
+                8., 6., 6., 8., //
+                9., 7., 7., 9., //
+            ],
+            vec![4, 4],
+        );
+
+        let output = input.max_pool2d(2, None);
+        assert_eq!(
+            output.data,
+            vec![9.0, 7.0, 9.0, 9.0, 7.0, 9.0, 9.0, 7.0, 9.0]
+        );
+        assert_eq!(output.shape, vec![3, 3]);
+    }
+
+    #[test]
+    fn test_max_pool2d_stride() {
+        let input = Tensor::new(
+            vec![
+                1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, //
+                8.0, 7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, //
+                2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, //
+                9.0, 8.0, 7.0, 6.0, 5.0, 4.0, 3.0, 2.0, //
+                1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, //
+                8.0, 7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, //
+                2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, //
+                9.0, 8.0, 7.0, 6.0, 5.0, 4.0, 3.0, 2.0, //
+            ],
+            vec![8, 8],
+        );
+
+        let output = input.max_pool2d(2, Some(2));
+        assert_eq!(
+            output.data,
+            vec![8., 6., 6., 8., 9., 7., 7., 9., 8., 6., 6., 8., 9., 7., 7., 9.]
+        );
+        assert_eq!(output.shape, vec![4, 4]);
     }
 }
