@@ -153,20 +153,18 @@ impl Tensor {
     }
 
     pub fn rand(shape: Vec<usize>) -> Tensor {
-        let uniform = Uniform::new(-1.0, 1.0);
-        let mut rng = rand::thread_rng();
-        let data: Vec<f64> = (0..shape.iter().product())
-            .map(|_| uniform.sample(&mut rng))
+        let data = Uniform::new(-1.0, 1.0)
+            .sample_iter(rand::thread_rng())
+            .take(shape.iter().product::<usize>())
             .collect();
 
         Tensor::new(data, shape)
     }
 
     pub fn rand_with_range(shape: Vec<usize>, range: (f64, f64)) -> Tensor {
-        let uniform = Uniform::new(range.0, range.1);
-        let mut rng = rand::thread_rng();
-        let data: Vec<f64> = (0..shape.iter().product())
-            .map(|_| uniform.sample(&mut rng))
+        let data = Uniform::new(range.0, range.1)
+            .sample_iter(rand::thread_rng())
+            .take(shape.iter().product::<usize>())
             .collect();
 
         Tensor::new(data, shape)
