@@ -267,15 +267,11 @@ impl Tensor {
     }
 
     pub fn transpose(self) -> Tensor {
-        let mut cols: Vec<Vec<f64>> = Vec::new();
+        let mut cols: Vec<Vec<f64>> = vec![Vec::new(); self.shape[1]];
 
         for (i, val) in self.data.iter().enumerate() {
-            let remainder = i % self.shape[1];
-            if let Some(col) = cols.get_mut(remainder) {
-                col.push(*val);
-            } else {
-                cols.push(vec![*val]);
-            }
+            let col_index = i % self.shape[1];
+            cols[col_index].push(*val);
         }
 
         Tensor::new(cols.concat(), self.shape.iter().rev().copied().collect())
