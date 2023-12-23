@@ -639,7 +639,7 @@ impl Tensor {
             divisor -= correction;
 
             let sum = self.clone().reduce_sum(Some(dims.clone()));
-            let mut result = sum.clone() / divisor;
+            let mut result = sum.clone() / divisor.max(1.0);
 
             if keepdim {
                 result.shape = self.shape.clone();
@@ -650,8 +650,7 @@ impl Tensor {
 
             result
         } else {
-            // FIXME: we should max(0, ) here, to not go negative
-            self.clone().reduce_sum(None) / (self.data.len() as f64 - correction)
+            self.clone().reduce_sum(None) / (self.data.len() as f64 - correction).max(1.0)
         }
     }
 
