@@ -445,54 +445,54 @@ impl Tensor {
     }
 
     pub fn reduce_sum(&self, dims: Option<&Vec<usize>>, keepdim: bool) -> Tensor {
-        if let Some(dims) = dims {
-            let mut reduced_shape = self.shape.clone();
-            for (i, dim) in dims.iter().enumerate() {
-                reduced_shape.remove(*dim - i);
-            }
+        let dims = match dims {
+            Some(dims) => dims,
+            None => return Tensor::from_scalar(self.data.iter().sum()),
+        };
 
-            let mut result: Vec<f64> = vec![0.; reduced_shape.iter().product()];
-
-            for (i, elem) in self.data.iter().enumerate() {
-                let mut shape_pos: Vec<usize> = Vec::new();
-                let mut offset = 0;
-                for (j, _shape) in self.shape.iter().enumerate() {
-                    let mut count: usize = 1;
-                    self.shape[..=j].iter().for_each(|x| count *= *x);
-                    let index = (i - offset) / (self.data.len() / count);
-                    if !dims.contains(&j) {
-                        shape_pos.push(index);
-                    }
-                    offset += (self.data.len() / count) * index;
-                }
-
-                let mut index = 0;
-                for (j, dim) in reduced_shape.iter().rev().enumerate() {
-                    if j == reduced_shape.len() - 1 {
-                        index += shape_pos[j];
-                    } else {
-                        index += shape_pos[j] * dim;
-                    }
-                }
-
-                *result.get_mut(index).unwrap() += elem;
-            }
-
-            let new_shape = if keepdim {
-                let mut new_shape = self.shape.clone();
-                for dim in dims {
-                    new_shape[*dim] = 1;
-                }
-
-                new_shape
-            } else {
-                reduced_shape
-            };
-
-            Tensor::new(result, new_shape)
-        } else {
-            Tensor::from_scalar(self.data.iter().sum())
+        let mut reduced_shape = self.shape.clone();
+        for (i, dim) in dims.iter().enumerate() {
+            reduced_shape.remove(*dim - i);
         }
+
+        let mut result: Vec<f64> = vec![0.; reduced_shape.iter().product()];
+
+        let mut shape_pos = Vec::with_capacity(self.shape.len() - dims.len());
+        for (i, elem) in self.data.iter().enumerate() {
+            shape_pos.clear();
+            let mut offset = 0;
+            for (j, _shape) in self.shape.iter().enumerate() {
+                let count = self.shape[..=j].iter().product::<usize>();
+                let index = (i - offset) / (self.data.len() / count);
+                if !dims.contains(&j) {
+                    shape_pos.push(index);
+                }
+                offset += (self.data.len() / count) * index;
+            }
+
+            let mut index = 0;
+            for (j, dim) in reduced_shape.iter().rev().enumerate() {
+                if j == reduced_shape.len() - 1 {
+                    index += shape_pos[j];
+                } else {
+                    index += shape_pos[j] * dim;
+                }
+            }
+
+            *result.get_mut(index).unwrap() += elem;
+        }
+
+        let new_shape = if keepdim {
+            self.shape
+                .iter()
+                .enumerate()
+                .map(|(i, &d)| if dims.contains(&i) { 1 } else { d })
+                .collect()
+        } else {
+            reduced_shape
+        };
+
+        Tensor::new(result, new_shape)
     }
 
     pub fn variance(&self, dims: Option<&Vec<usize>>, correction: Option<f64>) -> Tensor {
