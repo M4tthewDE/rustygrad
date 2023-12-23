@@ -9,23 +9,19 @@ pub mod efficientnet;
 pub mod util;
 
 pub fn broadcastable(shape1: &[usize], shape2: &[usize]) -> bool {
-    for dim_pair in shape1.iter().rev().zip_longest(shape2.iter().rev()) {
-        match dim_pair {
-            EitherOrBoth::Both(left, right) => {
-                if !(left == right || *right == 1 || *left == 1) {
-                    return false;
-                }
-            }
-            EitherOrBoth::Left(_) => (),
-            EitherOrBoth::Right(_) => (),
-        }
-    }
-
-    true
+    shape1
+        .iter()
+        .rev()
+        .zip_longest(shape2.iter().rev())
+        .all(|dim_pair| match dim_pair {
+            EitherOrBoth::Both(&left, &right) => left == right || left == 1 || right == 1,
+            _ => true,
+        })
 }
 
 type BroadcastOp = fn(lhs: f64, rhs: f64) -> f64;
 
+// https://pytorch.org/docs/stable/notes/broadcasting.html
 fn broadcast_op(mut lhs: Tensor, mut rhs: Tensor, op: BroadcastOp) -> Tensor {
     assert!(broadcastable(&lhs.shape, &rhs.shape));
 
