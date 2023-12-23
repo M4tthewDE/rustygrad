@@ -1,4 +1,4 @@
-use std::{cmp, iter::zip, ops};
+use std::{cmp, f64::consts::E, iter::zip, ops};
 
 use image::DynamicImage;
 use itertools::{EitherOrBoth, Itertools};
@@ -600,6 +600,16 @@ impl Tensor {
         }
 
         Tensor::new(new_data, new_shape)
+    }
+
+    pub fn swish(&self) -> Tensor {
+        Tensor::new(
+            self.data
+                .iter()
+                .map(|x| x * (1.0 / (1.0 + E.powf(-x))))
+                .collect(),
+            self.shape.clone(),
+        )
     }
 }
 
@@ -1434,5 +1444,24 @@ mod tests {
             ]
         );
         assert_eq!(result.shape, vec![3, 4, 2]);
+    }
+
+    #[test]
+    fn test_swish() {
+        let input = Tensor::from_vec(vec![-6.0, -4.0, -2.0, 0.0, 2.0, 4.0]);
+        let result = input.swish();
+
+        assert_eq!(
+            result.data,
+            vec![
+                -0.014835738939808652,
+                -0.07194483984836625,
+                -0.23840584404423515,
+                0.0,
+                1.7615941559557646,
+                3.928055160151634,
+            ]
+        );
+        assert_eq!(result.shape, vec![6]);
     }
 }
