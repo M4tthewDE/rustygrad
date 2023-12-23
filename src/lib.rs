@@ -282,7 +282,6 @@ impl Tensor {
     pub fn transpose(self) -> Tensor {
         let mut cols: Vec<Vec<f64>> = Vec::new();
 
-        // TODO: do this in one pass!
         for (i, val) in self.data.iter().enumerate() {
             let remainder = i % self.shape[1];
             if let Some(col) = cols.get_mut(remainder) {
@@ -292,10 +291,7 @@ impl Tensor {
             }
         }
 
-        let mut shape = self.shape.clone();
-        shape.reverse();
-
-        Tensor::new(cols.concat(), shape)
+        Tensor::new(cols.concat(), self.shape.iter().rev().map(|d| *d).collect())
     }
 
     pub fn max(self) -> Tensor {
