@@ -26,6 +26,7 @@ fn infer(_model: Efficientnet, mut image: DynamicImage) {
         (224.0 * (1.0 / aspect_ratio).max(1.0)) as u32,
         FilterType::Nearest,
     );
+    image = image.crop_imm(0, 0, 224, 224);
 
     let _img_tensor = Tensor::from_image(image);
     todo!();
