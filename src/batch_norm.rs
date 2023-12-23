@@ -25,8 +25,8 @@ impl BatchNorm2d {
         }
 
         if training {
-            mean = input.reduce_mean(Some(vec![0, 2, 3]), false, None);
-            var = input.variance(Some(vec![0, 2, 3]), Some(0.0));
+            mean = input.reduce_mean(Some(&vec![0, 2, 3]), false, None);
+            var = input.variance(Some(&vec![0, 2, 3]), Some(0.0));
 
             let n = (input.numel() / input.size(Some(1)).first().unwrap()) as f64;
             self.running_mean =
