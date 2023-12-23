@@ -21,7 +21,7 @@ fn main() {
 const BIAS: [f64; 3] = [0.485, 0.456, 0.406];
 const SCALE: [f64; 3] = [0.229, 0.224, 0.225];
 
-fn infer(model: Efficientnet, mut image: DynamicImage) {
+fn infer(mut model: Efficientnet, mut image: DynamicImage) {
     let aspect_ratio = image.width() as f64 / image.height() as f64;
     image = image.resize_exact(
         (224.0 * aspect_ratio.max(1.0)) as u32,

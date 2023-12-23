@@ -1,6 +1,9 @@
 // https://github.com/lukemelas/EfficientNet-PyTorch/blob/master/efficientnet_pytorch/model.py
 
-use crate::{batch_norm::BatchNorm2dBuilder, util, Tensor};
+use crate::{
+    batch_norm::{BatchNorm2d, BatchNorm2dBuilder},
+    util, Tensor,
+};
 
 pub static MODEL_URLS: [&str; 8] = [
       "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b0-355c32eb.pth", "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b1-f1951068.pth",
@@ -80,6 +83,7 @@ pub struct Efficientnet {
     pub global_params: GlobalParams,
     pub blocks_args: Vec<BlockArgs>,
     conv_stem: Tensor,
+    bn0: BatchNorm2d,
 }
 
 impl Default for Efficientnet {
@@ -91,13 +95,14 @@ impl Default for Efficientnet {
         let out_channels = round_filters(32., global_params.width_coefficient);
         // NOTE: are we using the correct arguments?
         let conv_stem = Tensor::glorot_uniform(3, out_channels, vec![3, 3]);
-        let _bn0 = BatchNorm2dBuilder::new(out_channels).build();
+        let bn0 = BatchNorm2dBuilder::new(out_channels).build();
 
         Self {
             number,
             global_params,
             blocks_args,
             conv_stem,
+            bn0,
         }
     }
 }
@@ -108,8 +113,11 @@ impl Efficientnet {
         todo!();
     }
 
-    pub fn forward(&self, x: Tensor) {
-        x.conv2d(self.conv_stem.clone(), Some(vec![0, 1, 0, 1]), Some(2));
+    pub fn forward(&mut self, mut x: Tensor) {
+        x = self.bn0.forward(
+            x.conv2d(self.conv_stem.clone(), Some(vec![0, 1, 0, 1]), Some(2)),
+            false,
+        );
         todo!()
     }
 }
