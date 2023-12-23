@@ -543,18 +543,8 @@ impl Tensor {
 
     pub fn flatten(&self, start_dim: Option<usize>) -> Tensor {
         let start_dim = start_dim.unwrap_or(0);
-
-        let mut last_dim = 1;
-        for (i, dim) in self.shape.iter().rev().enumerate() {
-            if self.shape.len() - i == start_dim {
-                break;
-            }
-
-            last_dim *= dim;
-        }
-
-        let mut new_shape = self.shape.clone()[..start_dim].to_owned();
-        new_shape.push(last_dim);
+        let last_dim = self.shape[start_dim..].iter().product();
+        let new_shape = [&self.shape[..start_dim], &[last_dim]].concat();
 
         self.reshape(new_shape)
     }
