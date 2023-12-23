@@ -25,9 +25,11 @@ fn infer(_model: Efficientnet, mut image: DynamicImage) {
         (224.0 * (1.0 / aspect_ratio).max(1.0)) as u32,
         FilterType::Nearest,
     );
+
+    // cropping towards the top left corner!
+    // TODO: crop towards the center
     image = image.crop_imm(0, 0, 224, 224);
     let input = Tensor::from_image(image);
-
-    dbg!(&input.shape);
+    let _input = input.permute(vec![2, 0, 1]);
     todo!();
 }

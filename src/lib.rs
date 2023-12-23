@@ -393,8 +393,7 @@ impl Tensor {
         let data: Vec<f64> = img
             .to_rgb8()
             .pixels()
-            .map(|p| p.0.map(|x| x as f64))
-            .flatten()
+            .flat_map(|p| p.0.map(|x| x as f64))
             .collect_vec();
 
         Tensor::new(data, shape)
@@ -748,6 +747,39 @@ impl Tensor {
         new_shape.push(last_dim);
 
         self.reshape(new_shape)
+    }
+
+    pub fn permute(&self, dims: Vec<usize>) -> Tensor {
+        let new_shape: Vec<usize> = dims.iter().map(|&d| self.shape[d]).collect();
+        let mut new_data = vec![0.0; self.data.len()];
+
+        // Permute the data
+        for i in 0..self.data.len() {
+            let mut temp_index = i;
+            let mut multi_dim_index = Vec::new();
+            for &size in self.shape.iter().rev() {
+                multi_dim_index.push(temp_index % size);
+                temp_index /= size;
+            }
+            multi_dim_index.reverse();
+
+            let mut new_multi_dim_index: Vec<usize> = vec![0; dims.len()];
+            for (new_i, &old_i) in dims.iter().enumerate() {
+                new_multi_dim_index[new_i] = multi_dim_index[old_i];
+            }
+
+            let mut new_index = 0;
+            let mut stride = 1;
+            for (&size, &index) in new_shape.iter().rev().zip(new_multi_dim_index.iter().rev()) {
+                new_index += index * stride;
+                stride *= size;
+            }
+
+            // Place the original data into its new position
+            new_data[new_index] = self.data[i];
+        }
+
+        Tensor::new(new_data, new_shape)
     }
 }
 
@@ -1553,5 +1585,25 @@ mod tests {
             vec![8., 6., 6., 8., 9., 7., 7., 9., 8., 6., 6., 8., 9., 7., 7., 9.]
         );
         assert_eq!(output.shape, vec![4, 4]);
+    }
+    #[test]
+    fn test_permute() {
+        let input = Tensor::new(
+            vec![
+                1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0,
+                16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0, 24.0,
+            ],
+            vec![2, 3, 4],
+        );
+
+        let result = input.permute(vec![1, 2, 0]);
+        assert_eq!(
+            result.data,
+            vec![
+                1.0, 13.0, 2.0, 14.0, 3.0, 15.0, 4.0, 16.0, 5.0, 17.0, 6.0, 18.0, 7.0, 19.0, 8.0,
+                20.0, 9.0, 21.0, 10.0, 22.0, 11.0, 23.0, 12.0, 24.0
+            ]
+        );
+        assert_eq!(result.shape, vec![3, 4, 2]);
     }
 }
