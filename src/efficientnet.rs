@@ -1,6 +1,6 @@
 // https://github.com/lukemelas/EfficientNet-PyTorch/blob/master/efficientnet_pytorch/model.py
 
-use crate::Tensor;
+use crate::{batch_norm::BatchNorm2dBuilder, util, Tensor};
 
 pub static MODEL_URLS: [&str; 8] = [
       "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b0-355c32eb.pth", "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b1-f1951068.pth",
@@ -76,26 +76,34 @@ impl BlockArgs {
 }
 
 pub struct Efficientnet {
+    number: usize,
     pub global_params: GlobalParams,
     pub blocks_args: Vec<BlockArgs>,
 }
 
 impl Default for Efficientnet {
     fn default() -> Self {
-        let global_params = get_global_params(0);
+        let number = 0;
+        let global_params = get_global_params(number);
         let blocks_args = BLOCKS_ARGS.map(BlockArgs::from_tuple).to_vec();
 
         let out_channels = round_filters(32., global_params.width_coefficient);
         // NOTE: are we using the correct arguments?
         let _conv_stem = Tensor::glorot_uniform(3, out_channels, vec![3, 3]);
-        //let _bn0 = BatchNorm2d::new(out_channels);
-
-        dbg!("TODO: https://github.com/lukemelas/EfficientNet-PyTorch/blob/master/efficientnet_pytorch/model.py#L183");
+        let _bn0 = BatchNorm2dBuilder::new(out_channels).build();
 
         Self {
+            number,
             global_params,
             blocks_args,
         }
+    }
+}
+
+impl Efficientnet {
+    pub fn load_from_pretrained(&mut self) {
+        let _model_data = util::load_torch_model(MODEL_URLS[self.number]).unwrap();
+        todo!();
     }
 }
 

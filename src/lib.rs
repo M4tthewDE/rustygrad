@@ -1,5 +1,6 @@
 use std::{cmp, iter::zip, ops};
 
+use image::DynamicImage;
 use itertools::{EitherOrBoth, Itertools};
 use rand::distributions::{Distribution, Uniform};
 
@@ -385,6 +386,18 @@ impl Tensor {
 
     pub fn ones(size: usize) -> Tensor {
         Tensor::from_vec(vec![1.0; size])
+    }
+
+    pub fn from_image(img: DynamicImage) -> Tensor {
+        let shape = vec![1, img.width() as usize, img.height() as usize, 3];
+        let data: Vec<f64> = img
+            .to_rgb8()
+            .pixels()
+            .map(|p| p.0.map(|x| x as f64))
+            .flatten()
+            .collect_vec();
+
+        Tensor::new(data, shape)
     }
 
     pub fn new(data: Vec<f64>, shape: Vec<usize>) -> Tensor {
