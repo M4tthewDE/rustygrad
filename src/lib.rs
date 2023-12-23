@@ -493,6 +493,7 @@ impl Tensor {
         padding: Option<(f64, usize)>,
         stride: Option<usize>,
     ) -> Tensor {
+        assert_eq!(self.shape.len(), 2, "only supporting 2d tensors");
         if let Some((padding_value, padding_size)) = padding {
             return self
                 .pad2d(padding_value, padding_size)
@@ -504,17 +505,18 @@ impl Tensor {
         let (height, width) = (self.shape[0], self.shape[1]);
         let (kernel_height, kernel_width) = (kernel.shape[0], kernel.shape[1]);
 
-        let output_height = (height - kernel_height) / stride + 1;
-        let output_width = (width - kernel_width) / stride + 1;
+        let output_height = ((height - kernel_height) / stride) + 1;
+        let output_width = ((width - kernel_width) / stride) + 1;
 
         let mut output_data = Vec::new();
         for i in 0..output_height {
             for j in 0..output_width {
                 let patch: Vec<Vec<f64>> = (0..kernel_height)
                     .map(|k| {
-                        (i * height + j + k * height)..(i * height + kernel_width + j + k * height)
+                        let row_start = (i * stride + k) * width + j * stride;
+                        let row_end = row_start + kernel_width;
+                        self.data[row_start..row_end].to_vec()
                     })
-                    .map(|range| self.data[range.clone()].to_vec())
                     .collect();
 
                 let mut value = 0.0;
@@ -545,7 +547,6 @@ impl Tensor {
             for j in 0..output_width {
                 let patch: Vec<Vec<f64>> = (0..kernel_height)
                     .map(|k| {
-                        // Calculate the start and end of the row for the patch
                         let row_start = (i * stride + k) * width + j * stride;
                         let row_end = row_start + kernel_width;
                         self.data[row_start..row_end].to_vec()
@@ -951,8 +952,8 @@ mod tests {
         assert_eq!(
             output.data,
             vec![
-                23., 22., //
-                31., 26., //
+                23., 18., //
+                18., 21., //
             ]
         );
         assert_eq!(output.shape, vec![2, 2]);
