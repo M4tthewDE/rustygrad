@@ -440,6 +440,7 @@ impl Tensor {
         correction: Option<f64>,
     ) -> Tensor {
         let correction = correction.unwrap_or(0.0);
+
         if let Some(dims) = dims {
             let mut divisor = 1.0;
             for dim in &dims {
@@ -448,31 +449,21 @@ impl Tensor {
 
             divisor -= correction;
 
-            let sum = self.clone().reduce_sum(Some(dims.clone()));
-            let mut result = sum.clone() / divisor.max(1.0);
-
-            if keepdim {
-                result.shape = self.shape.clone();
-                for dim in dims {
-                    result.shape[dim] = 1;
-                }
-            }
-
-            result
+            let sum = self.clone().reduce_sum(Some(dims.clone()), keepdim);
+            sum.clone() / divisor.max(1.0)
         } else {
-            self.clone().reduce_sum(None) / (self.data.len() as f64 - correction).max(1.0)
+            self.clone().reduce_sum(None, keepdim) / (self.data.len() as f64 - correction).max(1.0)
         }
     }
 
-    // TODO: add keepdim option
-    pub fn reduce_sum(self, dims: Option<Vec<usize>>) -> Tensor {
+    pub fn reduce_sum(self, dims: Option<Vec<usize>>, keepdim: bool) -> Tensor {
         if let Some(dims) = dims {
-            let mut new_shape = self.shape.clone();
+            let mut reduced_shape = self.shape.clone();
             for (i, dim) in dims.iter().enumerate() {
-                new_shape.remove(*dim - i);
+                reduced_shape.remove(*dim - i);
             }
 
-            let mut result: Vec<f64> = vec![0.; new_shape.iter().product()];
+            let mut result: Vec<f64> = vec![0.; reduced_shape.iter().product()];
 
             for (i, elem) in self.data.iter().enumerate() {
                 let mut shape_pos: Vec<usize> = Vec::new();
@@ -488,8 +479,8 @@ impl Tensor {
                 }
 
                 let mut index = 0;
-                for (j, dim) in new_shape.iter().rev().enumerate() {
-                    if j == new_shape.len() - 1 {
+                for (j, dim) in reduced_shape.iter().rev().enumerate() {
+                    if j == reduced_shape.len() - 1 {
                         index += shape_pos[j];
                     } else {
                         index += shape_pos[j] * dim;
@@ -498,6 +489,17 @@ impl Tensor {
 
                 *result.get_mut(index).unwrap() += elem;
             }
+
+            let new_shape = if keepdim {
+                let mut new_shape = self.shape.clone();
+                for dim in dims {
+                    new_shape[dim] = 1;
+                }
+
+                new_shape
+            } else {
+                reduced_shape
+            };
 
             Tensor::new(result, new_shape)
         } else {
@@ -979,7 +981,7 @@ mod tests {
             vec![2, 3],
         );
 
-        let sum = input.reduce_sum(None);
+        let sum = input.reduce_sum(None, false);
 
         assert_eq!(sum.data, vec![6.0]);
         assert_eq!(sum.shape, vec![1]);
@@ -995,7 +997,7 @@ mod tests {
             vec![2, 3],
         );
 
-        let sum = input.reduce_sum(Some(vec![0]));
+        let sum = input.reduce_sum(Some(vec![0]), false);
 
         assert_eq!(sum.data, vec![5.0, 7.0, 9.0]);
         assert_eq!(sum.shape, vec![3]);
@@ -1011,7 +1013,7 @@ mod tests {
             vec![2, 3],
         );
 
-        let sum = input.reduce_sum(Some(vec![1]));
+        let sum = input.reduce_sum(Some(vec![1]), false);
 
         assert_eq!(sum.data, vec![6.0, 15.0]);
         assert_eq!(sum.shape, vec![2]);
@@ -1032,7 +1034,7 @@ mod tests {
             vec![2, 3, 2],
         );
 
-        let sum = input.reduce_sum(Some(vec![0]));
+        let sum = input.reduce_sum(Some(vec![0]), false);
 
         assert_eq!(sum.data, vec![8., 10., 12., 14., 16., 18.]);
         assert_eq!(sum.shape, vec![3, 2]);
@@ -1053,7 +1055,7 @@ mod tests {
             vec![2, 3, 2],
         );
 
-        let sum = input.reduce_sum(Some(vec![1]));
+        let sum = input.reduce_sum(Some(vec![1]), false);
 
         assert_eq!(sum.data, vec![9., 12., 27., 30.0]);
         assert_eq!(sum.shape, vec![2, 2]);
@@ -1062,9 +1064,18 @@ mod tests {
     #[test]
     fn reduce_sum_multiple_axis() {
         let input = Tensor::new(INPUT.to_vec(), vec![2, 4, 3, 3]);
-        let sum = input.reduce_sum(Some(vec![0, 2, 3]));
+        let sum = input.reduce_sum(Some(vec![0, 2, 3]), false);
 
         assert_eq!(sum.shape, vec![4]);
+        assert_aprox_eq_vec(sum.data, vec![7.811266, 8.121426, 9.656502, 8.996777], 1e-6);
+    }
+
+    #[test]
+    fn reduce_sum_multiple_axis_keepdim() {
+        let input = Tensor::new(INPUT.to_vec(), vec![2, 4, 3, 3]);
+        let sum = input.reduce_sum(Some(vec![0, 2, 3]), true);
+
+        assert_eq!(sum.shape, vec![1, 4, 1, 1]);
         assert_aprox_eq_vec(sum.data, vec![7.811266, 8.121426, 9.656502, 8.996777], 1e-6);
     }
 
@@ -1083,7 +1094,7 @@ mod tests {
             vec![2, 3, 2],
         );
 
-        let sum = input.reduce_sum(Some(vec![2]));
+        let sum = input.reduce_sum(Some(vec![2]), false);
 
         assert_eq!(sum.data, vec![3., 7., 11., 15., 19., 23.]);
         assert_eq!(sum.shape, vec![2, 3]);
@@ -1100,7 +1111,7 @@ mod tests {
             vec![3, 3],
         );
 
-        let mean = input.reduce_sum(Some(vec![0]));
+        let mean = input.reduce_sum(Some(vec![0]), false);
 
         assert_eq!(mean.data, vec![4., 7., 6.]);
         assert_eq!(mean.shape, vec![3]);
@@ -1117,7 +1128,7 @@ mod tests {
             vec![3, 3],
         );
 
-        let sum = input.reduce_sum(Some(vec![1]));
+        let sum = input.reduce_sum(Some(vec![1]), false);
 
         assert_eq!(sum.data, vec![6., 7., 4.]);
         assert_eq!(sum.shape, vec![3]);
@@ -1159,7 +1170,7 @@ mod tests {
             vec![2, 3, 2],
         );
 
-        let sum = input.reduce_sum(Some(vec![0, 1]));
+        let sum = input.reduce_sum(Some(vec![0, 1]), false);
 
         assert_eq!(sum.data, vec![36., 42.]);
         assert_eq!(sum.shape, vec![2]);
