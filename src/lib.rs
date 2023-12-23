@@ -505,14 +505,14 @@ impl Tensor {
         padding: Option<Vec<usize>>,
         stride: Option<usize>,
     ) -> Tensor {
-        assert_eq!(self.shape.len(), 2, "only supporting 2d tensors");
+        assert_eq!(self.shape.len(), 4, "only supporting 4d tensors");
         if let Some(padding) = padding {
             self = self.pad(0.0, padding);
         }
 
         let stride = stride.unwrap_or(1);
 
-        let (height, width) = (self.shape[0], self.shape[1]);
+        let (height, width) = (self.shape[2], self.shape[3]);
         let (kernel_height, kernel_width) = (kernel.shape[0], kernel.shape[1]);
 
         let output_height = ((height - kernel_height) / stride) + 1;
@@ -945,7 +945,7 @@ mod tests {
                 2., 1., 1., 3., //
                 3., 2., 3., 3., //
             ],
-            vec![4, 4],
+            vec![1, 1, 4, 4],
         );
         let kernel = Tensor::new(
             vec![
@@ -970,7 +970,7 @@ mod tests {
                 2., 1., 1., 3., //
                 3., 2., 3., 3., //
             ],
-            vec![4, 4],
+            vec![1, 1, 4, 4],
         );
         let kernel = Tensor::new(
             vec![
@@ -980,7 +980,7 @@ mod tests {
             ],
             vec![3, 3],
         );
-        let output = input.conv2d(kernel, Some(vec![1, 1]), None);
+        let output = input.conv2d(kernel, Some(vec![0, 0, 1, 1]), None);
 
         assert_eq!(
             output.data,
@@ -1004,7 +1004,7 @@ mod tests {
                 3., 2., 3., 3., 2., //
                 2., 3., 1., 2., 2., //
             ],
-            vec![5, 5],
+            vec![1, 1, 5, 5],
         );
         let kernel = Tensor::new(
             vec![
