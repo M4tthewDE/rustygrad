@@ -93,8 +93,6 @@ impl Default for Efficientnet {
         let blocks_args = BLOCKS_ARGS.map(BlockArgs::from_tuple).to_vec();
 
         let out_channels = round_filters(32., global_params.width_coefficient);
-        // FIXME: out_channels differ from tinygrad implementation!
-        // NOTE: are we using the correct arguments?
         let conv_stem = Tensor::glorot_uniform(3, out_channels, vec![3, 3]);
         let bn0 = BatchNorm2dBuilder::new(out_channels).build();
 
@@ -146,7 +144,7 @@ fn round_filters(mut filters: f64, multiplier: f64) -> usize {
 
     let mut new_filters = f64::max(
         divisor,
-        ((filters + divisor / 2.) / (divisor * divisor)).floor(),
+        ((filters + divisor / 2.) / divisor).floor() * divisor,
     );
 
     if new_filters < 0.9 * filters {
