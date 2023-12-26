@@ -316,7 +316,6 @@ impl Tensor {
         let output_height = ((height - kernel_height) / stride) + 1;
         let output_width = ((width - kernel_width) / stride) + 1;
 
-        // FIXME: what is this abomination
         let mut output_data = Vec::new();
         for n_index in 0..n {
             for c_out_index in 0..c_out {
@@ -759,7 +758,7 @@ mod tests {
     fn conv2d_4d() {
         let input = Tensor::rand(vec![1, 3, 224, 224]);
         let kernel = Tensor::rand(vec![32, 3, 3, 3]);
-        let output = input.conv2d(kernel, Some(vec![0, 1, 0, 1]), Some(2));
+        let output = input.conv2d(kernel, Some(vec![0, 0, 1, 1]), Some(2));
 
         assert_eq!(output.shape, vec![1, 32, 112, 112]);
     }
