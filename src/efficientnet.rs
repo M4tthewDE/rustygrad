@@ -215,13 +215,18 @@ pub struct Efficientnet {
     pub blocks_args: Vec<BlockArgs>,
     pub blocks: Vec<Box<dyn Callable>>,
     conv_stem: Tensor,
+    conv_head: Tensor,
     bn0: BatchNorm2d,
+    bn1: BatchNorm2d,
+    fc: Tensor,
+    fc_bias: Tensor,
 }
 
 impl Default for Efficientnet {
     fn default() -> Self {
         let number = 0;
         let input_channels = 3;
+        let classes = 1000;
         let global_params = get_global_params(number);
         let blocks_args = BLOCKS_ARGS.map(BlockArgs::from_tuple).to_vec();
 
@@ -260,12 +265,23 @@ impl Default for Efficientnet {
             }
         }
 
+        let in_channels = round_filters(320.0, global_params.width_coefficient);
+        let out_channels = round_filters(1280.0, global_params.width_coefficient);
+        let conv_head = Tensor::glorot_uniform(vec![out_channels, in_channels, 1, 1]);
+        let bn1 = BatchNorm2dBuilder::new(out_channels).build();
+        let fc = Tensor::glorot_uniform(vec![out_channels, classes]);
+        let fc_bias = Tensor::zeros(classes);
+
         Self {
             global_params,
             blocks_args,
             blocks,
             conv_stem,
+            conv_head,
             bn0,
+            bn1,
+            fc,
+            fc_bias,
         }
     }
 }
@@ -276,8 +292,8 @@ impl Efficientnet {
         // TODO: use the data
     }
 
-    pub fn forward(&mut self, x: Tensor) {
-        let x = self
+    pub fn forward(&mut self, x: Tensor) -> Tensor {
+        let mut x = self
             .bn0
             .forward(
                 x.conv2d(
@@ -291,8 +307,14 @@ impl Efficientnet {
             )
             .swish();
 
-        let _x = x.sequential(&self.blocks);
-        todo!("remaining forward pass");
+        x = x.sequential(&self.blocks);
+        x = self
+            .bn1
+            .clone()
+            .forward(x.conv2d(&self.conv_head, None, None, None, None), false);
+        x = x.avg_pool2d((x.shape[2], x.shape[3]), None);
+        x = x.reshape(vec![1, x.shape[1]]);
+        x.linear(&self.fc, &self.fc_bias, None)
     }
 }
 
