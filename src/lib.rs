@@ -309,6 +309,19 @@ impl Tensor {
         }
 
         let strides = strides.unwrap_or((1, 1));
+        let groups = groups.unwrap_or(1);
+
+        dbg!(&self.shape, groups);
+        assert_eq!(
+            self.shape[1] % groups,
+            0,
+            "input channels must be divisible by groups"
+        );
+        assert_eq!(
+            kernel.shape[0] % groups,
+            0,
+            "output channels must be divisible by groups"
+        );
 
         let (n, c_in, height, width) = (self.shape[0], self.shape[1], self.shape[2], self.shape[3]);
         let (c_out, kernel_height, kernel_width) =
@@ -317,29 +330,34 @@ impl Tensor {
         let output_height = ((height - kernel_height) / strides.0) + 1;
         let output_width = ((width - kernel_width) / strides.1) + 1;
 
+        let c_in_per_group = c_in / groups;
+        let c_out_per_group = c_out / groups;
+
         let mut output_data = Vec::new();
         for n_index in 0..n {
-            for c_out_index in 0..c_out {
-                for i in 0..output_height {
-                    for j in 0..output_width {
-                        let mut value = 0.0;
-                        for c_in_index in 0..c_in {
-                            for k_row in 0..kernel_height {
-                                for k_col in 0..kernel_width {
-                                    let row = i * strides.0 + k_row;
-                                    let col = j * strides.1 + k_col;
-                                    value += self.data
-                                        [self.index_4d_to_1d(n_index, c_in_index, row, col)]
-                                        * kernel.data[kernel.index_4d_to_1d(
-                                            c_out_index,
-                                            c_in_index,
-                                            k_row,
-                                            k_col,
-                                        )];
+            for g in 0..groups {
+                for c_out_index in (g * c_out_per_group)..((g + 1) * c_out_per_group) {
+                    for i in 0..output_height {
+                        for j in 0..output_width {
+                            let mut value = 0.0;
+                            for c_in_index in (g * c_in_per_group)..((g + 1) * c_in_per_group) {
+                                for k_row in 0..kernel_height {
+                                    for k_col in 0..kernel_width {
+                                        let row = i * strides.0 + k_row;
+                                        let col = j * strides.1 + k_col;
+                                        value += self.data
+                                            [self.index_4d_to_1d(n_index, c_in_index, row, col)]
+                                            * kernel.data[kernel.index_4d_to_1d(
+                                                c_out_index - (g * c_out_per_group), // adjust for group offset
+                                                c_in_index - (g * c_in_per_group), // adjust for group offset
+                                                k_row,
+                                                k_col,
+                                            )];
+                                    }
                                 }
                             }
+                            output_data.push(value);
                         }
-                        output_data.push(value);
                     }
                 }
             }

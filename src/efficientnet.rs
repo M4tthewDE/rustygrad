@@ -154,6 +154,7 @@ impl MBConvBlock {
 
 impl Callable for MBConvBlock {
     fn call(&self, mut x: Tensor) -> Tensor {
+        // FIXME: this shape is off!
         if let Some(expand_conv) = &self.expand_conv {
             x = self
                 .bn0
@@ -169,6 +170,7 @@ impl Callable for MBConvBlock {
             Some(self.strides),
             Some(self.depthwise_conv.shape[0]),
         );
+        self.bn1.clone().forward(x, false).swish();
         todo!("MBConvBLock")
     }
 }
