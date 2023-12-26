@@ -180,6 +180,14 @@ impl Callable for MBConvBlock {
                 None,
             )
             .swish();
+        x_squeezed = x_squeezed.conv2d(
+            &self.se_expand,
+            Some(&self.se_expand_bias),
+            None,
+            None,
+            None,
+        );
+        x = x * x_squeezed.sigmoid();
 
         todo!("MBConvBLock")
     }

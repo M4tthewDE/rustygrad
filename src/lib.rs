@@ -680,6 +680,13 @@ impl Tensor {
 
         x
     }
+
+    pub fn sigmoid(&self) -> Tensor {
+        Tensor::new(
+            self.data.iter().map(|x| 1.0 / (1.0 + E.powf(-x))).collect(),
+            self.shape.clone(),
+        )
+    }
 }
 
 pub trait Callable {
@@ -1591,5 +1598,23 @@ mod tests {
             ]
         );
         assert_eq!(result.shape, vec![6]);
+    }
+
+    #[test]
+    fn test_sigmoid() {
+        let input = Tensor::from_vec(vec![
+            0.3841006458,
+            0.5181258917,
+            -0.5540073514,
+            -0.4315102994,
+        ]);
+        let result = input.sigmoid();
+
+        assert_aprox_eq_vec(
+            result.data,
+            vec![0.5948617458, 0.6267094612, 0.3649351895, 0.3937657773],
+            1e-6,
+        );
+        assert_eq!(input.shape, vec![4]);
     }
 }
