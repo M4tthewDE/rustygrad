@@ -296,7 +296,7 @@ impl Tensor {
 
     pub fn conv2d(
         mut self,
-        kernel: Tensor,
+        kernel: &Tensor,
         padding: Option<Vec<usize>>,
         stride: Option<usize>,
     ) -> Tensor {
@@ -748,7 +748,7 @@ mod tests {
             ],
             vec![1, 1, 3, 3],
         );
-        let output = input.conv2d(kernel, None, None);
+        let output = input.conv2d(&kernel, None, None);
 
         assert_eq!(output.data, vec![23., 22., 31., 26.]);
         assert_eq!(output.shape, vec![1, 1, 2, 2]);
@@ -758,7 +758,7 @@ mod tests {
     fn conv2d_4d() {
         let input = Tensor::rand(vec![1, 3, 224, 224]);
         let kernel = Tensor::rand(vec![32, 3, 3, 3]);
-        let output = input.conv2d(kernel, Some(vec![0, 0, 1, 1]), Some(2));
+        let output = input.conv2d(&kernel, Some(vec![0, 0, 1, 1]), Some(2));
 
         assert_eq!(output.shape, vec![1, 32, 112, 112]);
     }
@@ -782,7 +782,7 @@ mod tests {
             ],
             vec![1, 1, 3, 3],
         );
-        let output = input.conv2d(kernel, Some(vec![0, 0, 1, 1]), None);
+        let output = input.conv2d(&kernel, Some(vec![0, 0, 1, 1]), None);
 
         assert_eq!(
             output.data,
@@ -816,7 +816,7 @@ mod tests {
             ],
             vec![1, 1, 3, 3],
         );
-        let output = input.conv2d(kernel, None, Some(2));
+        let output = input.conv2d(&kernel, None, Some(2));
 
         assert_eq!(
             output.data,

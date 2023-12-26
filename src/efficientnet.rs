@@ -111,11 +111,14 @@ impl Efficientnet {
         // TODO: use the data
     }
 
-    // FIXME: _conv is 0
     pub fn forward(&mut self, x: Tensor) {
-        let _conv = x.conv2d(self.conv_stem.clone(), Some(vec![0, 0, 1, 1]), Some(2));
-        dbg!(&_conv.shape);
-        let _x = self.bn0.forward(_conv, false).swish();
+        let _x = self
+            .bn0
+            .forward(
+                x.conv2d(&self.conv_stem, Some(vec![0, 0, 1, 1]), Some(2)),
+                false,
+            )
+            .swish();
         todo!()
     }
 }
