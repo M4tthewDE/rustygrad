@@ -26,16 +26,16 @@ static PARAMS: [(f64, f64, i64, f64); 8] = [
     (2.0, 3.1, 600, 0.5),
 ];
 
-type BlockArgsTuple = (usize, usize, usize, usize, usize, usize, f64, bool);
+type BlockArgsTuple = (usize, usize, [usize; 2], usize, usize, usize, f64, bool);
 
 static BLOCKS_ARGS: [BlockArgsTuple; 7] = [
-    (1, 3, 11, 1, 32, 16, 0.25, true),
-    (2, 3, 22, 6, 16, 24, 0.25, true),
-    (2, 5, 22, 6, 24, 40, 0.25, true),
-    (3, 3, 22, 6, 40, 80, 0.25, true),
-    (3, 5, 11, 6, 80, 112, 0.25, true),
-    (4, 5, 22, 6, 112, 192, 0.25, true),
-    (1, 3, 11, 6, 192, 320, 0.25, true),
+    (1, 3, [1, 1], 1, 32, 16, 0.25, true),
+    (2, 3, [2, 2], 6, 16, 24, 0.25, true),
+    (2, 5, [2, 2], 6, 24, 40, 0.25, true),
+    (3, 3, [2, 2], 6, 40, 80, 0.25, true),
+    (3, 5, [1, 1], 6, 80, 112, 0.25, true),
+    (4, 5, [2, 2], 6, 112, 192, 0.25, true),
+    (1, 3, [1, 1], 6, 192, 320, 0.25, true),
 ];
 
 pub struct GlobalParams {
@@ -55,7 +55,7 @@ pub struct GlobalParams {
 pub struct BlockArgs {
     pub num_repeat: usize,
     pub kernel_size: usize,
-    pub stride: usize,
+    pub stride: [usize; 2],
     pub expand_ratio: usize,
     pub input_filters: usize,
     pub output_filters: usize,
@@ -78,9 +78,20 @@ impl BlockArgs {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct MBConvBlock {
+    pub kernel_size: usize,
+    pub strides: [usize; 2],
+    pub expand_ratio: usize,
+    pub input_filters: usize,
+    pub output_filters: usize,
+    pub se_ratio: f64,
+}
+
 pub struct Efficientnet {
     pub global_params: GlobalParams,
     pub blocks_args: Vec<BlockArgs>,
+    pub blocks: Vec<MBConvBlock>,
     conv_stem: Tensor,
     bn0: BatchNorm2d,
 }
@@ -96,9 +107,41 @@ impl Default for Efficientnet {
         let conv_stem = Tensor::glorot_uniform(vec![out_channels, input_channels, 3, 3]);
         let bn0 = BatchNorm2dBuilder::new(out_channels).build();
 
+        let mut blocks = Vec::new();
+        for block_arg in &blocks_args {
+            let filters = (
+                round_filters(
+                    block_arg.input_filters as f64,
+                    global_params.width_coefficient,
+                ),
+                round_filters(
+                    block_arg.output_filters as f64,
+                    global_params.width_coefficient,
+                ),
+            );
+
+            let mut input_filters = filters.0;
+
+            let mut strides = block_arg.stride;
+            for _ in 0..round_repeats(block_arg.num_repeat, global_params.depth_coefficient) {
+                blocks.push(MBConvBlock {
+                    kernel_size: block_arg.kernel_size,
+                    strides,
+                    expand_ratio: block_arg.expand_ratio,
+                    input_filters,
+                    output_filters: filters.1,
+                    se_ratio: block_arg.se_ratio,
+                });
+
+                strides = [1, 1];
+                input_filters = filters.1;
+            }
+        }
+
         Self {
             global_params,
             blocks_args,
+            blocks,
             conv_stem,
             bn0,
         }
@@ -119,7 +162,7 @@ impl Efficientnet {
                 false,
             )
             .swish();
-        todo!()
+        todo!("x.sequential(self._blocks)")
     }
 }
 
@@ -154,4 +197,8 @@ fn round_filters(mut filters: f64, multiplier: f64) -> usize {
     }
 
     new_filters as usize
+}
+
+fn round_repeats(repeats: usize, depth_coefficient: f64) -> usize {
+    (depth_coefficient * repeats as f64).ceil() as usize
 }
