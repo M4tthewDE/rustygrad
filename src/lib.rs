@@ -288,6 +288,12 @@ impl Tensor {
         }
     }
 
+    fn index_4d_to_1d(&self, n: usize, c: usize, h: usize, w: usize) -> usize {
+        let (height, width) = (self.shape[2], self.shape[3]);
+        let channels = self.shape[1];
+        n * (channels * height * width) + c * (height * width) + h * width + w
+    }
+
     pub fn conv2d(
         mut self,
         kernel: Tensor,
@@ -295,40 +301,51 @@ impl Tensor {
         stride: Option<usize>,
     ) -> Tensor {
         assert_eq!(self.shape.len(), 4, "only supporting 4d tensors");
+        assert_eq!(kernel.shape.len(), 4, "only supporting 4d kernels");
+
         if let Some(padding) = padding {
             self = self.pad(0.0, padding);
         }
 
         let stride = stride.unwrap_or(1);
 
-        let (height, width) = (self.shape[2], self.shape[3]);
-        let (kernel_height, kernel_width) = (kernel.shape[0], kernel.shape[1]);
+        let (n, c_in, height, width) = (self.shape[0], self.shape[1], self.shape[2], self.shape[3]);
+        let (c_out, kernel_height, kernel_width) =
+            (kernel.shape[0], kernel.shape[2], kernel.shape[3]);
 
         let output_height = ((height - kernel_height) / stride) + 1;
         let output_width = ((width - kernel_width) / stride) + 1;
 
+        // FIXME: what is this abomination
         let mut output_data = Vec::new();
-        for i in 0..output_height {
-            for j in 0..output_width {
-                let patch: Vec<Vec<f64>> = (0..kernel_height)
-                    .map(|k| {
-                        let row_start = (i * stride + k) * width + j * stride;
-                        let row_end = row_start + kernel_width;
-                        self.data[row_start..row_end].to_vec()
-                    })
-                    .collect();
-
-                let mut value = 0.0;
-                for (y, row) in patch.iter().enumerate() {
-                    for (x, cell) in row.iter().enumerate() {
-                        value += cell * kernel.data[y * kernel_width + x];
+        for n_index in 0..n {
+            for c_out_index in 0..c_out {
+                for i in 0..output_height {
+                    for j in 0..output_width {
+                        let mut value = 0.0;
+                        for c_in_index in 0..c_in {
+                            for k_row in 0..kernel_height {
+                                for k_col in 0..kernel_width {
+                                    let row = i * stride + k_row;
+                                    let col = j * stride + k_col;
+                                    value += self.data
+                                        [self.index_4d_to_1d(n_index, c_in_index, row, col)]
+                                        * kernel.data[kernel.index_4d_to_1d(
+                                            c_out_index,
+                                            c_in_index,
+                                            k_row,
+                                            k_col,
+                                        )];
+                                }
+                            }
+                        }
+                        output_data.push(value);
                     }
                 }
-                output_data.push(value);
             }
         }
 
-        Tensor::new(output_data, vec![output_height, output_width])
+        Tensor::new(output_data, vec![n, c_out, output_height, output_width])
     }
 
     pub fn max_pool2d(&self, kernel_size: usize, stride: Option<usize>) -> Tensor {
@@ -730,12 +747,21 @@ mod tests {
                 0., 1., 0., //
                 2., 1., 2., //
             ],
-            vec![3, 3],
+            vec![1, 1, 3, 3],
         );
         let output = input.conv2d(kernel, None, None);
 
         assert_eq!(output.data, vec![23., 22., 31., 26.]);
-        assert_eq!(output.shape, vec![2, 2]);
+        assert_eq!(output.shape, vec![1, 1, 2, 2]);
+    }
+
+    #[test]
+    fn conv2d_4d() {
+        let input = Tensor::rand(vec![1, 3, 224, 224]);
+        let kernel = Tensor::rand(vec![32, 3, 3, 3]);
+        let output = input.conv2d(kernel, Some(vec![0, 1, 0, 1]), Some(2));
+
+        assert_eq!(output.shape, vec![1, 32, 112, 112]);
     }
 
     #[test]
@@ -755,7 +781,7 @@ mod tests {
                 0., 1., 0., //
                 2., 1., 2., //
             ],
-            vec![3, 3],
+            vec![1, 1, 3, 3],
         );
         let output = input.conv2d(kernel, Some(vec![0, 0, 1, 1]), None);
 
@@ -768,7 +794,7 @@ mod tests {
                 10., 9., 15., 10., //
             ]
         );
-        assert_eq!(output.shape, vec![4, 4]);
+        assert_eq!(output.shape, vec![1, 1, 4, 4]);
     }
 
     #[test]
@@ -789,7 +815,7 @@ mod tests {
                 0., 1., 0., //
                 2., 1., 2., //
             ],
-            vec![3, 3],
+            vec![1, 1, 3, 3],
         );
         let output = input.conv2d(kernel, None, Some(2));
 
@@ -800,7 +826,7 @@ mod tests {
                 18., 21., //
             ]
         );
-        assert_eq!(output.shape, vec![2, 2]);
+        assert_eq!(output.shape, vec![1, 1, 2, 2]);
     }
 
     #[test]
