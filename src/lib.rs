@@ -304,14 +304,7 @@ impl Tensor {
         assert_eq!(self.shape.len(), 4, "only supporting 4d tensors");
         assert_eq!(kernel.shape.len(), 4, "only supporting 4d kernels");
 
-        if let Some(padding) = padding {
-            self = self.pad(0.0, padding);
-        }
-
-        let strides = strides.unwrap_or((1, 1));
         let groups = groups.unwrap_or(1);
-
-        dbg!(&self.shape, groups);
         assert_eq!(
             self.shape[1] % groups,
             0,
@@ -322,6 +315,12 @@ impl Tensor {
             0,
             "output channels must be divisible by groups"
         );
+
+        if let Some(padding) = padding {
+            self = self.pad(0.0, padding);
+        }
+
+        let strides = strides.unwrap_or((1, 1));
 
         let (n, c_in, height, width) = (self.shape[0], self.shape[1], self.shape[2], self.shape[3]);
         let (c_out, kernel_height, kernel_width) =
