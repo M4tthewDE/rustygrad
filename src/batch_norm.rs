@@ -1,6 +1,6 @@
 use crate::Tensor;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BatchNorm2d {
     pub num_features: usize,
     running_mean: Tensor,

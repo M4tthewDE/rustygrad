@@ -80,12 +80,74 @@ impl BlockArgs {
 
 #[derive(Clone, Debug)]
 pub struct MBConvBlock {
-    pub kernel_size: usize,
-    pub strides: [usize; 2],
-    pub expand_ratio: usize,
-    pub input_filters: usize,
-    pub output_filters: usize,
-    pub se_ratio: f64,
+    pub expand_conv: Option<Tensor>,
+    pub bn0: Option<BatchNorm2d>,
+    pub pad: Vec<usize>,
+    pub bn1: BatchNorm2d,
+    pub depthwise_conv: Tensor,
+    pub se_reduce: Tensor,
+    pub se_reduce_bias: Tensor,
+    pub se_expand: Tensor,
+    pub se_expand_bias: Tensor,
+    pub project_conv: Tensor,
+    pub bn2: BatchNorm2d,
+}
+
+impl MBConvBlock {
+    pub fn new(
+        kernel_size: usize,
+        strides: [usize; 2],
+        expand_ratio: usize,
+        input_filters: usize,
+        output_filters: usize,
+        se_ratio: f64,
+    ) -> MBConvBlock {
+        let oup = expand_ratio * input_filters;
+
+        let (expand_conv, bn0) = if expand_ratio != 1 {
+            (
+                Some(Tensor::glorot_uniform(vec![oup, input_filters, 1, 1])),
+                Some(BatchNorm2dBuilder::new(oup).build()),
+            )
+        } else {
+            (None, None)
+        };
+
+        let pad = if strides == [2, 2] {
+            let v0 = ((kernel_size as f64 - 1.0) / 2.0).floor() as usize - 1;
+            let v1 = ((kernel_size as f64 - 1.0) / 2.0).floor() as usize;
+            vec![v0, v1, v0, v1]
+        } else {
+            vec![((kernel_size as f64 - 1.0) / 2.0).floor() as usize; 4]
+        };
+
+        let depthwise_conv = Tensor::glorot_uniform(vec![oup, 1, kernel_size, kernel_size]);
+        let bn1 = BatchNorm2dBuilder::new(oup).build();
+
+        // we always have se!
+        let num_squeezed_channels = ((input_filters as f64 * se_ratio) as usize).max(1);
+        let se_reduce = Tensor::glorot_uniform(vec![num_squeezed_channels, oup, 1, 1]);
+        let se_reduce_bias = Tensor::zeros(num_squeezed_channels);
+        let se_expand = Tensor::glorot_uniform(vec![oup, num_squeezed_channels, 1, 1]);
+        let se_expand_bias = Tensor::zeros(oup);
+
+        let project_conv = Tensor::glorot_uniform(vec![output_filters, oup, 1, 1]);
+        let bn2 = BatchNorm2dBuilder::new(output_filters).build();
+
+        MBConvBlock {
+            expand_conv,
+            bn0,
+            pad,
+            bn1,
+            depthwise_conv,
+            se_reduce,
+            se_reduce_bias,
+            se_expand,
+            se_expand_bias,
+            project_conv,
+            bn2,
+        }
+    }
 }
 
 pub struct Efficientnet {
@@ -124,14 +186,14 @@ impl Default for Efficientnet {
 
             let mut strides = block_arg.stride;
             for _ in 0..round_repeats(block_arg.num_repeat, global_params.depth_coefficient) {
-                blocks.push(MBConvBlock {
-                    kernel_size: block_arg.kernel_size,
+                blocks.push(MBConvBlock::new(
+                    block_arg.kernel_size,
                     strides,
-                    expand_ratio: block_arg.expand_ratio,
+                    block_arg.expand_ratio,
                     input_filters,
-                    output_filters: filters.1,
-                    se_ratio: block_arg.se_ratio,
-                });
+                    filters.1,
+                    block_arg.se_ratio,
+                ));
 
                 strides = [1, 1];
                 input_filters = filters.1;
