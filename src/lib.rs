@@ -398,6 +398,39 @@ impl Tensor {
 
         Tensor::new(output_data, vec![output_height, output_width])
     }
+    pub fn avg_pool2d(&self, kernel_size: (usize, usize), stride: Option<usize>) -> Tensor {
+        assert_eq!(self.shape.len(), 4, "only supporting 4d tensors");
+        let stride = stride.unwrap_or(1);
+
+        let (height, width) = (self.shape[2], self.shape[3]);
+        let (kernel_height, kernel_width) = (kernel_size.0, kernel_size.1);
+
+        let output_height = ((height - kernel_height) / stride) + 1;
+        let output_width = ((width - kernel_width) / stride) + 1;
+
+        let mut output_data = Vec::new();
+        for i in 0..output_height {
+            for j in 0..output_width {
+                let patch: Vec<Vec<f64>> = (0..kernel_height)
+                    .map(|k| {
+                        let row_start = (i * stride + k) * width + j * stride;
+                        let row_end = row_start + kernel_width;
+                        self.data[row_start..row_end].to_vec()
+                    })
+                    .collect();
+
+                let mut value: f64 = 0.0;
+                for (_, row) in patch.iter().enumerate() {
+                    for (_, cell) in row.iter().enumerate() {
+                        value += *cell;
+                    }
+                }
+                output_data.push(value / patch.iter().flatten().count() as f64);
+            }
+        }
+
+        Tensor::new(output_data, vec![output_height, output_width])
+    }
 
     pub fn pad(self, value: f64, dims: Vec<usize>) -> Tensor {
         if dims.len() != self.shape.len() {
@@ -1423,6 +1456,26 @@ mod tests {
         assert_eq!(
             output.data,
             vec![9.0, 7.0, 9.0, 9.0, 7.0, 9.0, 9.0, 7.0, 9.0]
+        );
+        assert_eq!(output.shape, vec![3, 3]);
+    }
+
+    #[test]
+    fn test_avg_pool2d() {
+        let input = Tensor::new(
+            vec![
+                1., 2., 3., 4., //
+                5., 6., 7., 8., //
+                9., 10., 11., 12., //
+                13., 14., 15., 16., //
+            ],
+            vec![1, 1, 4, 4],
+        );
+
+        let output = input.avg_pool2d((2, 2), None);
+        assert_eq!(
+            output.data,
+            vec![3.5, 4.5, 5.5, 7.5, 8.5, 9.5, 11.5, 12.5, 13.5]
         );
         assert_eq!(output.shape, vec![3, 3]);
     }

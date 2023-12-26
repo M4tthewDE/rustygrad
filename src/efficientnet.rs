@@ -162,7 +162,6 @@ impl Callable for MBConvBlock {
                 .forward(x.conv2d(expand_conv, None, None, None), false)
                 .swish();
         }
-
         x = x.conv2d(
             &self.depthwise_conv,
             Some(self.pad.clone()),
@@ -170,6 +169,7 @@ impl Callable for MBConvBlock {
             Some(self.depthwise_conv.shape[0]),
         );
         x = self.bn1.clone().forward(x, false).swish();
+        let x_squeezed = x.avg_pool2d((x.shape[2], x.shape[3]), None);
         todo!("MBConvBLock")
     }
 }
