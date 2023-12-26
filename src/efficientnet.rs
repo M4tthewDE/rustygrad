@@ -2,7 +2,7 @@
 
 use crate::{
     batch_norm::{BatchNorm2d, BatchNorm2dBuilder},
-    util, Tensor,
+    Tensor,
 };
 
 pub static MODEL_URLS: [&str; 8] = [
@@ -79,7 +79,6 @@ impl BlockArgs {
 }
 
 pub struct Efficientnet {
-    number: usize,
     pub global_params: GlobalParams,
     pub blocks_args: Vec<BlockArgs>,
     conv_stem: Tensor,
@@ -89,15 +88,15 @@ pub struct Efficientnet {
 impl Default for Efficientnet {
     fn default() -> Self {
         let number = 0;
+        let input_channels = 3;
         let global_params = get_global_params(number);
         let blocks_args = BLOCKS_ARGS.map(BlockArgs::from_tuple).to_vec();
 
         let out_channels = round_filters(32., global_params.width_coefficient);
-        let conv_stem = Tensor::glorot_uniform(3, out_channels, vec![3, 3]);
+        let conv_stem = Tensor::glorot_uniform(vec![out_channels, input_channels, 3, 3]);
         let bn0 = BatchNorm2dBuilder::new(out_channels).build();
 
         Self {
-            number,
             global_params,
             blocks_args,
             conv_stem,
@@ -108,8 +107,8 @@ impl Default for Efficientnet {
 
 impl Efficientnet {
     pub fn load_from_pretrained(&mut self) {
-        let _model_data = util::load_torch_model(MODEL_URLS[self.number]).unwrap();
-        todo!();
+        //let _model_data = util::load_torch_model(MODEL_URLS[self.number]).unwrap();
+        // TODO: use the data
     }
 
     pub fn forward(&mut self, x: Tensor) {

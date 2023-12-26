@@ -211,8 +211,8 @@ impl Tensor {
         Tensor { data, shape }
     }
 
-    pub fn glorot_uniform(fan_in: usize, fan_out: usize, shape: Vec<usize>) -> Tensor {
-        let limit = (6.0 / (fan_in + fan_out) as f64).sqrt();
+    pub fn glorot_uniform(shape: Vec<usize>) -> Tensor {
+        let limit = (6.0 / (shape[0] + shape[1..].iter().product::<usize>()) as f64).sqrt();
         let data = Uniform::new(0.0, limit)
             .sample_iter(rand::thread_rng())
             .take(shape.iter().product::<usize>())
