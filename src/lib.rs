@@ -297,6 +297,7 @@ impl Tensor {
     pub fn conv2d(
         mut self,
         kernel: &Tensor,
+        bias: Option<&Tensor>,
         padding: Option<Vec<usize>>,
         strides: Option<(usize, usize)>,
         groups: Option<usize>,
@@ -362,7 +363,11 @@ impl Tensor {
             }
         }
 
-        Tensor::new(output_data, vec![n, c_out, output_height, output_width])
+        if let Some(bias) = bias {
+            Tensor::new(output_data, vec![n, c_out, output_height, output_width]) + bias.to_owned()
+        } else {
+            Tensor::new(output_data, vec![n, c_out, output_height, output_width])
+        }
     }
 
     pub fn max_pool2d(&self, kernel_size: usize, stride: Option<usize>) -> Tensor {
@@ -812,9 +817,35 @@ mod tests {
             ],
             vec![1, 1, 3, 3],
         );
-        let output = input.conv2d(&kernel, None, None, None);
+        let output = input.conv2d(&kernel, None, None, None, None);
 
         assert_eq!(output.data, vec![23., 22., 31., 26.]);
+        assert_eq!(output.shape, vec![1, 1, 2, 2]);
+    }
+
+    #[test]
+    fn conv2d_with_bias() {
+        // https://medium.com/apache-mxnet/convolutions-explained-with-ms-excel-465d6649831c
+        let input = Tensor::new(
+            vec![
+                1., 3., 2., 1., //
+                1., 3., 3., 1., //
+                2., 1., 1., 3., //
+                3., 2., 3., 3., //
+            ],
+            vec![1, 1, 4, 4],
+        );
+        let kernel = Tensor::new(
+            vec![
+                1., 2., 3., //
+                0., 1., 0., //
+                2., 1., 2., //
+            ],
+            vec![1, 1, 3, 3],
+        );
+        let output = input.conv2d(&kernel, Some(&Tensor::from_scalar(1.0)), None, None, None);
+
+        assert_eq!(output.data, vec![24., 23., 32., 27.]);
         assert_eq!(output.shape, vec![1, 1, 2, 2]);
     }
 
@@ -822,7 +853,7 @@ mod tests {
     fn conv2d_4d() {
         let input = Tensor::rand(vec![1, 3, 224, 224]);
         let kernel = Tensor::rand(vec![32, 3, 3, 3]);
-        let output = input.conv2d(&kernel, Some(vec![0, 0, 1, 1]), Some((2, 2)), None);
+        let output = input.conv2d(&kernel, None, Some(vec![0, 0, 1, 1]), Some((2, 2)), None);
 
         assert_eq!(output.shape, vec![1, 32, 112, 112]);
     }
@@ -846,7 +877,7 @@ mod tests {
             ],
             vec![1, 1, 3, 3],
         );
-        let output = input.conv2d(&kernel, Some(vec![0, 0, 1, 1]), None, None);
+        let output = input.conv2d(&kernel, None, Some(vec![0, 0, 1, 1]), None, None);
 
         assert_eq!(
             output.data,
@@ -880,7 +911,7 @@ mod tests {
             ],
             vec![1, 1, 3, 3],
         );
-        let output = input.conv2d(&kernel, None, Some((2, 2)), None);
+        let output = input.conv2d(&kernel, None, None, Some((2, 2)), None);
 
         assert_eq!(
             output.data,
