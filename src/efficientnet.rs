@@ -2,7 +2,7 @@
 
 use crate::{
     batch_norm::{BatchNorm2d, BatchNorm2dBuilder},
-    Tensor,
+    Callable, Tensor,
 };
 
 pub static MODEL_URLS: [&str; 8] = [
@@ -150,10 +150,16 @@ impl MBConvBlock {
     }
 }
 
+impl Callable for MBConvBlock {
+    fn call(&self, _x: Tensor) -> Tensor {
+        todo!("MBConvBLock")
+    }
+}
+
 pub struct Efficientnet {
     pub global_params: GlobalParams,
     pub blocks_args: Vec<BlockArgs>,
-    pub blocks: Vec<MBConvBlock>,
+    pub blocks: Vec<Box<dyn Callable>>,
     conv_stem: Tensor,
     bn0: BatchNorm2d,
 }
@@ -169,7 +175,7 @@ impl Default for Efficientnet {
         let conv_stem = Tensor::glorot_uniform(vec![out_channels, input_channels, 3, 3]);
         let bn0 = BatchNorm2dBuilder::new(out_channels).build();
 
-        let mut blocks = Vec::new();
+        let mut blocks: Vec<Box<dyn Callable>> = Vec::new();
         for block_arg in &blocks_args {
             let filters = (
                 round_filters(
@@ -186,14 +192,14 @@ impl Default for Efficientnet {
 
             let mut strides = block_arg.stride;
             for _ in 0..round_repeats(block_arg.num_repeat, global_params.depth_coefficient) {
-                blocks.push(MBConvBlock::new(
+                blocks.push(Box::new(MBConvBlock::new(
                     block_arg.kernel_size,
                     strides,
                     block_arg.expand_ratio,
                     input_filters,
                     filters.1,
                     block_arg.se_ratio,
-                ));
+                )));
 
                 strides = [1, 1];
                 input_filters = filters.1;
@@ -217,13 +223,15 @@ impl Efficientnet {
     }
 
     pub fn forward(&mut self, x: Tensor) {
-        let _x = self
+        let x = self
             .bn0
             .forward(
                 x.conv2d(&self.conv_stem, Some(vec![0, 0, 1, 1]), Some(2)),
                 false,
             )
             .swish();
+
+        let _x = x.sequential(&self.blocks);
         todo!("x.sequential(self._blocks)")
     }
 }

@@ -596,6 +596,19 @@ impl Tensor {
             self.shape.clone(),
         )
     }
+
+    pub fn sequential(&self, callables: &Vec<Box<dyn Callable>>) -> Tensor {
+        let mut x = self.clone();
+        for callable in callables {
+            x = callable.call(x);
+        }
+
+        x
+    }
+}
+
+pub trait Callable {
+    fn call(&self, x: Tensor) -> Tensor;
 }
 
 #[cfg(test)]
