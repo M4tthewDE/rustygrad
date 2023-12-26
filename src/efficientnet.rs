@@ -128,9 +128,12 @@ impl MBConvBlock {
         // we always have se!
         let num_squeezed_channels = ((input_filters as f64 * se_ratio) as usize).max(1);
         let se_reduce = Tensor::glorot_uniform(vec![num_squeezed_channels, oup, 1, 1]);
-        let se_reduce_bias = Tensor::zeros(num_squeezed_channels);
+        let se_reduce_bias = Tensor::new(
+            vec![0.0; num_squeezed_channels],
+            vec![1, num_squeezed_channels, 1, 1],
+        );
         let se_expand = Tensor::glorot_uniform(vec![oup, num_squeezed_channels, 1, 1]);
-        let se_expand_bias = Tensor::zeros(oup);
+        let se_expand_bias = Tensor::new(vec![0.0; oup], vec![1, oup, 1, 1]);
 
         let project_conv = Tensor::glorot_uniform(vec![output_filters, oup, 1, 1]);
         let bn2 = BatchNorm2dBuilder::new(output_filters).build();
@@ -153,7 +156,8 @@ impl MBConvBlock {
 }
 
 impl Callable for MBConvBlock {
-    fn call(&self, mut x: Tensor) -> Tensor {
+    fn call(&self, input: Tensor) -> Tensor {
+        let mut x = input.clone();
         if let Some(expand_conv) = &self.expand_conv {
             x = self
                 .bn0
@@ -162,6 +166,7 @@ impl Callable for MBConvBlock {
                 .forward(x.conv2d(expand_conv, None, None, None, None), false)
                 .swish();
         }
+
         x = x.conv2d(
             &self.depthwise_conv,
             None,
@@ -169,7 +174,9 @@ impl Callable for MBConvBlock {
             Some(self.strides),
             Some(self.depthwise_conv.shape[0]),
         );
+
         x = self.bn1.clone().forward(x, false).swish();
+
         let mut x_squeezed = x.avg_pool2d((x.shape[2], x.shape[3]), None);
         x_squeezed = x_squeezed
             .conv2d(
@@ -180,6 +187,7 @@ impl Callable for MBConvBlock {
                 None,
             )
             .swish();
+
         x_squeezed = x_squeezed.conv2d(
             &self.se_expand,
             Some(&self.se_expand_bias),
@@ -187,9 +195,18 @@ impl Callable for MBConvBlock {
             None,
             None,
         );
-        x = x * x_squeezed.sigmoid();
 
-        todo!("MBConvBLock")
+        x = x * x_squeezed.sigmoid();
+        x = self
+            .bn2
+            .clone()
+            .forward(x.conv2d(&self.project_conv, None, None, None, None), false);
+
+        if x.shape == input.shape {
+            x = x + input;
+        }
+
+        x
     }
 }
 
@@ -275,7 +292,7 @@ impl Efficientnet {
             .swish();
 
         let _x = x.sequential(&self.blocks);
-        todo!("x.sequential(self._blocks)")
+        todo!("remaining forward pass");
     }
 }
 
