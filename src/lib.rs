@@ -607,14 +607,20 @@ impl Tensor {
         Tensor::new(result, self.shape.clone())
     }
 
-    pub fn linear(&self, in_features: usize, out_features: usize, bias: Option<bool>) -> Tensor {
+    pub fn linear(
+        &self,
+        in_features: &Tensor,
+        out_features: &Tensor,
+        bias: Option<bool>,
+    ) -> Tensor {
+        let in_size = in_features.shape[0];
+        let out_size = out_features.shape[0];
         // Kaiming uniform
-        let weight =
-            Tensor::rand(vec![in_features, out_features]) * (6.0 / in_features as f64).sqrt();
+        let weight = Tensor::rand(vec![in_size, out_size]) * (6.0 / in_size as f64).sqrt();
 
         if bias.unwrap_or(true) {
-            let bias_range = (1.0 / in_features as f64).sqrt();
-            let bias = Tensor::rand_with_range(vec![out_features], (-bias_range, bias_range));
+            let bias_range = (1.0 / in_size as f64).sqrt();
+            let bias = Tensor::rand_with_range(vec![out_size], (-bias_range, bias_range));
             self.matmul(weight) + bias
         } else {
             self.matmul(weight)
@@ -1469,7 +1475,7 @@ mod tests {
     #[test]
     fn test_linear() {
         let t = Tensor::rand(vec![128, 20]);
-        let result = t.linear(20, 30, None);
+        let result = t.linear(&Tensor::zeros(20), &Tensor::zeros(30), None);
         assert_eq!(result.shape, vec![128, 30]);
     }
 
