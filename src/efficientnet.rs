@@ -55,7 +55,7 @@ pub struct GlobalParams {
 pub struct BlockArgs {
     pub num_repeat: usize,
     pub kernel_size: usize,
-    pub stride: [usize; 2],
+    pub stride: (usize, usize),
     pub expand_ratio: usize,
     pub input_filters: usize,
     pub output_filters: usize,
@@ -68,7 +68,7 @@ impl BlockArgs {
         Self {
             num_repeat: tuple.0,
             kernel_size: tuple.1,
-            stride: tuple.2,
+            stride: tuple.2.into(),
             expand_ratio: tuple.3,
             input_filters: tuple.4,
             output_filters: tuple.5,
@@ -82,6 +82,7 @@ impl BlockArgs {
 pub struct MBConvBlock {
     pub expand_conv: Option<Tensor>,
     pub bn0: Option<BatchNorm2d>,
+    pub strides: (usize, usize),
     pub pad: Vec<usize>,
     pub bn1: BatchNorm2d,
     pub depthwise_conv: Tensor,
@@ -96,7 +97,7 @@ pub struct MBConvBlock {
 impl MBConvBlock {
     pub fn new(
         kernel_size: usize,
-        strides: [usize; 2],
+        strides: (usize, usize),
         expand_ratio: usize,
         input_filters: usize,
         output_filters: usize,
@@ -113,7 +114,7 @@ impl MBConvBlock {
             (None, None)
         };
 
-        let pad = if strides == [2, 2] {
+        let pad = if strides == (2, 2) {
             let v0 = ((kernel_size as f64 - 1.0) / 2.0).floor() as usize - 1;
             let v1 = ((kernel_size as f64 - 1.0) / 2.0).floor() as usize;
             vec![v0, v1, v0, v1]
@@ -137,6 +138,7 @@ impl MBConvBlock {
         MBConvBlock {
             expand_conv,
             bn0,
+            strides,
             pad,
             bn1,
             depthwise_conv,
@@ -151,7 +153,22 @@ impl MBConvBlock {
 }
 
 impl Callable for MBConvBlock {
-    fn call(&self, _x: Tensor) -> Tensor {
+    fn call(&self, mut x: Tensor) -> Tensor {
+        if let Some(expand_conv) = &self.expand_conv {
+            x = self
+                .bn0
+                .clone()
+                .unwrap()
+                .forward(x.conv2d(expand_conv, None, None, None), false)
+                .swish();
+        }
+
+        x = x.conv2d(
+            &self.depthwise_conv,
+            Some(self.pad.clone()),
+            Some(self.strides),
+            Some(self.depthwise_conv.shape[0]),
+        );
         todo!("MBConvBLock")
     }
 }
@@ -201,7 +218,7 @@ impl Default for Efficientnet {
                     block_arg.se_ratio,
                 )));
 
-                strides = [1, 1];
+                strides = (1, 1);
                 input_filters = filters.1;
             }
         }
@@ -226,7 +243,7 @@ impl Efficientnet {
         let x = self
             .bn0
             .forward(
-                x.conv2d(&self.conv_stem, Some(vec![0, 0, 1, 1]), Some(2)),
+                x.conv2d(&self.conv_stem, Some(vec![0, 0, 1, 1]), Some((2, 2)), None),
                 false,
             )
             .swish();

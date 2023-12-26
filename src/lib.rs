@@ -298,7 +298,8 @@ impl Tensor {
         mut self,
         kernel: &Tensor,
         padding: Option<Vec<usize>>,
-        stride: Option<usize>,
+        strides: Option<(usize, usize)>,
+        groups: Option<usize>,
     ) -> Tensor {
         assert_eq!(self.shape.len(), 4, "only supporting 4d tensors");
         assert_eq!(kernel.shape.len(), 4, "only supporting 4d kernels");
@@ -307,14 +308,14 @@ impl Tensor {
             self = self.pad(0.0, padding);
         }
 
-        let stride = stride.unwrap_or(1);
+        let strides = strides.unwrap_or((1, 1));
 
         let (n, c_in, height, width) = (self.shape[0], self.shape[1], self.shape[2], self.shape[3]);
         let (c_out, kernel_height, kernel_width) =
             (kernel.shape[0], kernel.shape[2], kernel.shape[3]);
 
-        let output_height = ((height - kernel_height) / stride) + 1;
-        let output_width = ((width - kernel_width) / stride) + 1;
+        let output_height = ((height - kernel_height) / strides.0) + 1;
+        let output_width = ((width - kernel_width) / strides.1) + 1;
 
         let mut output_data = Vec::new();
         for n_index in 0..n {
@@ -325,8 +326,8 @@ impl Tensor {
                         for c_in_index in 0..c_in {
                             for k_row in 0..kernel_height {
                                 for k_col in 0..kernel_width {
-                                    let row = i * stride + k_row;
-                                    let col = j * stride + k_col;
+                                    let row = i * strides.0 + k_row;
+                                    let col = j * strides.1 + k_col;
                                     value += self.data
                                         [self.index_4d_to_1d(n_index, c_in_index, row, col)]
                                         * kernel.data[kernel.index_4d_to_1d(
@@ -761,7 +762,7 @@ mod tests {
             ],
             vec![1, 1, 3, 3],
         );
-        let output = input.conv2d(&kernel, None, None);
+        let output = input.conv2d(&kernel, None, None, None);
 
         assert_eq!(output.data, vec![23., 22., 31., 26.]);
         assert_eq!(output.shape, vec![1, 1, 2, 2]);
@@ -771,7 +772,7 @@ mod tests {
     fn conv2d_4d() {
         let input = Tensor::rand(vec![1, 3, 224, 224]);
         let kernel = Tensor::rand(vec![32, 3, 3, 3]);
-        let output = input.conv2d(&kernel, Some(vec![0, 0, 1, 1]), Some(2));
+        let output = input.conv2d(&kernel, Some(vec![0, 0, 1, 1]), Some((2, 2)), None);
 
         assert_eq!(output.shape, vec![1, 32, 112, 112]);
     }
@@ -795,7 +796,7 @@ mod tests {
             ],
             vec![1, 1, 3, 3],
         );
-        let output = input.conv2d(&kernel, Some(vec![0, 0, 1, 1]), None);
+        let output = input.conv2d(&kernel, Some(vec![0, 0, 1, 1]), None, None);
 
         assert_eq!(
             output.data,
@@ -829,7 +830,7 @@ mod tests {
             ],
             vec![1, 1, 3, 3],
         );
-        let output = input.conv2d(&kernel, None, Some(2));
+        let output = input.conv2d(&kernel, None, Some((2, 2)), None);
 
         assert_eq!(
             output.data,
