@@ -1,5 +1,9 @@
 // https://github.com/lukemelas/EfficientNet-PyTorch/blob/master/efficientnet_pytorch/model.py
 
+use std::time::Instant;
+
+use tracing::info;
+
 use crate::{
     batch_norm::{BatchNorm2d, BatchNorm2dBuilder},
     util, Callable, Tensor,
@@ -251,7 +255,7 @@ impl Default for Efficientnet {
         let out_channels = round_filters(32., global_params.width_coefficient);
         let mut bn0 = BatchNorm2dBuilder::new(out_channels).build();
 
-        let mut blocks: Vec<Box<dyn Callable>> = Vec::new();
+        let mut blocks: Vec<MBConvBlock> = Vec::new();
         for block_arg in &blocks_args {
             let filters = (
                 round_filters(
@@ -268,14 +272,14 @@ impl Default for Efficientnet {
 
             let mut strides = block_arg.stride;
             for _ in 0..round_repeats(block_arg.num_repeat, global_params.depth_coefficient) {
-                blocks.push(Box::new(MBConvBlock::new(
+                blocks.push(MBConvBlock::new(
                     block_arg.kernel_size,
                     strides,
                     block_arg.expand_ratio,
                     input_filters,
                     filters.1,
                     block_arg.se_ratio,
-                )));
+                ));
 
                 strides = (1, 1);
                 input_filters = filters.1;
@@ -284,6 +288,9 @@ impl Default for Efficientnet {
 
         let out_channels = round_filters(1280.0, global_params.width_coefficient);
         let mut bn1 = BatchNorm2dBuilder::new(out_channels).build();
+
+        let start = Instant::now();
+        info!("loading model, this might take a while...");
 
         let model_data = util::load_torch_model(MODEL_URLS[number]).unwrap();
         bn0.weight = Some(Tensor::from_vec(
@@ -313,7 +320,79 @@ impl Default for Efficientnet {
         let conv_stem = util::extract_4d_tensor(&model_data["_conv_stem.weight"]).unwrap();
         let fc = util::extract_2d_tensor(&model_data["_fc.weight"]).unwrap();
         let fc_bias = Tensor::from_vec(util::extract_floats(&model_data["_fc.bias"]).unwrap());
-        // TODO: assign blocks too!
+
+        for (i, block) in blocks.iter_mut().enumerate() {
+            block.depthwise_conv = util::extract_4d_tensor(
+                &model_data[format!("_blocks.{}._depthwise_conv.weight", i)],
+            )
+            .unwrap();
+            block.project_conv =
+                util::extract_4d_tensor(&model_data[format!("_blocks.{}._project_conv.weight", i)])
+                    .unwrap();
+
+            block.se_reduce =
+                util::extract_4d_tensor(&model_data[format!("_blocks.{}._se_reduce.weight", i)])
+                    .unwrap();
+            block.se_reduce_bias = Tensor::from_vec(
+                util::extract_floats(&model_data[format!("_blocks.{}._se_reduce.bias", i)])
+                    .unwrap(),
+            );
+
+            block.se_expand =
+                util::extract_4d_tensor(&model_data[format!("_blocks.{}._se_expand.weight", i)])
+                    .unwrap();
+            block.se_expand_bias = Tensor::from_vec(
+                util::extract_floats(&model_data[format!("_blocks.{}._se_expand.bias", i)])
+                    .unwrap(),
+            );
+
+            for j in 0..2 {
+                // this works right?
+                let bn = if j == 0 {
+                    // Is this supposed to be none?
+                    if block.bn0.is_none() {
+                        continue;
+                    }
+
+                    block.bn0.as_mut().unwrap()
+                } else {
+                    &mut block.bn1
+                };
+
+                bn.weight = Some(Tensor::from_vec(
+                    util::extract_floats(&model_data[format!("_blocks.{}._bn{}.weight", i, j)])
+                        .unwrap(),
+                ));
+                bn.bias = Some(Tensor::from_vec(
+                    util::extract_floats(&model_data[format!("_blocks.{}._bn{}.bias", i, j)])
+                        .unwrap(),
+                ));
+                bn.running_mean = Tensor::from_vec(
+                    util::extract_floats(
+                        &model_data[format!("_blocks.{}._bn{}.running_mean", i, j)],
+                    )
+                    .unwrap(),
+                );
+                bn.running_var = Tensor::from_vec(
+                    util::extract_floats(
+                        &model_data[format!("_blocks.{}._bn{}.running_var", i, j)],
+                    )
+                    .unwrap(),
+                );
+
+                bn.num_batches_tracked = model_data
+                    [format!("_blocks.{}._bn{}.num_batches_tracked", i, j)]
+                .as_u64()
+                .unwrap() as usize;
+            }
+        }
+
+        info!("loaded model in {:?}", start.elapsed());
+
+        let blocks = blocks
+            .into_iter()
+            .map(|b| Box::new(b) as Box<dyn Callable>)
+            .collect::<Vec<Box<dyn Callable>>>();
 
         Self {
             global_params,

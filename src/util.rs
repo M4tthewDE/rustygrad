@@ -1,7 +1,6 @@
 use anyhow::anyhow;
 use anyhow::Result;
 use assert_approx_eq::assert_approx_eq;
-use serde::Deserialize;
 use serde_json::Value;
 use std::fs::create_dir;
 use std::fs::File;
@@ -10,7 +9,6 @@ use std::io::Read;
 use std::iter::zip;
 use std::path::PathBuf;
 use std::process::Command;
-use std::time::Instant;
 use tracing::info;
 
 use crate::Tensor;
@@ -44,76 +42,11 @@ pub fn load_torch_model(url: &str) -> Result<Value> {
     load_model(&json_path)
 }
 
-#[derive(Debug, Deserialize)]
-pub struct ModelData {
-    /*
-    #[serde(rename(deserialize = "_bn0.weight"))]
-    pub bn0_weight: Vec<f64>,
-    #[serde(rename(deserialize = "_bn0.bias"))]
-    pub bn0_bias: Vec<f64>,
-    #[serde(rename(deserialize = "_bn0.running_mean"))]
-    pub bn0_running_mean: Vec<f64>,
-    #[serde(rename(deserialize = "_bn0.running_var"))]
-    pub bn0_running_var: Vec<f64>,
-    #[serde(rename(deserialize = "_bn0.num_batches_tracked"))]
-    pub bn0_num_batches_tracked: usize,
-
-    #[serde(rename(deserialize = "_bn1.weight"))]
-    pub bn1_weight: Vec<f64>,
-    #[serde(rename(deserialize = "_bn1.bias"))]
-    pub bn1_bias: Vec<f64>,
-    #[serde(rename(deserialize = "_bn1.running_mean"))]
-    pub bn1_running_mean: Vec<f64>,
-    #[serde(rename(deserialize = "_bn1.running_var"))]
-    pub bn1_running_var: Vec<f64>,
-    #[serde(rename(deserialize = "_bn1.num_batches_tracked"))]
-    pub bn1_num_batches_tracked: usize,
-
-    #[serde(rename(deserialize = "_conv_head.weight"))]
-    pub conv_head_weight: Vec<Vec<Vec<Vec<f64>>>>,
-    #[serde(rename(deserialize = "_conv_stem.weight"))]
-    pub conv_stem_weight: Vec<Vec<Vec<Vec<f64>>>>,
-
-    #[serde(rename(deserialize = "_fc.bias"))]
-    pub fc_bias: Vec<f64>,
-    #[serde(rename(deserialize = "_fc.weight"))]
-    pub fc_weight: Vec<Vec<f64>>,
-    #[serde(rename(deserialize = "_blocks.0._depthwise_conv.weight"))]
-    pub _blocks0_depthwise_conv_weight: Vec<Vec<Vec<Vec<f64>>>>,
-
-    #[serde(rename(deserialize = "_blocks.0._bn1.weight"))]
-    pub _blocks_0_bn1_weight: Vec<f64>,
-    #[serde(rename(deserialize = "_blocks.0._bn1.bias"))]
-    pub _blocks_0_bn1_bias: Vec<f64>,
-    #[serde(rename(deserialize = "_blocks.0._bn1.running_mean"))]
-    pub _blocks_0_bn1_running_mean: Vec<f64>,
-    #[serde(rename(deserialize = "_blocks.0._bn1.running_var"))]
-    pub _blocks_0_bn1_running_var: Vec<f64>,
-    #[serde(rename(deserialize = "_blocks.0._bn1.num_batches_tracked"))]
-    pub _blocks_0_bn1_num_batches_tracked: usize,
-
-    #[serde(rename(deserialize = "_blocks.0._bn2.weight"))]
-    pub _blocks_0_bn2_weight: Vec<f64>,
-    #[serde(rename(deserialize = "_blocks.0._bn2.bias"))]
-    pub _blocks_0_bn2_bias: Vec<f64>,
-    #[serde(rename(deserialize = "_blocks.0._bn2.running_mean"))]
-    pub _blocks_0_bn2_running_mean: Vec<f64>,
-    #[serde(rename(deserialize = "_blocks.0._bn2.running_var"))]
-    pub _blocks_0_bn2_running_var: Vec<f64>,
-    #[serde(rename(deserialize = "_blocks.0._bn2.num_batches_tracked"))]
-    pub _blocks_0_bn2_num_batches_tracked: usize,
-    */
-}
-
 fn load_model(path: &PathBuf) -> Result<Value> {
-    let start = Instant::now();
-    info!("loading model from {path:?}, this might take a while...");
-
     let mut content = String::new();
     File::open(path)?.read_to_string(&mut content)?;
     let model_data: Value = serde_json::from_str(&content)?;
 
-    info!("loaded model in {:?}", start.elapsed());
     Ok(model_data)
 }
 
