@@ -333,17 +333,19 @@ impl Default for Efficientnet {
             block.se_reduce =
                 util::extract_4d_tensor(&model_data[format!("_blocks.{}._se_reduce.weight", i)])
                     .unwrap();
-            block.se_reduce_bias = Tensor::from_vec(
+            block.se_reduce_bias = Tensor::new(
                 util::extract_floats(&model_data[format!("_blocks.{}._se_reduce.bias", i)])
                     .unwrap(),
+                block.se_reduce_bias.clone().shape,
             );
 
             block.se_expand =
                 util::extract_4d_tensor(&model_data[format!("_blocks.{}._se_expand.weight", i)])
                     .unwrap();
-            block.se_expand_bias = Tensor::from_vec(
+            block.se_expand_bias = Tensor::new(
                 util::extract_floats(&model_data[format!("_blocks.{}._se_expand.bias", i)])
                     .unwrap(),
+                block.se_expand_bias.clone().shape,
             );
 
             for j in 0..2 {
