@@ -286,56 +286,33 @@ impl Default for Efficientnet {
         let mut bn1 = BatchNorm2dBuilder::new(out_channels).build();
 
         let model_data = util::load_torch_model(MODEL_URLS[number]).unwrap();
-        bn0.weight = Some(Tensor::from_vec(model_data.bn0_weight));
-        bn0.bias = Some(Tensor::from_vec(model_data.bn0_bias));
-        bn0.running_mean = Tensor::from_vec(model_data.bn0_running_mean);
-        bn0.running_var = Tensor::from_vec(model_data.bn0_running_var);
-        bn0.num_batches_tracked = model_data.bn0_num_batches_tracked;
+        bn0.weight = Some(Tensor::from_vec(
+            util::extract_floats(&model_data["_bn0.weight"]).unwrap(),
+        ));
+        bn0.bias = Some(Tensor::from_vec(
+            util::extract_floats(&model_data["_bn0.bias"]).unwrap(),
+        ));
+        bn0.running_mean =
+            Tensor::from_vec(util::extract_floats(&model_data["_bn0.running_mean"]).unwrap());
+        bn0.running_var =
+            Tensor::from_vec(util::extract_floats(&model_data["_bn0.running_var"]).unwrap());
+        bn0.num_batches_tracked = model_data["_bn0.num_batches_tracked"].as_u64().unwrap() as usize;
+        bn1.weight = Some(Tensor::from_vec(
+            util::extract_floats(&model_data["_bn1.weight"]).unwrap(),
+        ));
+        bn1.bias = Some(Tensor::from_vec(
+            util::extract_floats(&model_data["_bn1.bias"]).unwrap(),
+        ));
+        bn1.running_mean =
+            Tensor::from_vec(util::extract_floats(&model_data["_bn1.running_mean"]).unwrap());
+        bn1.running_var =
+            Tensor::from_vec(util::extract_floats(&model_data["_bn1.running_var"]).unwrap());
+        bn1.num_batches_tracked = model_data["_bn1.num_batches_tracked"].as_u64().unwrap() as usize;
 
-        bn1.weight = Some(Tensor::from_vec(model_data.bn1_weight));
-        bn1.bias = Some(Tensor::from_vec(model_data.bn1_bias));
-        bn1.running_mean = Tensor::from_vec(model_data.bn1_running_mean);
-        bn1.running_var = Tensor::from_vec(model_data.bn1_running_var);
-        bn1.num_batches_tracked = model_data.bn1_num_batches_tracked;
-
-        let conv_head = Tensor::new(
-            model_data
-                .conv_head_weight
-                .clone()
-                .into_iter()
-                .flat_map(|x| x.into_iter())
-                .flat_map(|x| x.into_iter())
-                .flat_map(|x| x.into_iter())
-                .collect(),
-            vec![
-                model_data.conv_head_weight.len(),
-                model_data.conv_head_weight[0].len(),
-                model_data.conv_head_weight[0][0].len(),
-                model_data.conv_head_weight[0][0][0].len(),
-            ],
-        );
-        let conv_stem = Tensor::new(
-            model_data
-                .conv_stem_weight
-                .clone()
-                .into_iter()
-                .flat_map(|x| x.into_iter())
-                .flat_map(|x| x.into_iter())
-                .flat_map(|x| x.into_iter())
-                .collect(),
-            vec![
-                model_data.conv_stem_weight.len(),
-                model_data.conv_stem_weight[0].len(),
-                model_data.conv_stem_weight[0][0].len(),
-                model_data.conv_stem_weight[0][0][0].len(),
-            ],
-        );
-        let fc = Tensor::new(
-            model_data.fc_weight.clone().into_iter().flatten().collect(),
-            vec![model_data.fc_weight.len(), model_data.fc_weight[0].len()],
-        );
-        let fc_bias = Tensor::from_vec(model_data.fc_bias);
-
+        let conv_head = util::extract_4d_tensor(&model_data["_conv_head.weight"]).unwrap();
+        let conv_stem = util::extract_4d_tensor(&model_data["_conv_stem.weight"]).unwrap();
+        let fc = util::extract_2d_tensor(&model_data["_fc.weight"]).unwrap();
+        let fc_bias = Tensor::from_vec(util::extract_floats(&model_data["_fc.bias"]).unwrap());
         // TODO: assign blocks too!
 
         Self {
