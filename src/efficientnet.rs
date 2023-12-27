@@ -2,7 +2,7 @@
 
 use crate::{
     batch_norm::{BatchNorm2d, BatchNorm2dBuilder},
-    Callable, Tensor,
+    util, Callable, Tensor,
 };
 
 pub static MODEL_URLS: [&str; 8] = [
@@ -206,6 +206,26 @@ impl Callable for MBConvBlock {
             x = x + input;
         }
 
+        // This stays at0, are my blocks correctly initialized?
+        // tinygrad:
+        // 35.81445
+        // 42.03277
+        // 55.100254
+        // 30.770437
+        // 36.090893
+        // 30.193832
+        // 27.056953
+        // 26.005215
+        // 34.672073
+        // 44.859806
+        // 44.674614
+        // 24.620136
+        // 25.334736
+        // 27.094227
+        // 32.68323
+        // 18.718155
+        dbg!(x.clone().max().data[0]);
+
         x
     }
 }
@@ -225,14 +245,11 @@ pub struct Efficientnet {
 impl Default for Efficientnet {
     fn default() -> Self {
         let number = 0;
-        let input_channels = 3;
-        let classes = 1000;
         let global_params = get_global_params(number);
         let blocks_args = BLOCKS_ARGS.map(BlockArgs::from_tuple).to_vec();
 
         let out_channels = round_filters(32., global_params.width_coefficient);
-        let conv_stem = Tensor::glorot_uniform(vec![out_channels, input_channels, 3, 3]);
-        let bn0 = BatchNorm2dBuilder::new(out_channels).build();
+        let mut bn0 = BatchNorm2dBuilder::new(out_channels).build();
 
         let mut blocks: Vec<Box<dyn Callable>> = Vec::new();
         for block_arg in &blocks_args {
@@ -265,12 +282,61 @@ impl Default for Efficientnet {
             }
         }
 
-        let in_channels = round_filters(320.0, global_params.width_coefficient);
         let out_channels = round_filters(1280.0, global_params.width_coefficient);
-        let conv_head = Tensor::glorot_uniform(vec![out_channels, in_channels, 1, 1]);
-        let bn1 = BatchNorm2dBuilder::new(out_channels).build();
-        let fc = Tensor::glorot_uniform(vec![out_channels, classes]);
-        let fc_bias = Tensor::zeros(classes);
+        let mut bn1 = BatchNorm2dBuilder::new(out_channels).build();
+
+        let model_data = util::load_torch_model(MODEL_URLS[number]).unwrap();
+        bn0.weight = Some(Tensor::from_vec(model_data.bn0_weight));
+        bn0.bias = Some(Tensor::from_vec(model_data.bn0_bias));
+        bn0.running_mean = Tensor::from_vec(model_data.bn0_running_mean);
+        bn0.running_var = Tensor::from_vec(model_data.bn0_running_var);
+        bn0.num_batches_tracked = model_data.bn0_num_batches_tracked;
+
+        bn1.weight = Some(Tensor::from_vec(model_data.bn1_weight));
+        bn1.bias = Some(Tensor::from_vec(model_data.bn1_bias));
+        bn1.running_mean = Tensor::from_vec(model_data.bn1_running_mean);
+        bn1.running_var = Tensor::from_vec(model_data.bn1_running_var);
+        bn1.num_batches_tracked = model_data.bn1_num_batches_tracked;
+
+        let conv_head = Tensor::new(
+            model_data
+                .conv_head_weight
+                .clone()
+                .into_iter()
+                .flat_map(|x| x.into_iter())
+                .flat_map(|x| x.into_iter())
+                .flat_map(|x| x.into_iter())
+                .collect(),
+            vec![
+                model_data.conv_head_weight.len(),
+                model_data.conv_head_weight[0].len(),
+                model_data.conv_head_weight[0][0].len(),
+                model_data.conv_head_weight[0][0][0].len(),
+            ],
+        );
+        let conv_stem = Tensor::new(
+            model_data
+                .conv_stem_weight
+                .clone()
+                .into_iter()
+                .flat_map(|x| x.into_iter())
+                .flat_map(|x| x.into_iter())
+                .flat_map(|x| x.into_iter())
+                .collect(),
+            vec![
+                model_data.conv_stem_weight.len(),
+                model_data.conv_stem_weight[0].len(),
+                model_data.conv_stem_weight[0][0].len(),
+                model_data.conv_stem_weight[0][0][0].len(),
+            ],
+        );
+        let fc = Tensor::new(
+            model_data.fc_weight.clone().into_iter().flatten().collect(),
+            vec![model_data.fc_weight.len(), model_data.fc_weight[0].len()],
+        );
+        let fc_bias = Tensor::from_vec(model_data.fc_bias);
+
+        // TODO: assign blocks too!
 
         Self {
             global_params,
@@ -287,11 +353,6 @@ impl Default for Efficientnet {
 }
 
 impl Efficientnet {
-    pub fn load_from_pretrained(&mut self) {
-        //let _model_data = util::load_torch_model(MODEL_URLS[self.number]).unwrap();
-        // TODO: use the data
-    }
-
     pub fn forward(&mut self, x: Tensor) -> Tensor {
         let mut x = self
             .bn0

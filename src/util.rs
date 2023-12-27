@@ -64,6 +64,14 @@ pub struct ModelData {
     pub bn1_running_var: Vec<f64>,
     #[serde(rename(deserialize = "_bn1.num_batches_tracked"))]
     pub bn1_num_batches_tracked: usize,
+    #[serde(rename(deserialize = "_conv_head.weight"))]
+    pub conv_head_weight: Vec<Vec<Vec<Vec<f64>>>>,
+    #[serde(rename(deserialize = "_conv_stem.weight"))]
+    pub conv_stem_weight: Vec<Vec<Vec<Vec<f64>>>>,
+    #[serde(rename(deserialize = "_fc.bias"))]
+    pub fc_bias: Vec<f64>,
+    #[serde(rename(deserialize = "_fc.weight"))]
+    pub fc_weight: Vec<Vec<f64>>,
 }
 
 fn load_model(path: &PathBuf) -> Result<ModelData> {

@@ -6,9 +6,7 @@ fn main() {
     // https://github.com/tinygrad/tinygrad/blob/master/examples/efficientnet.py
     tracing_subscriber::fmt::init();
 
-    let mut efficientnet = Efficientnet::default();
-    // FIXME: this is crazy slow
-    efficientnet.load_from_pretrained();
+    let efficientnet = Efficientnet::default();
 
     let img = Reader::open("examples/chicken.jpg")
         .unwrap()
@@ -41,5 +39,13 @@ fn infer(mut model: Efficientnet, mut image: DynamicImage) {
     input = input / 255.0;
     input = input - bias;
     input = input / scale;
-    model.forward(input);
+    let out = model.forward(input);
+    let max = out.clone().max().data[0];
+    let argmax = out
+        .data
+        .iter()
+        .enumerate()
+        .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+        .map(|(index, _)| index);
+    dbg!(max, argmax);
 }

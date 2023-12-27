@@ -3,14 +3,14 @@ use crate::Tensor;
 #[derive(Debug, Clone)]
 pub struct BatchNorm2d {
     pub num_features: usize,
-    running_mean: Tensor,
-    running_var: Tensor,
+    pub running_mean: Tensor,
+    pub running_var: Tensor,
     eps: f64,
     affine: bool,
-    weight: Option<Tensor>,
-    bias: Option<Tensor>,
+    pub weight: Option<Tensor>,
+    pub bias: Option<Tensor>,
     track_running_stats: bool,
-    num_batches_tracked: usize,
+    pub num_batches_tracked: usize,
     momentum: f64,
 }
 
