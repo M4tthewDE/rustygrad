@@ -87,7 +87,7 @@ pub struct MBConvBlock {
     pub expand_conv: Option<Tensor>,
     pub bn0: Option<BatchNorm2d>,
     pub strides: (usize, usize),
-    pub pad: Vec<usize>,
+    pub pad: [usize; 4],
     pub bn1: BatchNorm2d,
     pub depthwise_conv: Tensor,
     pub se_reduce: Tensor,
@@ -123,9 +123,9 @@ impl MBConvBlock {
         let pad = if strides == (2, 2) {
             let v0 = ((kernel_size as f64 - 1.0) / 2.0).floor() as usize - 1;
             let v1 = ((kernel_size as f64 - 1.0) / 2.0).floor() as usize;
-            vec![v0, v1, v0, v1]
+            [v0, v1, v0, v1]
         } else {
-            vec![((kernel_size as f64 - 1.0) / 2.0).floor() as usize; 4]
+            [((kernel_size as f64 - 1.0) / 2.0).floor() as usize; 4]
         };
 
         let depthwise_conv = Tensor::glorot_uniform(vec![oup, 1, kernel_size, kernel_size]);
@@ -178,7 +178,7 @@ impl Callable for MBConvBlock {
         x = x.conv2d(
             &self.depthwise_conv,
             None,
-            Some(self.pad.clone()),
+            Some(&self.pad.clone()),
             Some(self.strides),
             Some(self.depthwise_conv.shape[0]),
         );
@@ -422,7 +422,7 @@ impl Efficientnet {
                 x.conv2d(
                     &self.conv_stem,
                     None,
-                    Some(vec![0, 0, 1, 1]),
+                    Some(&[0, 0, 1, 1]),
                     Some((2, 2)),
                     None,
                 ),

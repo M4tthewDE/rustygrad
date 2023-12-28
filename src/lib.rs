@@ -298,7 +298,7 @@ impl Tensor {
         mut self,
         kernel: &Tensor,
         bias: Option<&Tensor>,
-        padding: Option<Vec<usize>>,
+        padding: Option<&[usize; 4]>,
         strides: Option<(usize, usize)>,
         groups: Option<usize>,
     ) -> Tensor {
@@ -319,7 +319,10 @@ impl Tensor {
 
         let n = self.shape[0];
         if let Some(padding) = padding {
-            self = self.pad(0.0, padding);
+            dbg!(&self.shape);
+            dbg!(padding);
+            self = self.pad2d(0.0, padding);
+            dbg!(&self.shape);
         }
 
         let strides = strides.unwrap_or((1, 1));
@@ -453,17 +456,16 @@ impl Tensor {
         )
     }
 
-    pub fn pad(self, value: f64, dims: Vec<usize>) -> Tensor {
-        if dims.len() != self.shape.len() {
-            panic!("Padding dimensions must match the tensor dimensions.");
+    pub fn pad2d(self, value: f64, padding: &[usize; 4]) -> Tensor {
+        if self.shape.len() < 2 {
+            panic!("Tensor must have at least 2 dimensions for 2D padding.");
         }
 
-        let new_shape: Vec<usize> = self
-            .shape
-            .iter()
-            .zip(dims.iter())
-            .map(|(&dim, &pad)| dim + pad * 2)
-            .collect();
+        let last_two_dims = self.shape.len() - 2;
+        let mut new_shape: Vec<usize> = self.shape.clone();
+
+        new_shape[last_two_dims + 1] += padding[2] + padding[3];
+        new_shape[last_two_dims] += padding[0] + padding[1];
 
         let mut new_data = vec![value; new_shape.iter().product()];
 
@@ -477,19 +479,14 @@ impl Tensor {
             }
             multi_dim_index.reverse();
 
-            let padded_multi_dim_index: Vec<usize> = multi_dim_index
-                .iter()
-                .zip(dims.iter())
-                .map(|(&index, &pad)| index + pad)
-                .collect();
+            if multi_dim_index.len() >= 2 {
+                multi_dim_index[last_two_dims] += padding[0];
+                multi_dim_index[last_two_dims + 1] += padding[2];
+            }
 
             let mut new_index = 0;
             let mut stride = 1;
-            for (&size, &index) in new_shape
-                .iter()
-                .rev()
-                .zip(padded_multi_dim_index.iter().rev())
-            {
+            for (&size, &index) in new_shape.iter().rev().zip(multi_dim_index.iter().rev()) {
                 new_index += index * stride;
                 stride *= size;
             }
@@ -856,13 +853,7 @@ mod tests {
     fn conv2d_weird() {
         let input = Tensor::rand(vec![1, 96, 112, 112]);
         let kernel = Tensor::rand(vec![96, 1, 3, 3]);
-        let output = input.conv2d(
-            &kernel,
-            None,
-            Some(vec![0, 0, 1, 1]),
-            Some((2, 2)),
-            Some(96),
-        );
+        let output = input.conv2d(&kernel, None, Some(&[0, 1, 0, 1]), Some((2, 2)), Some(96));
 
         assert_eq!(output.shape, vec![1, 96, 56, 56]);
     }
@@ -897,7 +888,7 @@ mod tests {
     fn conv2d_4d() {
         let input = Tensor::rand(vec![1, 3, 224, 224]);
         let kernel = Tensor::rand(vec![32, 3, 3, 3]);
-        let output = input.conv2d(&kernel, None, Some(vec![0, 0, 1, 1]), Some((2, 2)), None);
+        let output = input.conv2d(&kernel, None, Some(&[1, 1, 1, 1]), Some((2, 2)), None);
 
         assert_eq!(output.shape, vec![1, 32, 112, 112]);
     }
@@ -921,7 +912,7 @@ mod tests {
             ],
             vec![1, 1, 3, 3],
         );
-        let output = input.conv2d(&kernel, None, Some(vec![0, 0, 1, 1]), None, None);
+        let output = input.conv2d(&kernel, None, Some(&[1, 1, 1, 1]), None, None);
 
         assert_eq!(
             output.data,
@@ -976,7 +967,7 @@ mod tests {
             ],
             vec![2, 2],
         );
-        let output = input.pad(0., vec![1, 1]);
+        let output = input.pad2d(0., &[1, 1, 1, 1]);
 
         assert_eq!(
             output.data,
@@ -996,7 +987,7 @@ mod tests {
             ],
             vec![2, 2],
         );
-        let output = input.pad(1., vec![2, 2]);
+        let output = input.pad2d(1., &[2, 2, 2, 2]);
 
         assert_eq!(
             output.data,
