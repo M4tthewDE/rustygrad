@@ -46,6 +46,7 @@ fn infer(mut model: Efficientnet, mut image: DynamicImage) {
         .iter()
         .enumerate()
         .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
-        .map(|(index, _)| index);
-    dbg!(max, argmax);
+        .map(|(index, _)| index)
+        .unwrap();
+    dbg!(argmax, max);
 }

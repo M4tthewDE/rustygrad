@@ -317,13 +317,14 @@ impl Tensor {
             "output channels must be divisible by groups"
         );
 
+        let n = self.shape[0];
         if let Some(padding) = padding {
             self = self.pad(0.0, padding);
         }
 
         let strides = strides.unwrap_or((1, 1));
 
-        let (n, c_in, height, width) = (self.shape[0], self.shape[1], self.shape[2], self.shape[3]);
+        let (c_in, height, width) = (self.shape[1], self.shape[2], self.shape[3]);
         let (c_out, kernel_height, kernel_width) =
             (kernel.shape[0], kernel.shape[2], kernel.shape[3]);
 

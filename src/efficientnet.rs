@@ -118,6 +118,8 @@ impl MBConvBlock {
             (None, None)
         };
 
+        // FIXME: this needs to be adjusted for rustygrad I think
+        // might be time to actually understand efficientnets...
         let pad = if strides == (2, 2) {
             let v0 = ((kernel_size as f64 - 1.0) / 2.0).floor() as usize - 1;
             let v1 = ((kernel_size as f64 - 1.0) / 2.0).floor() as usize;
@@ -171,6 +173,8 @@ impl Callable for MBConvBlock {
                 .swish();
         }
 
+        // FIXME: this changes the shape the wrong way
+        // seems to have to do with the padding
         x = x.conv2d(
             &self.depthwise_conv,
             None,
@@ -178,7 +182,6 @@ impl Callable for MBConvBlock {
             Some(self.strides),
             Some(self.depthwise_conv.shape[0]),
         );
-
         x = self.bn1.clone().forward(x, false).swish();
 
         let mut x_squeezed = x.avg_pool2d((x.shape[2], x.shape[3]), None);
@@ -210,7 +213,9 @@ impl Callable for MBConvBlock {
             x = x + input;
         }
 
-        // This stays at0, are my blocks correctly initialized?
+        // FIXME: get this to match tinygrads values
+        dbg!(x.clone().max().data[0]);
+
         // tinygrad:
         // 35.81445
         // 42.03277
@@ -228,7 +233,6 @@ impl Callable for MBConvBlock {
         // 27.094227
         // 32.68323
         // 18.718155
-        dbg!(x.clone().max().data[0]);
 
         x
     }
