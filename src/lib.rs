@@ -317,17 +317,13 @@ impl Tensor {
             "output channels must be divisible by groups"
         );
 
-        // NOTE: not sure if this is the correct place,
-        // only used for n=1 so far
-        let n = self.shape[0];
-
         if let Some(padding) = padding {
             self = self.pad(0.0, padding);
         }
 
         let strides = strides.unwrap_or((1, 1));
 
-        let (c_in, height, width) = (self.shape[1], self.shape[2], self.shape[3]);
+        let (n, c_in, height, width) = (self.shape[0], self.shape[1], self.shape[2], self.shape[3]);
         let (c_out, kernel_height, kernel_width) =
             (kernel.shape[0], kernel.shape[2], kernel.shape[3]);
 
@@ -853,6 +849,21 @@ mod tests {
 
         assert_eq!(output.data, vec![23., 22., 31., 26.]);
         assert_eq!(output.shape, vec![1, 1, 2, 2]);
+    }
+
+    #[test]
+    fn conv2d_weird() {
+        let input = Tensor::rand(vec![1, 96, 112, 112]);
+        let kernel = Tensor::rand(vec![96, 1, 3, 3]);
+        let output = input.conv2d(
+            &kernel,
+            None,
+            Some(vec![0, 0, 1, 1]),
+            Some((2, 2)),
+            Some(96),
+        );
+
+        assert_eq!(output.shape, vec![1, 96, 56, 56]);
     }
 
     #[test]
