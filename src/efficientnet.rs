@@ -118,8 +118,6 @@ impl MBConvBlock {
             (None, None)
         };
 
-        // FIXME: this needs to be adjusted for rustygrad I think
-        // might be time to actually understand efficientnets...
         let pad = if strides == (2, 2) {
             let v0 = ((kernel_size as f64 - 1.0) / 2.0).floor() as usize - 1;
             let v1 = ((kernel_size as f64 - 1.0) / 2.0).floor() as usize;
@@ -173,8 +171,6 @@ impl Callable for MBConvBlock {
                 .swish();
         }
 
-        // FIXME: this changes the shape the wrong way
-        // seems to have to do with the padding
         x = x.conv2d(
             &self.depthwise_conv,
             None,
@@ -214,7 +210,7 @@ impl Callable for MBConvBlock {
         }
 
         // FIXME: get this to match tinygrads values
-        dbg!(x.clone().max().data[0]);
+        info!("{}", x.clone().max().data[0]);
 
         // tinygrad:
         // 35.81445
