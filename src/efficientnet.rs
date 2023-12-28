@@ -422,7 +422,7 @@ impl Efficientnet {
                 x.conv2d(
                     &self.conv_stem,
                     None,
-                    Some(&[0, 0, 1, 1]),
+                    Some(&[0, 1, 0, 1]),
                     Some((2, 2)),
                     None,
                 ),
@@ -434,7 +434,8 @@ impl Efficientnet {
         x = self
             .bn1
             .clone()
-            .forward(x.conv2d(&self.conv_head, None, None, None, None), false);
+            .forward(x.conv2d(&self.conv_head, None, None, None, None), false)
+            .swish();
         x = x.avg_pool2d((x.shape[2], x.shape[3]), None);
         x = x.reshape(vec![1, x.shape[1]]);
         x.linear(&self.fc, &self.fc_bias, None)

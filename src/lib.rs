@@ -319,10 +319,7 @@ impl Tensor {
 
         let n = self.shape[0];
         if let Some(padding) = padding {
-            dbg!(&self.shape);
-            dbg!(padding);
             self = self.pad2d(0.0, padding);
-            dbg!(&self.shape);
         }
 
         let strides = strides.unwrap_or((1, 1));
