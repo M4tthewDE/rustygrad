@@ -178,6 +178,7 @@ impl Callable for MBConvBlock {
             Some(self.strides),
             Some(self.depthwise_conv.shape[0]),
         );
+        info!("{}", x.clone().data.iter().sum::<f64>());
         x = self.bn1.clone().forward(x, false).swish();
 
         let mut x_squeezed = x.avg_pool2d((x.shape[2], x.shape[3]), None);
@@ -209,8 +210,9 @@ impl Callable for MBConvBlock {
             x = x + input;
         }
 
+        info!("{}", x.clone().data.iter().sum::<f64>());
         // FIXME: get this to match tinygrads values
-        info!("{}", x.clone().max().data[0]);
+        // info!("{}", x.clone().max().data[0]);
 
         // tinygrad:
         // 35.81445
@@ -423,6 +425,7 @@ impl Default for Efficientnet {
 
 impl Efficientnet {
     pub fn forward(&mut self, x: Tensor) -> Tensor {
+        info!("{}", x.clone().data.iter().sum::<f64>());
         let mut x = self
             .bn0
             .forward(

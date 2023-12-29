@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use image::{imageops::FilterType, io::Reader, DynamicImage};
 use rustygrad::{efficientnet::Efficientnet, Tensor};
 use tracing::info;
@@ -49,5 +51,30 @@ fn infer(mut model: Efficientnet, mut image: DynamicImage) {
         .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
         .map(|(index, _)| index)
         .unwrap();
-    info!("{} {} LABEL", argmax, max);
+
+    let labels = load_labels();
+    info!("{} {} {}", argmax, max, labels.get(&argmax).unwrap());
+}
+
+fn load_labels() -> HashMap<usize, String> {
+    let mut resp = reqwest::blocking::get(
+        "https://gist.githubusercontent.com/yrevar/942d3a0ac09ec9e5eb3a/raw",
+    )
+    .unwrap()
+    .text()
+    .unwrap();
+
+    resp = resp.replace("'", "");
+    let mut result = HashMap::new();
+    resp = resp[1..resp.len() - 1].to_string();
+
+    for line in resp.lines() {
+        let parts: Vec<&str> = line.split(':').take(2).collect();
+        result.insert(
+            parts[0].trim().parse::<usize>().unwrap(),
+            parts[1][..parts[1].len() - 1].trim().to_string(),
+        );
+    }
+
+    result
 }
