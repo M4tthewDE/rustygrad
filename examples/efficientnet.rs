@@ -1,5 +1,6 @@
 use image::{imageops::FilterType, io::Reader, DynamicImage};
 use rustygrad::{efficientnet::Efficientnet, Tensor};
+use tracing::info;
 
 fn main() {
     // https://github.com/tinygrad/tinygrad/blob/master/extra/models/efficientnet.py
@@ -48,5 +49,5 @@ fn infer(mut model: Efficientnet, mut image: DynamicImage) {
         .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
         .map(|(index, _)| index)
         .unwrap();
-    dbg!(argmax, max);
+    info!("{} {} LABEL", argmax, max);
 }
