@@ -355,6 +355,12 @@ impl Default for Efficientnet {
                         if block.bn0.is_none() {
                             continue;
                         }
+                        block.expand_conv = Some(
+                            util::extract_4d_tensor(
+                                &model_data[format!("_blocks.{}._expand_conv.weight", i)],
+                            )
+                            .unwrap(),
+                        );
 
                         block.bn0.as_mut().unwrap()
                     }
