@@ -348,17 +348,19 @@ impl Default for Efficientnet {
                 block.se_expand_bias.clone().shape,
             );
 
-            for j in 0..2 {
+            for j in 0..3 {
                 // this works right?
-                let bn = if j == 0 {
-                    // Is this supposed to be none?
-                    if block.bn0.is_none() {
-                        continue;
-                    }
+                let bn = match j {
+                    0 => {
+                        if block.bn0.is_none() {
+                            continue;
+                        }
 
-                    block.bn0.as_mut().unwrap()
-                } else {
-                    &mut block.bn1
+                        block.bn0.as_mut().unwrap()
+                    }
+                    1 => &mut block.bn1,
+                    2 => &mut block.bn2,
+                    _ => panic!(),
                 };
 
                 bn.weight = Some(Tensor::from_vec(
