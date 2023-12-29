@@ -318,7 +318,10 @@ impl Default for Efficientnet {
 
         let conv_head = util::extract_4d_tensor(&model_data["_conv_head.weight"]).unwrap();
         let conv_stem = util::extract_4d_tensor(&model_data["_conv_stem.weight"]).unwrap();
-        let fc = util::extract_2d_tensor(&model_data["_fc.weight"]).unwrap();
+        // NOTE: is this permute correct? tinygrad changes the shape at some poing, unsure where
+        let fc = util::extract_2d_tensor(&model_data["_fc.weight"])
+            .unwrap()
+            .permute(vec![1, 0]);
         let fc_bias = Tensor::from_vec(util::extract_floats(&model_data["_fc.bias"]).unwrap());
 
         for (i, block) in blocks.iter_mut().enumerate() {
@@ -442,7 +445,7 @@ impl Efficientnet {
             .swish();
         x = x.avg_pool2d((x.shape[2], x.shape[3]), None);
         x = x.reshape(vec![1, x.shape[1]]);
-        x.linear(&self.fc, &self.fc_bias, None)
+        x.linear(&self.fc, Some(&self.fc_bias))
     }
 }
 

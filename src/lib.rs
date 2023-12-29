@@ -23,7 +23,12 @@ type BroadcastOp = fn(lhs: f64, rhs: f64) -> f64;
 
 // https://pytorch.org/docs/stable/notes/broadcasting.html
 fn broadcast_op(mut lhs: Tensor, mut rhs: Tensor, op: BroadcastOp) -> Tensor {
-    assert!(broadcastable(&lhs.shape, &rhs.shape));
+    assert!(
+        broadcastable(&lhs.shape, &rhs.shape),
+        "{:?} and {:?} aren't broadcastable",
+        lhs.shape,
+        rhs.shape
+    );
 
     let max_len = lhs.shape.len().max(rhs.shape.len());
     while rhs.shape.len() < max_len {
@@ -221,7 +226,7 @@ impl Tensor {
         Tensor::new(data, shape)
     }
 
-    pub fn matmul(&self, rhs: Tensor) -> Tensor {
+    pub fn matmul(&self, rhs: &Tensor) -> Tensor {
         assert!(
             self.shape.len() == 2 && rhs.shape.len() == 2,
             "only supporting 2d tensors for now"
@@ -598,23 +603,10 @@ impl Tensor {
         Tensor::new(result, self.shape.clone())
     }
 
-    pub fn linear(
-        &self,
-        in_features: &Tensor,
-        out_features: &Tensor,
-        bias: Option<bool>,
-    ) -> Tensor {
-        let in_size = in_features.shape[0];
-        let out_size = out_features.shape[0];
-        // Kaiming uniform
-        let weight = Tensor::rand(vec![in_size, out_size]) * (6.0 / in_size as f64).sqrt();
-
-        if bias.unwrap_or(true) {
-            let bias_range = (1.0 / in_size as f64).sqrt();
-            let bias = Tensor::rand_with_range(vec![out_size], (-bias_range, bias_range));
-            self.matmul(weight) + bias
-        } else {
-            self.matmul(weight)
+    pub fn linear(&self, weight: &Tensor, bias: Option<&Tensor>) -> Tensor {
+        match bias {
+            Some(bias) => self.matmul(weight) + bias.clone(),
+            None => self.matmul(weight),
         }
     }
 
@@ -743,7 +735,7 @@ mod tests {
     fn matmul_matrix_2d() {
         let a = Tensor::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]);
         let b = Tensor::new(vec![1.0, 2.0, 3.0, 1.0, 2.0, 3.0], vec![3, 2]);
-        let result = a.matmul(b);
+        let result = a.matmul(&b);
 
         assert_eq!(result.data, vec![13.0, 13.0, 31.0, 31.0]);
         assert_eq!(result.shape, vec![2, 2]);
@@ -1472,10 +1464,11 @@ mod tests {
         assert_eq!(result.shape, vec![4]);
     }
 
+    // FIXME: weird test case, doesn't match pytorch but tinygrad
     #[test]
     fn test_linear() {
         let t = Tensor::rand(vec![128, 20]);
-        let result = t.linear(&Tensor::zeros(20), &Tensor::zeros(30), None);
+        let result = t.linear(&Tensor::new(vec![0.0; 600], vec![20, 30]), None);
         assert_eq!(result.shape, vec![128, 30]);
     }
 
