@@ -28,9 +28,9 @@ fn infer(mut model: Efficientnet, mut image: DynamicImage) {
         FilterType::Nearest,
     );
 
-    // cropping towards the top left corner!
-    // TODO: crop towards the center
-    image = image.crop_imm(0, 0, 224, 224);
+    let x0 = (image.width() - 224) / 2;
+    let y0 = (image.height() - 224) / 2;
+    image = image.crop_imm(x0, y0, 224, 224);
 
     let bias = Tensor::new(BIAS.to_vec(), vec![1, 3, 1, 1]);
     let scale = Tensor::new(SCALE.to_vec(), vec![1, 3, 1, 1]);
