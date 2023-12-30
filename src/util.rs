@@ -155,3 +155,12 @@ pub fn extract_4d_tensor(v: &Value) -> Option<Tensor> {
         ],
     ))
 }
+
+pub fn argmax(t: &Tensor) -> usize {
+    t.data
+        .iter()
+        .enumerate()
+        .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+        .map(|(index, _)| index)
+        .unwrap()
+}

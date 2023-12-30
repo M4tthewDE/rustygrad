@@ -15,6 +15,9 @@ pub struct BatchNorm2d {
 }
 
 // https://github.com/ptrblck/pytorch_misc/blob/master/batch_norm_manual.py
+// TODO: change this to tinygrad batchnorm implementation?
+// seems more elegant and not too hard
+// https://github.com/tinygrad/tinygrad/blob/master/tinygrad/nn/__init__.py
 impl BatchNorm2d {
     pub fn forward(&mut self, input: Tensor, training: bool) -> Tensor {
         let mut mean: Tensor;

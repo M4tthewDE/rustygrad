@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use image::{imageops::FilterType, io::Reader, DynamicImage};
-use rustygrad::{efficientnet::Efficientnet, Tensor};
+use rustygrad::{efficientnet::Efficientnet, util, Tensor};
 use tracing::info;
 
 fn main() {
@@ -35,7 +35,6 @@ fn infer(mut model: Efficientnet, mut image: DynamicImage) {
     let x0 = (image.width() - 224) / 2;
     let y0 = (image.height() - 224) / 2;
     image = image.crop_imm(x0, y0, 224, 224);
-
     let bias = Tensor::new(BIAS.to_vec(), vec![1, 3, 1, 1]);
     let scale = Tensor::new(SCALE.to_vec(), vec![1, 3, 1, 1]);
 
@@ -46,13 +45,7 @@ fn infer(mut model: Efficientnet, mut image: DynamicImage) {
     input = input / scale;
     let out = model.forward(input);
     let max = out.clone().max().data[0];
-    let argmax = out
-        .data
-        .iter()
-        .enumerate()
-        .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
-        .map(|(index, _)| index)
-        .unwrap();
+    let argmax = util::argmax(&out);
 
     info!("{} {} {}", argmax, max, labels.get(&argmax).unwrap());
 }

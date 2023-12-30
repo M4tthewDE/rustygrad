@@ -1,4 +1,5 @@
 // https://github.com/lukemelas/EfficientNet-PyTorch/blob/master/efficientnet_pytorch/model.py
+// https://github.com/tinygrad/tinygrad/blob/master/extra/models/efficientnet.py
 
 use std::time::Instant;
 
@@ -10,13 +11,14 @@ use crate::{
 };
 
 pub static MODEL_URLS: [&str; 8] = [
-      "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b0-355c32eb.pth", "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b1-f1951068.pth",
-      "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b2-8bb594d6.pth",
-      "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b3-5fb5a3c3.pth",
-      "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b4-6ed6700e.pth",
-      "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b5-b6417697.pth",
-      "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b6-c76e70fd.pth",
-      "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b7-dcc49843.pth"
+    "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b0-355c32eb.pth", 
+    "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b1-f1951068.pth",
+    "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b2-8bb594d6.pth",
+    "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b3-5fb5a3c3.pth",
+    "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b4-6ed6700e.pth",
+    "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b5-b6417697.pth",
+    "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b6-c76e70fd.pth",
+    "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b7-dcc49843.pth"
 ];
 
 static PARAMS: [(f64, f64, i64, f64); 8] = [
@@ -162,6 +164,7 @@ impl MBConvBlock {
 impl Callable for MBConvBlock {
     fn call(&self, input: Tensor) -> Tensor {
         let mut x = input.clone();
+        debug!("0: {}", util::argmax(&x));
         if let Some(expand_conv) = &self.expand_conv {
             x = self
                 .bn0
@@ -170,7 +173,7 @@ impl Callable for MBConvBlock {
                 .forward(x.conv2d(expand_conv, None, None, None, None), false)
                 .swish();
         }
-
+        debug!("1: {}", util::argmax(&x));
         x = x.conv2d(
             &self.depthwise_conv,
             None,
@@ -178,10 +181,14 @@ impl Callable for MBConvBlock {
             Some(self.strides),
             Some(self.depthwise_conv.shape[0]),
         );
-        debug!("{}", x.clone().data.iter().sum::<f64>());
+        debug!("2: {}", util::argmax(&x));
+        // FIXME: this changes argmax hardcore, while it stays the same in tinygrad!
+        // do we have a bug in batchnorm? (swish is not at fault!)
         x = self.bn1.clone().forward(x, false).swish();
+        debug!("3: {}", util::argmax(&x));
 
         let mut x_squeezed = x.avg_pool2d((x.shape[2], x.shape[3]), None);
+        debug!("4: {}", util::argmax(&x));
         x_squeezed = x_squeezed
             .conv2d(
                 &self.se_reduce,
@@ -209,28 +216,6 @@ impl Callable for MBConvBlock {
         if x.shape == input.shape {
             x = x + input;
         }
-
-        debug!("{}", x.clone().data.iter().sum::<f64>());
-        // FIXME: get this to match tinygrads values
-        // info!("{}", x.clone().max().data[0]);
-
-        // tinygrad:
-        // 35.81445
-        // 42.03277
-        // 55.100254
-        // 30.770437
-        // 36.090893
-        // 30.193832
-        // 27.056953
-        // 26.005215
-        // 34.672073
-        // 44.859806
-        // 44.674614
-        // 24.620136
-        // 25.334736
-        // 27.094227
-        // 32.68323
-        // 18.718155
 
         x
     }
@@ -425,7 +410,6 @@ impl Default for Efficientnet {
 
 impl Efficientnet {
     pub fn forward(&mut self, x: Tensor) -> Tensor {
-        debug!("{}", x.clone().data.iter().sum::<f64>());
         let mut x = self
             .bn0
             .forward(
@@ -439,7 +423,6 @@ impl Efficientnet {
                 false,
             )
             .swish();
-
         x = x.sequential(&self.blocks);
         x = self
             .bn1
