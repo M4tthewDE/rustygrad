@@ -403,6 +403,7 @@ impl Default for Efficientnet {
 
 impl Efficientnet {
     pub fn forward(&mut self, x: Tensor) -> Tensor {
+        debug!("-2: {}", util::argmax(&x));
         let mut x = self
             .bn0
             .forward(x.conv2d(
@@ -414,6 +415,7 @@ impl Efficientnet {
             ))
             .swish();
 
+        debug!("-1: {}", util::argmax(&x));
         x = x.sequential(&self.blocks);
         x = self
             .bn1

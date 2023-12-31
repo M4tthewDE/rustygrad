@@ -11,7 +11,7 @@ fn main() {
 
     let efficientnet = Efficientnet::default();
 
-    let img = Reader::open("examples/chicken.jpg")
+    let img = Reader::open("examples/chicken_cropped.jpg")
         .unwrap()
         .decode()
         .unwrap();
