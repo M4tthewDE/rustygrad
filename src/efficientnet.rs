@@ -182,8 +182,6 @@ impl Callable for MBConvBlock {
             Some(self.depthwise_conv.shape[0]),
         );
         debug!("2: {}", util::argmax(&x));
-        // FIXME: this changes argmax hardcore, while it stays the same in tinygrad!
-        // do we have a bug in batchnorm? (swish is not at fault!)
         x = self.bn1.clone().forward(x).swish();
         debug!("3: {}", util::argmax(&x));
 

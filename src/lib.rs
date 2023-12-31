@@ -8,6 +8,7 @@ use std::{
 use image::DynamicImage;
 use itertools::{EitherOrBoth, Itertools};
 use rand::distributions::{Distribution, Uniform};
+use tracing::debug;
 
 pub mod batch_norm;
 pub mod efficientnet;
@@ -654,17 +655,20 @@ impl Tensor {
         invstd: &Tensor,
     ) -> Tensor {
         let x = self.clone() - mean.reshape(vec![1, mean.shape[0], 1, 1]);
+        debug!("B 1: {}", util::argmax(&x));
         let x = if let Some(weight) = weight {
             x * weight.reshape(vec![1, weight.shape[0], 1, 1])
         } else {
             x
         };
+        debug!("B 2: {}", util::argmax(&x));
 
         let ret = if invstd.shape.len() == 1 {
             x.mul(invstd.reshape(vec![1, invstd.shape[1], 1, 1]))
         } else {
-            invstd.clone()
+            x.mul(invstd.clone())
         };
+        debug!("B 3: {}", util::argmax(&ret));
 
         if let Some(bias) = bias {
             ret + bias.reshape(vec![1, bias.shape[0], 1, 1])
