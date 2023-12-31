@@ -170,7 +170,7 @@ impl Callable for MBConvBlock {
                 .bn0
                 .clone()
                 .unwrap()
-                .forward(x.conv2d(expand_conv, None, None, None, None), false)
+                .forward(x.conv2d(expand_conv, None, None, None, None))
                 .swish();
         }
         debug!("1: {}", util::argmax(&x));
@@ -184,7 +184,7 @@ impl Callable for MBConvBlock {
         debug!("2: {}", util::argmax(&x));
         // FIXME: this changes argmax hardcore, while it stays the same in tinygrad!
         // do we have a bug in batchnorm? (swish is not at fault!)
-        x = self.bn1.clone().forward(x, false).swish();
+        x = self.bn1.clone().forward(x).swish();
         debug!("3: {}", util::argmax(&x));
 
         let mut x_squeezed = x.avg_pool2d((x.shape[2], x.shape[3]), None);
@@ -211,7 +211,7 @@ impl Callable for MBConvBlock {
         x = self
             .bn2
             .clone()
-            .forward(x.conv2d(&self.project_conv, None, None, None, None), false);
+            .forward(x.conv2d(&self.project_conv, None, None, None, None));
 
         if x.shape == input.shape {
             x = x + input;
@@ -290,7 +290,6 @@ impl Default for Efficientnet {
             Tensor::from_vec(util::extract_floats(&model_data["_bn0.running_mean"]).unwrap());
         bn0.running_var =
             Tensor::from_vec(util::extract_floats(&model_data["_bn0.running_var"]).unwrap());
-        bn0.num_batches_tracked = model_data["_bn0.num_batches_tracked"].as_u64().unwrap() as usize;
         bn1.weight = Some(Tensor::from_vec(
             util::extract_floats(&model_data["_bn1.weight"]).unwrap(),
         ));
@@ -301,7 +300,6 @@ impl Default for Efficientnet {
             Tensor::from_vec(util::extract_floats(&model_data["_bn1.running_mean"]).unwrap());
         bn1.running_var =
             Tensor::from_vec(util::extract_floats(&model_data["_bn1.running_var"]).unwrap());
-        bn1.num_batches_tracked = model_data["_bn1.num_batches_tracked"].as_u64().unwrap() as usize;
 
         let conv_head = util::extract_4d_tensor(&model_data["_conv_head.weight"]).unwrap();
         let conv_stem = util::extract_4d_tensor(&model_data["_conv_stem.weight"]).unwrap();
@@ -379,11 +377,6 @@ impl Default for Efficientnet {
                     )
                     .unwrap(),
                 );
-
-                bn.num_batches_tracked = model_data
-                    [format!("_blocks.{}._bn{}.num_batches_tracked", i, j)]
-                .as_u64()
-                .unwrap() as usize;
             }
         }
 
@@ -412,22 +405,19 @@ impl Efficientnet {
     pub fn forward(&mut self, x: Tensor) -> Tensor {
         let mut x = self
             .bn0
-            .forward(
-                x.conv2d(
-                    &self.conv_stem,
-                    None,
-                    Some(&[0, 1, 0, 1]),
-                    Some((2, 2)),
-                    None,
-                ),
-                false,
-            )
+            .forward(x.conv2d(
+                &self.conv_stem,
+                None,
+                Some(&[0, 1, 0, 1]),
+                Some((2, 2)),
+                None,
+            ))
             .swish();
         x = x.sequential(&self.blocks);
         x = self
             .bn1
             .clone()
-            .forward(x.conv2d(&self.conv_head, None, None, None, None), false)
+            .forward(x.conv2d(&self.conv_head, None, None, None, None))
             .swish();
         x = x.avg_pool2d((x.shape[2], x.shape[3]), None);
         x = x.reshape(vec![1, x.shape[1]]);

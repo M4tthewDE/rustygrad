@@ -1,4 +1,9 @@
-use std::{cmp, f64::consts::E, iter::zip, ops};
+use std::{
+    cmp,
+    f64::consts::E,
+    iter::zip,
+    ops::{self, Mul},
+};
 
 use image::DynamicImage;
 use itertools::{EitherOrBoth, Itertools};
@@ -592,6 +597,80 @@ impl Tensor {
     pub fn sqrt(&self) -> Tensor {
         let result: Vec<f64> = self.data.iter().map(|x| x.sqrt()).collect();
         Tensor::new(result, self.shape.clone())
+    }
+
+    pub fn rsqrt(&self) -> Tensor {
+        let result: Vec<f64> = self.data.iter().map(|x| 1.0 / x.sqrt()).collect();
+        Tensor::new(result, self.shape.clone())
+    }
+
+    pub fn expand(&self, shape: &[usize]) -> Tensor {
+        assert_eq!(
+            self.shape.len(),
+            shape.len(),
+            "Only supporting same size shapes for now"
+        );
+        // Ensure every dimension in the new shape is compatible with the old shape
+        for (old, new) in self.shape.iter().zip(shape) {
+            assert!(
+                *old == *new || *old == 1,
+                "The new dimension must be either 1 or the same as the old dimension"
+            );
+        }
+
+        let total_elements = shape.iter().product::<usize>();
+        let mut new_data = Vec::with_capacity(total_elements);
+
+        for index in 0..total_elements {
+            let mut temp_index = index;
+            let mut old_indices = Vec::with_capacity(self.shape.len());
+
+            for (&size_new, &size_old) in shape.iter().zip(&self.shape).rev() {
+                old_indices.push(if size_old == 1 {
+                    0
+                } else {
+                    temp_index % size_old
+                });
+                temp_index /= size_new;
+            }
+            old_indices.reverse();
+
+            let old_index = old_indices
+                .iter()
+                .zip(self.shape.iter())
+                .fold(0, |acc, (&i, &dim)| acc * dim + i);
+
+            new_data.push(self.data[old_index]);
+        }
+
+        Tensor::new(new_data, shape.to_vec())
+    }
+
+    pub fn batchnorm(
+        &self,
+        weight: Option<&Tensor>,
+        bias: Option<&Tensor>,
+        mean: &Tensor,
+        invstd: &Tensor,
+    ) -> Tensor {
+        let x = self.clone() - mean.reshape(vec![1, mean.shape[1], 1, 1]);
+        let x = if let Some(weight) = weight {
+            x * weight.reshape(vec![1, weight.shape[0], 1, 1])
+        } else {
+            x
+        };
+
+        let ret = if invstd.shape.len() == 1 {
+            x.mul(invstd.reshape(vec![1, invstd.shape[1], 1, 1]))
+        } else {
+            invstd.clone()
+        };
+
+        if let Some(bias) = bias {
+            ret + bias.reshape(vec![1, bias.shape[0], 1, 1])
+        } else {
+            ret
+        }
     }
 
     pub fn relu(&self) -> Tensor {
@@ -1615,5 +1694,16 @@ mod tests {
             1e-6,
         );
         assert_eq!(input.shape, vec![4]);
+    }
+
+    #[test]
+    fn test_expand() {
+        let t = Tensor::new(vec![1.0, 2.0, 3.0], vec![3, 1]);
+        let result = t.expand(&vec![3, 4]);
+        assert_eq!(
+            result.data,
+            vec![1.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 2.0, 3.0, 3.0, 3.0, 3.0,]
+        );
+        assert_eq!(result.shape, vec![3, 4]);
     }
 }
