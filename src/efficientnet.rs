@@ -413,6 +413,7 @@ impl Efficientnet {
                 None,
             ))
             .swish();
+
         x = x.sequential(&self.blocks);
         x = self
             .bn1

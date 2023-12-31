@@ -8,18 +8,14 @@ pub struct BatchNorm2d {
     pub running_mean: Tensor,
     pub running_var: Tensor,
     eps: f64,
-    // FIXME: these should probably not be Option
     pub weight: Option<Tensor>,
     pub bias: Option<Tensor>,
 }
 
-// https://github.com/ptrblck/pytorch_misc/blob/master/batch_norm_manual.py
-// TODO: change this to tinygrad batchnorm implementation?
-// seems more elegant and not too hard
 // https://github.com/tinygrad/tinygrad/blob/master/tinygrad/nn/__init__.py
 impl BatchNorm2d {
     pub fn forward(&mut self, x: Tensor) -> Tensor {
-        let batch_mean = self.running_mean.reshape(vec![1, self.num_features, 1, 1]);
+        let batch_mean = self.running_mean.clone();
         let batch_invstd = self
             .running_var
             .reshape(vec![1, self.num_features, 1, 1])

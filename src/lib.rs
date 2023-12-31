@@ -653,7 +653,7 @@ impl Tensor {
         mean: &Tensor,
         invstd: &Tensor,
     ) -> Tensor {
-        let x = self.clone() - mean.reshape(vec![1, mean.shape[1], 1, 1]);
+        let x = self.clone() - mean.reshape(vec![1, mean.shape[0], 1, 1]);
         let x = if let Some(weight) = weight {
             x * weight.reshape(vec![1, weight.shape[0], 1, 1])
         } else {
