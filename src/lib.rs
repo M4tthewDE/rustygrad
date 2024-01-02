@@ -774,7 +774,6 @@ mod tests {
     use std::f64::NAN;
 
     use crate::{
-        batch_norm::INPUT,
         util::{self, assert_aprox_eq_vec},
         Tensor,
     };
@@ -936,7 +935,7 @@ mod tests {
             &tch_kernel,
             None::<tch::Tensor>,
             vec![2, 2],
-            vec![0, 1],
+            vec![1, 1],
             1,
             96,
         );
@@ -1203,15 +1202,15 @@ mod tests {
 
     #[test]
     fn mean_4d_over_3_axis() {
-        let input = Tensor::new(INPUT.to_vec(), vec![2, 4, 3, 3]);
+        let input = Tensor::rand(vec![2, 4, 3, 3]);
+        let tch_input = input.to_tch();
 
         let mean = input.reduce_mean(Some(&vec![0, 2, 3]), false, None);
-        assert_aprox_eq_vec(
-            mean.data,
-            vec![0.43395922, 0.45119032, 0.5364723, 0.49982092],
-            1e-6,
-        );
-        assert_eq!(mean.shape, vec![4]);
+        let tch_mean = tch_input.mean_dim(vec![0, 2, 3], false, None);
+        let tch_shape = util::tch_shape(&tch_mean);
+        let tch_output = util::tch_data(&tch_mean);
+        assert_eq!(mean.shape, tch_shape);
+        assert_aprox_eq_vec(mean.data, tch_output, 1e-6);
     }
 
     #[test]
@@ -1306,20 +1305,26 @@ mod tests {
 
     #[test]
     fn reduce_sum_multiple_axis() {
-        let input = Tensor::new(INPUT.to_vec(), vec![2, 4, 3, 3]);
+        let input = Tensor::rand(vec![2, 4, 3, 3]);
+        let tch_input = input.to_tch();
         let sum = input.reduce_sum(Some(&vec![0, 2, 3]), false);
-
-        assert_eq!(sum.shape, vec![4]);
-        assert_aprox_eq_vec(sum.data, vec![7.811266, 8.121426, 9.656502, 8.996777], 1e-6);
+        let tch_sum = tch_input.sum_dim_intlist(vec![0, 2, 3], false, None);
+        let tch_shape = util::tch_shape(&tch_sum);
+        let tch_output = util::tch_data(&tch_sum);
+        assert_eq!(sum.shape, tch_shape);
+        assert_aprox_eq_vec(sum.data, tch_output, 1e-6);
     }
 
     #[test]
     fn reduce_sum_multiple_axis_keepdim() {
-        let input = Tensor::new(INPUT.to_vec(), vec![2, 4, 3, 3]);
+        let input = Tensor::rand(vec![2, 4, 3, 3]);
+        let tch_input = input.to_tch();
         let sum = input.reduce_sum(Some(&vec![0, 2, 3]), true);
-
-        assert_eq!(sum.shape, vec![1, 4, 1, 1]);
-        assert_aprox_eq_vec(sum.data, vec![7.811266, 8.121426, 9.656502, 8.996777], 1e-6);
+        let tch_sum = tch_input.sum_dim_intlist(vec![0, 2, 3], true, None);
+        let tch_shape = util::tch_shape(&tch_sum);
+        let tch_output = util::tch_data(&tch_sum);
+        assert_eq!(sum.shape, tch_shape);
+        assert_aprox_eq_vec(sum.data, tch_output, 1e-6);
     }
 
     #[test]
@@ -1453,15 +1458,15 @@ mod tests {
 
     #[test]
     fn variance_4d_over_3_axis() {
-        let input = Tensor::new(INPUT.to_vec(), vec![2, 4, 3, 3]);
-        let var = input.variance(Some(&vec![0, 2, 3]), None);
+        let input = Tensor::rand(vec![2, 4, 3, 3]);
+        let tch_input = input.to_tch();
 
-        assert_aprox_eq_vec(
-            var.data,
-            vec![0.06047015, 0.1051994, 0.05764891, 0.08270448],
-            1e-6,
-        );
-        assert_eq!(var.shape, vec![4]);
+        let var = input.variance(Some(&vec![0, 2, 3]), None);
+        let tch_var = tch_input.var_dim(vec![0, 2, 3], true, false);
+        let tch_shape = util::tch_shape(&tch_var);
+        let tch_output = util::tch_data(&tch_var);
+        assert_eq!(var.shape, tch_shape);
+        assert_aprox_eq_vec(var.data, tch_output, 1e-6);
     }
 
     #[test]
