@@ -84,7 +84,6 @@ mod tests {
         Tensor,
     };
 
-    // FIXME: compare with pytorch instead, get rid of the huge arrays
     #[test]
     fn test_batchnorm2d_no_training() {
         let num_features = 4;
