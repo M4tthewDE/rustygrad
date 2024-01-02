@@ -165,6 +165,8 @@ impl Callable for MBConvBlock {
     fn call(&self, input: Tensor) -> Tensor {
         let mut x = input.clone();
         debug!("0: {}", util::argmax(&x));
+        dbg!(&x.data[266398]);
+        dbg!(&x.data[266509]);
         if let Some(expand_conv) = &self.expand_conv {
             x = self
                 .bn0
@@ -174,6 +176,15 @@ impl Callable for MBConvBlock {
                 .swish();
         }
         debug!("1: {}", util::argmax(&x));
+        dbg!(&x.data[266398]);
+        dbg!(&x.data[266509]);
+        dbg!(
+            &x.shape,
+            &self.pad,
+            self.strides,
+            &self.depthwise_conv.shape
+        );
+        // This is massively wrong!
         x = x.conv2d(
             &self.depthwise_conv,
             None,
@@ -181,6 +192,9 @@ impl Callable for MBConvBlock {
             Some(self.strides),
             Some(self.depthwise_conv.shape[0]),
         );
+        dbg!(&x.shape);
+        dbg!(&x.data[266398]);
+        dbg!(&x.data[266509]);
         debug!("2: {}", util::argmax(&x));
         x = self.bn1.clone().forward(x).swish();
         debug!("3: {}", util::argmax(&x));

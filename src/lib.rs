@@ -198,6 +198,11 @@ impl Tensor {
         Tensor::from_vec(vec![1.0; size])
     }
 
+    pub fn to_tch(&self) -> tch::Tensor {
+        tch::Tensor::from_slice(&self.data)
+            .reshape(self.shape.iter().map(|&d| d as i64).collect::<Vec<i64>>())
+    }
+
     pub fn from_image(img: DynamicImage) -> Tensor {
         let shape = vec![img.width() as usize, img.height() as usize, 3];
         let data: Vec<f64> = img
@@ -328,14 +333,13 @@ impl Tensor {
             "output channels must be divisible by groups"
         );
 
-        let n = self.shape[0];
         if let Some(padding) = padding {
             self = self.pad2d(0.0, padding);
         }
 
         let strides = strides.unwrap_or((1, 1));
 
-        let (c_in, height, width) = (self.shape[1], self.shape[2], self.shape[3]);
+        let (n, c_in, height, width) = (self.shape[0], self.shape[1], self.shape[2], self.shape[3]);
         let (c_out, kernel_height, kernel_width) =
             (kernel.shape[0], kernel.shape[2], kernel.shape[3]);
 
@@ -769,7 +773,11 @@ pub trait Callable {
 mod tests {
     use std::f64::NAN;
 
-    use crate::{batch_norm::INPUT, util::assert_aprox_eq_vec, Tensor};
+    use crate::{
+        batch_norm::INPUT,
+        util::{self, assert_aprox_eq_vec},
+        Tensor,
+    };
 
     #[test]
     fn addition_scalar() {
@@ -900,134 +908,170 @@ mod tests {
         // https://medium.com/apache-mxnet/convolutions-explained-with-ms-excel-465d6649831c
         let input = Tensor::new(
             vec![
-                1., 3., 2., 1., //
-                1., 3., 3., 1., //
-                2., 1., 1., 3., //
-                3., 2., 3., 3., //
+                1., 3., 2., 1., 1., 3., 3., 1., 2., 1., 1., 3., 3., 2., 3., 3.,
             ],
             vec![1, 1, 4, 4],
         );
-        let kernel = Tensor::new(
-            vec![
-                1., 2., 3., //
-                0., 1., 0., //
-                2., 1., 2., //
-            ],
-            vec![1, 1, 3, 3],
-        );
-        let output = input.conv2d(&kernel, None, None, None, None);
+        let tch_input = input.to_tch();
+        let kernel = Tensor::new(vec![1., 2., 3., 0., 1., 0., 2., 1., 2.], vec![1, 1, 3, 3]);
+        let tch_kernel = kernel.to_tch();
 
-        assert_eq!(output.data, vec![23., 22., 31., 26.]);
-        assert_eq!(output.shape, vec![1, 1, 2, 2]);
+        let output = input.conv2d(&kernel, None, None, None, None);
+        let tch_result = tch_input.conv2d(&tch_kernel, None::<tch::Tensor>, 1, 0, 1, 1);
+        let tch_shape = util::tch_shape(&tch_result);
+        let tch_output = util::tch_data(&tch_result);
+
+        assert_eq!(output.data, tch_output);
+        assert_eq!(output.shape, tch_shape);
     }
 
     #[test]
-    fn conv2d_weird() {
+    fn conv2d_weird_padding() {
         let input = Tensor::rand(vec![1, 96, 112, 112]);
+        let tch_input = input.to_tch();
         let kernel = Tensor::rand(vec![96, 1, 3, 3]);
+        let tch_kernel = kernel.to_tch();
         let output = input.conv2d(&kernel, None, Some(&[0, 1, 0, 1]), Some((2, 2)), Some(96));
+        let tch_output = tch_input.conv2d(
+            &tch_kernel,
+            None::<tch::Tensor>,
+            vec![2, 2],
+            vec![0, 1],
+            1,
+            96,
+        );
+        let tch_shape = util::tch_shape(&tch_output);
+        let tch_output = util::tch_data(&tch_output);
 
-        assert_eq!(output.shape, vec![1, 96, 56, 56]);
+        assert_eq!(output.shape, tch_shape);
+        assert_aprox_eq_vec(output.data, tch_output, 1e-6);
+    }
+
+    // TODO: this might test the same thing as above
+    #[test]
+    fn conv2d_group_not_1() {
+        let input = Tensor::rand(vec![1, 32, 112, 112]);
+        let tch_input = input.to_tch();
+        let kernel = Tensor::rand(vec![32, 1, 3, 3]);
+        let tch_kernel = kernel.to_tch();
+
+        let output = input.conv2d(&kernel, None, Some(&[1, 1, 1, 1]), Some((1, 1)), Some(32));
+        let tch_output = tch_input.conv2d(
+            &tch_kernel,
+            None::<tch::Tensor>,
+            vec![1, 1],
+            vec![1, 1],
+            1,
+            32,
+        );
+        let tch_shape = util::tch_shape(&tch_output);
+        let tch_output = util::tch_data(&tch_output);
+
+        assert_eq!(output.shape, tch_shape);
+        assert_aprox_eq_vec(output.data, tch_output, 1e-6);
     }
 
     #[test]
     fn conv2d_with_bias() {
-        // https://medium.com/apache-mxnet/convolutions-explained-with-ms-excel-465d6649831c
         let input = Tensor::new(
             vec![
-                1., 3., 2., 1., //
-                1., 3., 3., 1., //
-                2., 1., 1., 3., //
-                3., 2., 3., 3., //
+                1., 3., 2., 1., 1., 3., 3., 1., 2., 1., 1., 3., 3., 2., 3., 3.,
             ],
             vec![1, 1, 4, 4],
         );
-        let kernel = Tensor::new(
-            vec![
-                1., 2., 3., //
-                0., 1., 0., //
-                2., 1., 2., //
-            ],
-            vec![1, 1, 3, 3],
-        );
-        let output = input.conv2d(&kernel, Some(&Tensor::from_scalar(1.0)), None, None, None);
+        let tch_input = input.to_tch();
+        let kernel = Tensor::new(vec![1., 2., 3., 0., 1., 0., 2., 1., 2.], vec![1, 1, 3, 3]);
+        let tch_kernel = kernel.to_tch();
+        let bias = Tensor::from_scalar(1.0);
+        let tch_bias = bias.to_tch();
 
-        assert_eq!(output.data, vec![24., 23., 32., 27.]);
-        assert_eq!(output.shape, vec![1, 1, 2, 2]);
+        let output = input.conv2d(&kernel, Some(&bias), None, None, None);
+        let tch_result = tch_input.conv2d(&tch_kernel, Some(&tch_bias), 1, 0, 1, 1);
+        let tch_shape = util::tch_shape(&tch_result);
+        let tch_output = util::tch_data(&tch_result);
+
+        assert_eq!(output.data, tch_output);
+        assert_eq!(output.shape, tch_shape);
     }
 
     #[test]
     fn conv2d_4d() {
         let input = Tensor::rand(vec![1, 3, 224, 224]);
+        let tch_input = input.to_tch();
         let kernel = Tensor::rand(vec![32, 3, 3, 3]);
+        let tch_kernel = kernel.to_tch();
         let output = input.conv2d(&kernel, None, Some(&[1, 1, 1, 1]), Some((2, 2)), None);
+        let tch_output = tch_input.conv2d(
+            &tch_kernel,
+            None::<tch::Tensor>,
+            vec![2, 2],
+            vec![1, 1],
+            1,
+            1,
+        );
 
-        assert_eq!(output.shape, vec![1, 32, 112, 112]);
+        let tch_shape = util::tch_shape(&tch_output);
+        let tch_output = util::tch_data(&tch_output);
+
+        assert_eq!(output.shape, tch_shape);
+        assert_aprox_eq_vec(output.data, tch_output, 1e-6);
     }
 
     #[test]
     fn conv2d_with_padding() {
         let input = Tensor::new(
             vec![
-                1., 3., 2., 1., //
-                1., 3., 3., 1., //
-                2., 1., 1., 3., //
-                3., 2., 3., 3., //
+                1., 3., 2., 1., 1., 3., 3., 1., 2., 1., 1., 3., 3., 2., 3., 3.,
             ],
             vec![1, 1, 4, 4],
         );
-        let kernel = Tensor::new(
-            vec![
-                1., 2., 3., //
-                0., 1., 0., //
-                2., 1., 2., //
-            ],
-            vec![1, 1, 3, 3],
-        );
+        let tch_input = input.to_tch();
+        let kernel = Tensor::new(vec![1., 2., 3., 0., 1., 0., 2., 1., 2.], vec![1, 1, 3, 3]);
+        let tch_kernel = kernel.to_tch();
         let output = input.conv2d(&kernel, None, Some(&[1, 1, 1, 1]), None, None);
-
-        assert_eq!(
-            output.data,
-            vec![
-                8., 14., 13., 8., //
-                16., 23., 22., 10., //
-                20., 31., 26., 17., //
-                10., 9., 15., 10., //
-            ]
+        let tch_output = tch_input.conv2d(
+            &tch_kernel,
+            None::<tch::Tensor>,
+            vec![1, 1],
+            vec![1, 1],
+            1,
+            1,
         );
-        assert_eq!(output.shape, vec![1, 1, 4, 4]);
+
+        let tch_shape = util::tch_shape(&tch_output);
+        let tch_output = util::tch_data(&tch_output);
+
+        assert_eq!(output.data, tch_output);
+        assert_eq!(output.shape, tch_shape);
     }
 
     #[test]
     fn conv2d_with_stride() {
         let input = Tensor::new(
             vec![
-                1., 3., 2., 1., 2., //
-                1., 3., 3., 1., 2., //
-                2., 1., 1., 3., 1., //
-                3., 2., 3., 3., 2., //
-                2., 3., 1., 2., 2., //
+                1., 3., 2., 1., 2., 1., 3., 3., 1., 2., 2., 1., 1., 3., 1., 3., 2., 3., 3., 2., 2.,
+                3., 1., 2., 2.,
             ],
             vec![1, 1, 5, 5],
         );
-        let kernel = Tensor::new(
-            vec![
-                1., 2., 3., //
-                0., 1., 0., //
-                2., 1., 2., //
-            ],
-            vec![1, 1, 3, 3],
-        );
+        let tch_input = input.to_tch();
+        let kernel = Tensor::new(vec![1., 2., 3., 0., 1., 0., 2., 1., 2.], vec![1, 1, 3, 3]);
+        let tch_kernel = kernel.to_tch();
         let output = input.conv2d(&kernel, None, None, Some((2, 2)), None);
-
-        assert_eq!(
-            output.data,
-            vec![
-                23., 18., //
-                18., 21., //
-            ]
+        let tch_output = tch_input.conv2d(
+            &tch_kernel,
+            None::<tch::Tensor>,
+            vec![2, 2],
+            vec![0, 0],
+            1,
+            1,
         );
-        assert_eq!(output.shape, vec![1, 1, 2, 2]);
+
+        let tch_shape = util::tch_shape(&tch_output);
+        let tch_output = util::tch_data(&tch_output);
+
+        assert_eq!(output.data, tch_output);
+        assert_eq!(output.shape, tch_shape);
     }
 
     #[test]

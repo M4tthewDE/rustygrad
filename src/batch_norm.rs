@@ -34,7 +34,6 @@ impl BatchNorm2d {
         )
     }
 }
-
 pub struct BatchNorm2dBuilder {
     num_features: usize,
     eps: f64,
@@ -239,6 +238,7 @@ mod tests {
         NAN,
     ];
 
+    // FIXME: compare with pytorch instead, get rid of the huge arrays
     #[test]
     fn test_batchnorm2d_no_training() {
         let num_features = 4;

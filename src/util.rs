@@ -166,3 +166,14 @@ pub fn argmax(t: &Tensor) -> usize {
 
     index
 }
+
+pub fn tch_data(tch: &tch::Tensor) -> Vec<f64> {
+    tch.flatten(0, tch.size().len() as i64 - 1)
+        .iter::<f64>()
+        .unwrap()
+        .collect()
+}
+
+pub fn tch_shape(tch: &tch::Tensor) -> Vec<usize> {
+    tch.size().iter().map(|&d| d as usize).collect()
+}
