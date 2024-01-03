@@ -476,8 +476,8 @@ impl Tensor {
         let last_two_dims = self.shape.len() - 2;
         let mut new_shape: Vec<usize> = self.shape.clone();
 
-        new_shape[last_two_dims + 1] += padding[2] + padding[3];
-        new_shape[last_two_dims] += padding[0] + padding[1];
+        new_shape[last_two_dims] += padding[2] + padding[3]; // top + bottom
+        new_shape[last_two_dims + 1] += padding[0] + padding[1]; // left + right
 
         let mut new_data = vec![value; new_shape.iter().product()];
 
@@ -491,9 +491,10 @@ impl Tensor {
             }
             multi_dim_index.reverse();
 
+            // bottom and right padding is added in the initialization
             if multi_dim_index.len() >= 2 {
-                multi_dim_index[last_two_dims] += padding[0];
-                multi_dim_index[last_two_dims + 1] += padding[2];
+                multi_dim_index[last_two_dims] += padding[2]; // top padding
+                multi_dim_index[last_two_dims + 1] += padding[0]; // left padding
             }
 
             let mut new_index = 0;
@@ -931,11 +932,14 @@ mod tests {
         let kernel = Tensor::rand(vec![96, 1, 3, 3]);
         let tch_kernel = kernel.to_tch();
         let output = input.conv2d(&kernel, None, Some(&[0, 1, 0, 1]), Some((2, 2)), Some(96));
+        // is this the same padding as above?
+        // tinygrad accepts tensors that are 4 long, pytorch doesn't!
+        let tch_input = tch_input.zero_pad2d(0, 1, 0, 1);
         let tch_output = tch_input.conv2d(
             &tch_kernel,
             None::<tch::Tensor>,
             vec![2, 2],
-            vec![1, 1],
+            vec![0, 0],
             1,
             96,
         );
@@ -1075,47 +1079,41 @@ mod tests {
 
     #[test]
     fn pad_2d() {
-        let input = Tensor::new(
-            vec![
-                1., 3., //
-                2., 5., //
-            ],
-            vec![2, 2],
-        );
+        let input = Tensor::rand(vec![1, 3, 16, 16]);
+        let tch_input = input.to_tch();
         let output = input.pad2d(0., &[1, 1, 1, 1]);
+        let tch_output = tch_input.zero_pad2d(1, 1, 1, 1);
+        let tch_shape = util::tch_shape(&tch_output);
+        let tch_output = util::tch_data(&tch_output);
 
-        assert_eq!(
-            output.data,
-            vec![
-                0., 0., 0., 0., //
-                0., 1., 3., 0., //
-                0., 2., 5., 0., //
-                0., 0., 0., 0., //
-            ]
-        );
-        assert_eq!(output.shape, vec![4, 4]);
+        assert_eq!(output.shape, tch_shape);
+        assert_eq!(output.data, tch_output,);
+    }
 
-        let input = Tensor::new(
-            vec![
-                2., 3., //
-                2., 5., //
-            ],
-            vec![2, 2],
-        );
-        let output = input.pad2d(1., &[2, 2, 2, 2]);
+    #[test]
+    fn pad_2d_no_padding() {
+        let input = Tensor::rand(vec![1, 3, 16, 16]);
+        let tch_input = input.to_tch();
+        let output = input.pad2d(0., &[0, 0, 0, 0]);
+        let tch_output = tch_input.zero_pad2d(0, 0, 0, 0);
+        let tch_shape = util::tch_shape(&tch_output);
+        let tch_output = util::tch_data(&tch_output);
 
-        assert_eq!(
-            output.data,
-            vec![
-                1., 1., 1., 1., 1., 1., //
-                1., 1., 1., 1., 1., 1., //
-                1., 1., 2., 3., 1., 1., //
-                1., 1., 2., 5., 1., 1., //
-                1., 1., 1., 1., 1., 1., //
-                1., 1., 1., 1., 1., 1., //
-            ]
-        );
-        assert_eq!(output.shape, vec![6, 6]);
+        assert_eq!(output.shape, tch_shape);
+        assert_eq!(output.data, tch_output,);
+    }
+
+    #[test]
+    fn pad_2d_weird_padding() {
+        let input = Tensor::rand(vec![1, 3, 16, 16]);
+        let tch_input = input.to_tch();
+        let output = input.pad2d(0., &[1, 2, 3, 4]);
+        let tch_output = tch_input.zero_pad2d(1, 2, 3, 4);
+        let tch_shape = util::tch_shape(&tch_output);
+        let tch_output = util::tch_data(&tch_output);
+
+        assert_eq!(output.shape, tch_shape);
+        assert_eq!(output.data, tch_output,);
     }
 
     #[test]
