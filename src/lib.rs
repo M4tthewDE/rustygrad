@@ -214,6 +214,7 @@ impl Tensor {
     }
 
     pub fn new(data: Vec<f64>, shape: Vec<usize>) -> Tensor {
+        // TODO: delete empty tensors!
         // empty tensors are an exception
         if !(data.is_empty() && shape.is_empty()) {
             assert_eq!(

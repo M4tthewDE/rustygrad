@@ -296,7 +296,7 @@ impl Default for Efficientnet {
 
         let conv_head = util::extract_4d_tensor(&model_data["_conv_head.weight"]).unwrap();
         let conv_stem = util::extract_4d_tensor(&model_data["_conv_stem.weight"]).unwrap();
-        // NOTE: is this permute correct? tinygrad changes the shape at some poing, unsure where
+        // NOTE: is this permute correct? tinygrad changes the shape at some point, unsure where
         let fc = util::extract_2d_tensor(&model_data["_fc.weight"])
             .unwrap()
             .permute(vec![1, 0]);

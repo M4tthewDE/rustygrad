@@ -1,4 +1,4 @@
-use std::{collections::HashMap, env};
+use std::{collections::HashMap, env, time::Instant};
 
 use image::{imageops::FilterType, io::Reader, DynamicImage};
 use rustygrad::{efficientnet::Efficientnet, util, Tensor};
@@ -13,7 +13,9 @@ fn main() {
     let img_name = env::args().nth(1).unwrap();
     let img = Reader::open(img_name).unwrap().decode().unwrap();
 
+    let start = Instant::now();
     infer(efficientnet, img);
+    info!("did inference in {:?}", start.elapsed());
 }
 
 const BIAS: [f64; 3] = [0.485, 0.456, 0.406];
