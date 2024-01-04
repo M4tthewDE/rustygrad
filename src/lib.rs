@@ -361,14 +361,16 @@ impl Tensor {
                                     for k_col in 0..kernel_width {
                                         let row = i * strides.0 + k_row;
                                         let col = j * strides.1 + k_col;
-                                        value += self.data
-                                            [self.index_4d_to_1d(n_index, c_in_index, row, col)]
-                                            * kernel.data[kernel.index_4d_to_1d(
-                                                c_out_index - (g * c_out_per_group), // adjust for group offset
-                                                c_in_index - (g * c_in_per_group), // adjust for group offset
-                                                k_row,
-                                                k_col,
-                                            )];
+                                        if row < height && col < width {
+                                            value += self.data[self
+                                                .index_4d_to_1d(n_index, c_in_index, row, col)]
+                                                * kernel.data[kernel.index_4d_to_1d(
+                                                    c_out_index, // removed group adjustment as each kernel is only for one group
+                                                    c_in_index % c_in_per_group, // local index within group
+                                                    k_row,
+                                                    k_col,
+                                                )];
+                                        }
                                     }
                                 }
                             }
@@ -932,8 +934,6 @@ mod tests {
         let kernel = Tensor::rand(vec![96, 1, 3, 3]);
         let tch_kernel = kernel.to_tch();
         let output = input.conv2d(&kernel, None, Some(&[0, 1, 0, 1]), Some((2, 2)), Some(96));
-        // is this the same padding as above?
-        // tinygrad accepts tensors that are 4 long, pytorch doesn't!
         let tch_input = tch_input.zero_pad2d(0, 1, 0, 1);
         let tch_output = tch_input.conv2d(
             &tch_kernel,
@@ -950,7 +950,6 @@ mod tests {
         assert_aprox_eq_vec(output.data, tch_output, 1e-6);
     }
 
-    // TODO: this might test the same thing as above
     #[test]
     fn conv2d_group_not_1() {
         let input = Tensor::rand(vec![1, 32, 112, 112]);
