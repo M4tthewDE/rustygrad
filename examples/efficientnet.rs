@@ -1,20 +1,17 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, env};
 
 use image::{imageops::FilterType, io::Reader, DynamicImage};
 use rustygrad::{efficientnet::Efficientnet, util, Tensor};
 use tracing::info;
 
+// https://github.com/tinygrad/tinygrad/blob/master/extra/models/efficientnet.py
+// https://github.com/tinygrad/tinygrad/blob/master/examples/efficientnet.py
 fn main() {
-    // https://github.com/tinygrad/tinygrad/blob/master/extra/models/efficientnet.py
-    // https://github.com/tinygrad/tinygrad/blob/master/examples/efficientnet.py
     tracing_subscriber::fmt::init();
 
     let efficientnet = Efficientnet::default();
-
-    let img = Reader::open("examples/chicken_cropped.jpg")
-        .unwrap()
-        .decode()
-        .unwrap();
+    let img_name = env::args().nth(1).unwrap();
+    let img = Reader::open(img_name).unwrap().decode().unwrap();
 
     infer(efficientnet, img);
 }
