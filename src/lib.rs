@@ -10,7 +10,10 @@ use itertools::{EitherOrBoth, Itertools};
 use rand::distributions::{Distribution, Uniform};
 
 pub mod batch_norm;
+pub mod cpu;
 pub mod efficientnet;
+pub mod op;
+pub mod tensor;
 pub mod util;
 
 pub fn broadcastable(shape1: &[usize], shape2: &[usize]) -> bool {
