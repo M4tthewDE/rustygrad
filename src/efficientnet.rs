@@ -3,7 +3,7 @@
 
 use std::time::Instant;
 
-use tracing::{debug, info};
+use tracing::info;
 
 use crate::{
     batch_norm::{BatchNorm2d, BatchNorm2dBuilder},
@@ -164,9 +164,6 @@ impl MBConvBlock {
 impl Callable for MBConvBlock {
     fn call(&self, input: Tensor) -> Tensor {
         let mut x = input.clone();
-        debug!("0: {}", util::argmax(&x));
-        dbg!(&x.data[266398]);
-        dbg!(&x.data[266509]);
         if let Some(expand_conv) = &self.expand_conv {
             x = self
                 .bn0
@@ -175,16 +172,6 @@ impl Callable for MBConvBlock {
                 .forward(x.conv2d(expand_conv, None, None, None, None))
                 .swish();
         }
-        debug!("1: {}", util::argmax(&x));
-        dbg!(&x.data[266398]);
-        dbg!(&x.data[266509]);
-        dbg!(
-            &x.shape,
-            &self.pad,
-            self.strides,
-            &self.depthwise_conv.shape
-        );
-        // This is massively wrong!
         x = x.conv2d(
             &self.depthwise_conv,
             None,
@@ -192,15 +179,9 @@ impl Callable for MBConvBlock {
             Some(self.strides),
             Some(self.depthwise_conv.shape[0]),
         );
-        dbg!(&x.shape);
-        dbg!(&x.data[266398]);
-        dbg!(&x.data[266509]);
-        debug!("2: {}", util::argmax(&x));
         x = self.bn1.clone().forward(x).swish();
-        debug!("3: {}", util::argmax(&x));
 
         let mut x_squeezed = x.avg_pool2d((x.shape[2], x.shape[3]), None);
-        debug!("4: {}", util::argmax(&x));
         x_squeezed = x_squeezed
             .conv2d(
                 &self.se_reduce,
@@ -415,7 +396,6 @@ impl Default for Efficientnet {
 
 impl Efficientnet {
     pub fn forward(&mut self, x: Tensor) -> Tensor {
-        debug!("-2: {}", util::argmax(&x));
         let mut x = self
             .bn0
             .forward(x.conv2d(
@@ -427,7 +407,6 @@ impl Efficientnet {
             ))
             .swish();
 
-        debug!("-1: {}", util::argmax(&x));
         x = x.sequential(&self.blocks);
         x = self
             .bn1

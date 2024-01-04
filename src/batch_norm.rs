@@ -1,8 +1,6 @@
 use std::ops::Add;
 
-use tracing::debug;
-
-use crate::{util, Tensor};
+use crate::Tensor;
 
 #[derive(Debug, Clone)]
 pub struct BatchNorm2d {
@@ -24,7 +22,6 @@ impl BatchNorm2d {
             .expand(&x.shape)
             .add(self.eps)
             .rsqrt();
-        debug!("B 0: {}", util::argmax(&batch_invstd));
 
         x.batchnorm(
             self.weight.as_ref(),
