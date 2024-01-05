@@ -12,23 +12,28 @@ pub struct Tensor {
 }
 
 impl Tensor {
-    pub fn new(
-        unrealized_op: UnrealizedOp,
-        data: Option<Vec<f64>>,
-        shape: Option<Vec<usize>>,
-    ) -> Tensor {
+    pub fn new(unrealized_op: UnrealizedOp, data: Vec<f64>, shape: Vec<usize>) -> Tensor {
         Tensor {
             unrealized_op,
-            data,
-            shape,
+            data: Some(data),
+            shape: Some(shape),
         }
     }
+
+    fn from_op(unrealized_op: UnrealizedOp) -> Tensor {
+        Tensor {
+            unrealized_op,
+            data: None,
+            shape: None,
+        }
+    }
+
     pub fn from_vec(data: Vec<f64>, shape: Vec<usize>) -> Tensor {
-        Tensor::new(UnrealizedOp::Load(data, shape), None, None)
+        Tensor::from_op(UnrealizedOp::Load(data, shape))
     }
 
     pub fn from_scalar(data: f64) -> Tensor {
-        Tensor::new(UnrealizedOp::Load(vec![data], vec![1]), None, None)
+        Tensor::from_op(UnrealizedOp::Load(vec![data], vec![1]))
     }
 
     pub fn rand(shape: Vec<usize>) -> Tensor {
@@ -37,7 +42,7 @@ impl Tensor {
             .take(shape.iter().product::<usize>())
             .collect();
 
-        Tensor::new(UnrealizedOp::Load(data, shape), None, None)
+        Tensor::from_op(UnrealizedOp::Load(data, shape))
     }
 
     pub fn to_tch(self) -> tch::Tensor {
@@ -51,11 +56,11 @@ impl Tensor {
     }
 
     pub fn max(&self) -> Tensor {
-        Tensor::new(UnrealizedOp::Max(Box::new(self.clone())), None, None)
+        Tensor::from_op(UnrealizedOp::Max(Box::new(self.clone())))
     }
 
     pub fn min(&self) -> Tensor {
-        Tensor::new(UnrealizedOp::Min(Box::new(self.clone())), None, None)
+        Tensor::from_op(UnrealizedOp::Min(Box::new(self.clone())))
     }
 
     pub fn realize(&self) -> Tensor {
@@ -66,33 +71,27 @@ impl Tensor {
 impl ops::Add<f64> for Tensor {
     type Output = Tensor;
     fn add(self, rhs: f64) -> Self::Output {
-        Tensor::new(
-            UnrealizedOp::Add(Box::new(self.clone()), Box::new(Tensor::from_scalar(rhs))),
-            None,
-            None,
-        )
+        Tensor::from_op(UnrealizedOp::Add(
+            Box::new(self.clone()),
+            Box::new(Tensor::from_scalar(rhs)),
+        ))
     }
 }
 
 impl ops::Add<Tensor> for f64 {
     type Output = Tensor;
     fn add(self, rhs: Tensor) -> Self::Output {
-        Tensor::new(
-            UnrealizedOp::Add(Box::new(Tensor::from_scalar(self)), Box::new(rhs)),
-            None,
-            None,
-        )
+        Tensor::from_op(UnrealizedOp::Add(
+            Box::new(Tensor::from_scalar(self)),
+            Box::new(rhs),
+        ))
     }
 }
 
 impl ops::Add<Tensor> for Tensor {
     type Output = Tensor;
     fn add(self, rhs: Tensor) -> Self::Output {
-        Tensor::new(
-            UnrealizedOp::Add(Box::new(self.clone()), Box::new(rhs)),
-            None,
-            None,
-        )
+        Tensor::from_op(UnrealizedOp::Add(Box::new(self.clone()), Box::new(rhs)))
     }
 }
 
@@ -100,22 +99,20 @@ impl ops::Sub<f64> for Tensor {
     type Output = Tensor;
 
     fn sub(self, rhs: f64) -> Self::Output {
-        Tensor::new(
-            UnrealizedOp::Sub(Box::new(self.clone()), Box::new(Tensor::from_scalar(rhs))),
-            None,
-            None,
-        )
+        Tensor::from_op(UnrealizedOp::Sub(
+            Box::new(self.clone()),
+            Box::new(Tensor::from_scalar(rhs)),
+        ))
     }
 }
 
 impl ops::Sub<Tensor> for f64 {
     type Output = Tensor;
     fn sub(self, rhs: Tensor) -> Self::Output {
-        Tensor::new(
-            UnrealizedOp::Sub(Box::new(Tensor::from_scalar(self)), Box::new(rhs)),
-            None,
-            None,
-        )
+        Tensor::from_op(UnrealizedOp::Sub(
+            Box::new(Tensor::from_scalar(self)),
+            Box::new(rhs),
+        ))
     }
 }
 
@@ -123,11 +120,7 @@ impl ops::Sub<Tensor> for Tensor {
     type Output = Tensor;
 
     fn sub(self, rhs: Tensor) -> Self::Output {
-        Tensor::new(
-            UnrealizedOp::Sub(Box::new(self.clone()), Box::new(rhs)),
-            None,
-            None,
-        )
+        Tensor::from_op(UnrealizedOp::Sub(Box::new(self.clone()), Box::new(rhs)))
     }
 }
 
@@ -135,22 +128,20 @@ impl ops::Mul<f64> for Tensor {
     type Output = Tensor;
 
     fn mul(self, rhs: f64) -> Self::Output {
-        Tensor::new(
-            UnrealizedOp::Mul(Box::new(self.clone()), Box::new(Tensor::from_scalar(rhs))),
-            None,
-            None,
-        )
+        Tensor::from_op(UnrealizedOp::Mul(
+            Box::new(self.clone()),
+            Box::new(Tensor::from_scalar(rhs)),
+        ))
     }
 }
 
 impl ops::Mul<Tensor> for f64 {
     type Output = Tensor;
     fn mul(self, rhs: Tensor) -> Self::Output {
-        Tensor::new(
-            UnrealizedOp::Mul(Box::new(Tensor::from_scalar(self)), Box::new(rhs)),
-            None,
-            None,
-        )
+        Tensor::from_op(UnrealizedOp::Mul(
+            Box::new(Tensor::from_scalar(self)),
+            Box::new(rhs),
+        ))
     }
 }
 
@@ -158,11 +149,7 @@ impl ops::Mul<Tensor> for Tensor {
     type Output = Tensor;
 
     fn mul(self, rhs: Tensor) -> Self::Output {
-        Tensor::new(
-            UnrealizedOp::Mul(Box::new(self.clone()), Box::new(rhs)),
-            None,
-            None,
-        )
+        Tensor::from_op(UnrealizedOp::Mul(Box::new(self.clone()), Box::new(rhs)))
     }
 }
 
@@ -170,11 +157,10 @@ impl ops::Div<f64> for Tensor {
     type Output = Tensor;
 
     fn div(self, rhs: f64) -> Self::Output {
-        Tensor::new(
-            UnrealizedOp::Div(Box::new(self.clone()), Box::new(Tensor::from_scalar(rhs))),
-            None,
-            None,
-        )
+        Tensor::from_op(UnrealizedOp::Div(
+            Box::new(self.clone()),
+            Box::new(Tensor::from_scalar(rhs)),
+        ))
     }
 }
 
@@ -182,11 +168,10 @@ impl ops::Div<Tensor> for f64 {
     type Output = Tensor;
 
     fn div(self, rhs: Tensor) -> Self::Output {
-        Tensor::new(
-            UnrealizedOp::Div(Box::new(Tensor::from_scalar(self)), Box::new(rhs)),
-            None,
-            None,
-        )
+        Tensor::from_op(UnrealizedOp::Div(
+            Box::new(Tensor::from_scalar(self)),
+            Box::new(rhs),
+        ))
     }
 }
 
@@ -194,11 +179,7 @@ impl ops::Div<Tensor> for Tensor {
     type Output = Tensor;
 
     fn div(self, rhs: Tensor) -> Self::Output {
-        Tensor::new(
-            UnrealizedOp::Div(Box::new(self.clone()), Box::new(rhs)),
-            None,
-            None,
-        )
+        Tensor::from_op(UnrealizedOp::Div(Box::new(self.clone()), Box::new(rhs)))
     }
 }
 
