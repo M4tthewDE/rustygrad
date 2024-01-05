@@ -79,6 +79,17 @@ impl ops::Sub<f64> for Tensor {
     }
 }
 
+impl ops::Sub<Tensor> for f64 {
+    type Output = Tensor;
+    fn sub(self, rhs: Tensor) -> Self::Output {
+        Tensor::new(
+            UnrealizedOp::Sub(Box::new(Tensor::from_scalar(self)), Box::new(rhs)),
+            None,
+            None,
+        )
+    }
+}
+
 impl ops::Sub<Tensor> for Tensor {
     type Output = Tensor;
 
@@ -126,5 +137,54 @@ mod tests {
         let result = (5.0 + a).realize();
 
         assert_eq!(result.data.unwrap(), vec![7.0, 8.0]);
+    }
+
+    #[test]
+    fn sub() {
+        let input1 = Tensor::from_vec(vec![0., 1., 2., 3.], vec![4]);
+        let input2 = Tensor::from_vec(vec![0., 1., 2., 3.], vec![4]);
+
+        let result = (input1 - input2).realize();
+
+        assert_eq!(result.data.unwrap(), vec![0., 0., 0., 0.]);
+        assert_eq!(result.shape.unwrap(), vec![4]);
+    }
+
+    #[test]
+    #[should_panic]
+    fn sub_broadcast_incompatible_dims_error() {
+        let input1 = Tensor::from_vec(vec![0.; 40], vec![5, 2, 4, 1]);
+        let input2 = Tensor::from_vec(vec![0.; 3], vec![3, 1, 1]);
+
+        let _ = (input1 - input2).realize();
+    }
+
+    #[test]
+    fn sub_broadcast_simple() {
+        let input1 = Tensor::from_vec(
+            vec![0., 1., 2., 3., 4., 5., 6., 7., 8., 9., 10., 11.],
+            vec![2, 3, 2],
+        );
+        let input2 = Tensor::from_vec(vec![4., 3., 7., 8., 10., 2.], vec![3, 2]);
+
+        let result = (input1 - input2).realize();
+        assert_eq!(
+            result.data.unwrap(),
+            vec![-4., -2., -5., -5., -6., 3., 2., 4., 1., 1., 0., 9.]
+        );
+        assert_eq!(result.shape.unwrap(), vec![2, 3, 2]);
+    }
+
+    #[test]
+    fn sub_broadcast_both_sides() {
+        let input1 = Tensor::from_vec(vec![0., 1., 2., 3., 4., 5.], vec![2, 3, 1]);
+        let input2 = Tensor::from_vec(vec![4., 3., 7., 8., 10., 2.], vec![3, 2]);
+
+        let result = (input1 - input2).realize();
+        assert_eq!(
+            result.data.unwrap(),
+            vec![-4., -3., -6., -7., -8., 0., -1., 0., -3., -4., -5., 3.]
+        );
+        assert_eq!(result.shape.unwrap(), vec![2, 3, 2]);
     }
 }
