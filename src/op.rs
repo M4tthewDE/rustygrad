@@ -8,5 +8,6 @@ pub enum UnrealizedOp {
     Div(Box<Tensor>, Box<Tensor>),
     Max(Box<Tensor>),
     Min(Box<Tensor>),
+    SumPool(Box<Tensor>, (usize, usize), Option<usize>),
     Load(Vec<f64>, Vec<usize>),
 }
