@@ -43,47 +43,58 @@ impl UnrealizedOp {
                     .expect("no max value found");
                 Tensor::new(self.clone(), vec![val], vec![])
             }
-            UnrealizedOp::SumPool(t, kernel, stride) => {
+            UnrealizedOp::Sum(t, dims, keepdim) => {
                 let t = t.realize();
-                let shape = t.shape.unwrap();
                 let data = t.data.unwrap();
-                assert_eq!(shape.len(), 4, "only supporting 4d tensors");
-                let stride = stride.unwrap_or(1);
+                let shape = t.shape.unwrap();
+                let dims = match dims {
+                    Some(dims) => dims,
+                    None => return Tensor::from_scalar(data.iter().sum()),
+                };
 
-                let (batch, channels, height, width) = (shape[0], shape[1], shape[2], shape[3]);
-                let (kernel_height, kernel_width) = (kernel.0, kernel.1);
+                let mut reduced_shape = shape.clone();
+                for (i, dim) in dims.iter().enumerate() {
+                    reduced_shape.remove(*dim - i);
+                }
 
-                let output_height = ((height - kernel_height) / stride) + 1;
-                let output_width = ((width - kernel_width) / stride) + 1;
+                let mut result: Vec<f64> = vec![0.; reduced_shape.iter().product()];
 
-                let mut output_data =
-                    Vec::with_capacity(batch * channels * output_height * output_width);
-                for n in 0..batch {
-                    for c in 0..channels {
-                        for i in 0..output_height {
-                            for j in 0..output_width {
-                                let mut sum_val: f64 = 0.0;
-                                for ki in 0..kernel_height {
-                                    for kj in 0..kernel_width {
-                                        let row = i * stride + ki;
-                                        let col = j * stride + kj;
-                                        let idx = n * (channels * height * width)
-                                            + c * (height * width)
-                                            + row * width
-                                            + col;
-                                        sum_val += data[idx];
-                                    }
-                                }
-                                output_data.push(sum_val);
-                            }
+                let mut shape_pos = Vec::with_capacity(shape.len() - dims.len());
+                for (i, elem) in data.iter().enumerate() {
+                    shape_pos.clear();
+                    let mut offset = 0;
+                    for (j, _shape) in shape.iter().enumerate() {
+                        let count = shape[..=j].iter().product::<usize>();
+                        let index = (i - offset) / (data.len() / count);
+                        if !dims.contains(&j) {
+                            shape_pos.push(index);
+                        }
+                        offset += (data.len() / count) * index;
+                    }
+
+                    let mut index = 0;
+                    for (j, dim) in reduced_shape.iter().rev().enumerate() {
+                        if j == reduced_shape.len() - 1 {
+                            index += shape_pos[j];
+                        } else {
+                            index += shape_pos[j] * dim;
                         }
                     }
+
+                    *result.get_mut(index).unwrap() += elem;
                 }
-                Tensor::new(
-                    self.clone(),
-                    output_data,
-                    vec![batch, channels, output_height, output_width],
-                )
+
+                let new_shape = if *keepdim {
+                    shape
+                        .iter()
+                        .enumerate()
+                        .map(|(i, &d)| if dims.contains(&i) { 1 } else { d })
+                        .collect()
+                } else {
+                    reduced_shape
+                };
+
+                Tensor::new(self.clone(), result, new_shape)
             }
             UnrealizedOp::Load(data, shape) => {
                 Tensor::new(self.clone(), data.clone(), shape.clone())
