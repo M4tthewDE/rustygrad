@@ -41,6 +41,16 @@ impl UnrealizedOp {
                     .unwrap();
                 Tensor::new(self.clone(), Some(vec![val]), Some(vec![]))
             }
+            UnrealizedOp::Min(t) => {
+                let val = t
+                    .realize()
+                    .data
+                    .unwrap()
+                    .into_iter()
+                    .min_by(|a, b| a.partial_cmp(b).unwrap())
+                    .unwrap();
+                Tensor::new(self.clone(), Some(vec![val]), Some(vec![]))
+            }
             UnrealizedOp::Load(data, shape) => {
                 Tensor::new(self.clone(), Some(data.clone()), Some(shape.clone()))
             }
