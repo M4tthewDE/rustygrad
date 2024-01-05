@@ -27,20 +27,20 @@ impl UnrealizedOp {
                 let val = t
                     .realize()
                     .data
-                    .unwrap()
+                    .expect("no data. tensor not loaded?")
                     .into_iter()
                     .max_by(|a, b| a.partial_cmp(b).unwrap())
-                    .unwrap();
+                    .expect("no min value found");
                 Tensor::new(self.clone(), vec![val], vec![])
             }
             UnrealizedOp::Min(t) => {
                 let val = t
                     .realize()
                     .data
-                    .unwrap()
+                    .expect("no data. tensor not loaded?")
                     .into_iter()
                     .min_by(|a, b| a.partial_cmp(b).unwrap())
-                    .unwrap();
+                    .expect("no max value found");
                 Tensor::new(self.clone(), vec![val], vec![])
             }
             UnrealizedOp::Load(data, shape) => {
@@ -65,8 +65,14 @@ type BroadcastOp = fn(lhs: f64, rhs: f64) -> f64;
 
 // https://pytorch.org/docs/stable/notes/broadcasting.html
 fn broadcast_op(lhs: Tensor, rhs: Tensor, op: BroadcastOp) -> (Vec<f64>, Vec<usize>) {
-    let (lhs_data, mut lhs_shape) = (lhs.data.unwrap(), lhs.shape.unwrap());
-    let (rhs_data, mut rhs_shape) = (rhs.data.unwrap(), rhs.shape.unwrap());
+    let (lhs_data, mut lhs_shape) = (
+        lhs.data.expect("no data. tensor not loaded?"),
+        lhs.shape.expect("no shape. tensor not loaded?"),
+    );
+    let (rhs_data, mut rhs_shape) = (
+        rhs.data.expect("no data. tensor not loaded?"),
+        rhs.shape.expect("no shape. tensor not loaded?"),
+    );
     assert!(
         broadcastable(&lhs_shape, &rhs_shape),
         "{:?} and {:?} aren't broadcastable",
