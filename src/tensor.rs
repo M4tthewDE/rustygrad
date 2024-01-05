@@ -37,6 +37,7 @@ impl Tensor {
     }
 
     pub fn rand(shape: Vec<usize>) -> Tensor {
+        // feels like this should happen in an op
         let data = Uniform::new(-1.0, 1.0)
             .sample_iter(rand::thread_rng())
             .take(shape.iter().product::<usize>())
@@ -61,6 +62,14 @@ impl Tensor {
 
     pub fn min(&self) -> Tensor {
         Tensor::from_op(UnrealizedOp::Min(Box::new(self.clone())))
+    }
+
+    pub fn avg_pool_2d(&self, kernel: (usize, usize), stride: Option<usize>) -> Tensor {
+        Tensor::from_op(UnrealizedOp::SumPool(
+            Box::new(self.clone()),
+            kernel,
+            stride,
+        )) / (kernel.0 * kernel.1) as f64
     }
 
     pub fn realize(&self) -> Tensor {
@@ -186,6 +195,7 @@ impl ops::Div<Tensor> for Tensor {
 #[cfg(test)]
 mod tests {
     use crate::{tensor::Tensor, util};
+
     #[test]
     fn addition_scalar() {
         let a = Tensor::from_scalar(2.0);
@@ -337,7 +347,6 @@ mod tests {
         let tch_output = util::tch_data(&tch_result);
         let tch_shape = util::tch_shape(&tch_result);
 
-        dbg!(&tch_shape, &tch_output);
         assert_eq!(output.data.unwrap(), tch_output);
         assert_eq!(output.shape.unwrap(), tch_shape);
     }
@@ -352,7 +361,20 @@ mod tests {
         let tch_output = util::tch_data(&tch_result);
         let tch_shape = util::tch_shape(&tch_result);
 
-        dbg!(&tch_shape, &tch_output);
+        assert_eq!(output.data.unwrap(), tch_output);
+        assert_eq!(output.shape.unwrap(), tch_shape);
+    }
+
+    #[test]
+    fn avg_pool_2d() {
+        let input = Tensor::rand(vec![1, 1, 10, 10]);
+        let tch_input = input.realize().to_tch();
+
+        let output = input.avg_pool_2d((2, 2), None).realize();
+        let tch_result = tch_input.avg_pool2d(vec![2, 2], 1, 0, false, true, None);
+        let tch_output = util::tch_data(&tch_result);
+        let tch_shape = util::tch_shape(&tch_result);
+
         assert_eq!(output.data.unwrap(), tch_output);
         assert_eq!(output.shape.unwrap(), tch_shape);
     }
