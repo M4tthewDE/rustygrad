@@ -31,6 +31,16 @@ impl UnrealizedOp {
                 let (data, shape) = broadcast_op(lhs, rhs, |x1, x2| x1 / x2);
                 Tensor::new(self.clone(), Some(data), Some(shape))
             }
+            UnrealizedOp::Max(t) => {
+                let val = t
+                    .realize()
+                    .data
+                    .unwrap()
+                    .into_iter()
+                    .max_by(|a, b| a.partial_cmp(b).unwrap())
+                    .unwrap();
+                Tensor::new(self.clone(), Some(vec![val]), Some(vec![]))
+            }
             UnrealizedOp::Load(data, shape) => {
                 Tensor::new(self.clone(), Some(data.clone()), Some(shape.clone()))
             }
