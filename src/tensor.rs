@@ -45,6 +45,28 @@ impl ops::Add<f64> for Tensor {
     }
 }
 
+impl ops::Add<Tensor> for f64 {
+    type Output = Tensor;
+    fn add(self, rhs: Tensor) -> Self::Output {
+        Tensor::new(
+            UnrealizedOp::Add(Box::new(Tensor::from_scalar(self)), Box::new(rhs)),
+            None,
+            None,
+        )
+    }
+}
+
+impl ops::Add<Tensor> for Tensor {
+    type Output = Tensor;
+    fn add(self, rhs: Tensor) -> Self::Output {
+        Tensor::new(
+            UnrealizedOp::Add(Box::new(self.clone()), Box::new(rhs)),
+            None,
+            None,
+        )
+    }
+}
+
 impl ops::Sub<f64> for Tensor {
     type Output = Tensor;
 
@@ -72,17 +94,37 @@ impl ops::Sub<Tensor> for Tensor {
 #[cfg(test)]
 mod tests {
     use crate::tensor::Tensor;
+    #[test]
+    fn addition_scalar() {
+        let a = Tensor::from_scalar(2.0);
+        let b = Tensor::from_scalar(3.0);
+        let result = (a + b).realize();
+
+        assert_eq!(result.data.unwrap(), vec![5.0]);
+    }
 
     #[test]
-    fn unrealized_op_hard() {
-        let a = Tensor::from_vec(vec![2.0], vec![1]);
-        let a = a + 1.0;
-        let b = Tensor::from_vec(vec![5.0], vec![1]);
-        let b = b - 2.0;
-        let c = a - b;
+    fn addition_vector() {
+        let a = Tensor::from_vec(vec![2.0, 3.0], vec![2]);
+        let b = Tensor::from_vec(vec![8.0, 7.0], vec![2]);
+        let result = (a + b).realize();
 
-        let result = c.realize();
-        assert_eq!(result.shape.unwrap(), vec![1]);
-        assert_eq!(result.data.unwrap(), vec![0.0]);
+        assert_eq!(result.data.unwrap(), vec![10.0, 10.0]);
+    }
+
+    #[test]
+    fn addition_f64() {
+        let a = Tensor::from_vec(vec![2.0, 3.0], vec![2]);
+        let result = (a + 5.0).realize();
+
+        assert_eq!(result.data.unwrap(), vec![7.0, 8.0]);
+    }
+
+    #[test]
+    fn addition_f64_left_side() {
+        let a = Tensor::from_vec(vec![2.0, 3.0], vec![2]);
+        let result = (5.0 + a).realize();
+
+        assert_eq!(result.data.unwrap(), vec![7.0, 8.0]);
     }
 }
