@@ -8,28 +8,20 @@ impl UnrealizedOp {
     pub fn realize(&self) -> Tensor {
         match self {
             UnrealizedOp::Add(lhs, rhs) => {
-                let lhs = lhs.realize();
-                let rhs = rhs.realize();
-                let (data, shape) = broadcast_op(lhs, rhs, |x1, x2| x1 + x2);
-                Tensor::new(self.clone(), Some(data), Some(shape))
+                let (data, shape) = broadcast_op(lhs.realize(), rhs.realize(), |x1, x2| x1 + x2);
+                Tensor::new(self.clone(), data, shape)
             }
             UnrealizedOp::Sub(lhs, rhs) => {
-                let lhs = lhs.realize();
-                let rhs = rhs.realize();
-                let (data, shape) = broadcast_op(lhs, rhs, |x1, x2| x1 - x2);
-                Tensor::new(self.clone(), Some(data), Some(shape))
+                let (data, shape) = broadcast_op(lhs.realize(), rhs.realize(), |x1, x2| x1 - x2);
+                Tensor::new(self.clone(), data, shape)
             }
             UnrealizedOp::Mul(lhs, rhs) => {
-                let lhs = lhs.realize();
-                let rhs = rhs.realize();
-                let (data, shape) = broadcast_op(lhs, rhs, |x1, x2| x1 * x2);
-                Tensor::new(self.clone(), Some(data), Some(shape))
+                let (data, shape) = broadcast_op(lhs.realize(), rhs.realize(), |x1, x2| x1 * x2);
+                Tensor::new(self.clone(), data, shape)
             }
             UnrealizedOp::Div(lhs, rhs) => {
-                let lhs = lhs.realize();
-                let rhs = rhs.realize();
-                let (data, shape) = broadcast_op(lhs, rhs, |x1, x2| x1 / x2);
-                Tensor::new(self.clone(), Some(data), Some(shape))
+                let (data, shape) = broadcast_op(lhs.realize(), rhs.realize(), |x1, x2| x1 / x2);
+                Tensor::new(self.clone(), data, shape)
             }
             UnrealizedOp::Max(t) => {
                 let val = t
@@ -39,7 +31,7 @@ impl UnrealizedOp {
                     .into_iter()
                     .max_by(|a, b| a.partial_cmp(b).unwrap())
                     .unwrap();
-                Tensor::new(self.clone(), Some(vec![val]), Some(vec![]))
+                Tensor::new(self.clone(), vec![val], vec![])
             }
             UnrealizedOp::Min(t) => {
                 let val = t
@@ -49,16 +41,16 @@ impl UnrealizedOp {
                     .into_iter()
                     .min_by(|a, b| a.partial_cmp(b).unwrap())
                     .unwrap();
-                Tensor::new(self.clone(), Some(vec![val]), Some(vec![]))
+                Tensor::new(self.clone(), vec![val], vec![])
             }
             UnrealizedOp::Load(data, shape) => {
-                Tensor::new(self.clone(), Some(data.clone()), Some(shape.clone()))
+                Tensor::new(self.clone(), data.clone(), shape.clone())
             }
         }
     }
 }
 
-pub fn broadcastable(shape1: &[usize], shape2: &[usize]) -> bool {
+fn broadcastable(shape1: &[usize], shape2: &[usize]) -> bool {
     shape1
         .iter()
         .rev()
