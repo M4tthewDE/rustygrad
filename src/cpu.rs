@@ -25,6 +25,12 @@ impl UnrealizedOp {
                 let (data, shape) = broadcast_op(lhs, rhs, |x1, x2| x1 * x2);
                 Tensor::new(self.clone(), Some(data), Some(shape))
             }
+            UnrealizedOp::Div(lhs, rhs) => {
+                let lhs = lhs.realize();
+                let rhs = rhs.realize();
+                let (data, shape) = broadcast_op(lhs, rhs, |x1, x2| x1 / x2);
+                Tensor::new(self.clone(), Some(data), Some(shape))
+            }
             UnrealizedOp::Load(data, shape) => {
                 Tensor::new(self.clone(), Some(data.clone()), Some(shape.clone()))
             }

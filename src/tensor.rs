@@ -158,6 +158,42 @@ impl ops::Mul<Tensor> for Tensor {
     }
 }
 
+impl ops::Div<f64> for Tensor {
+    type Output = Tensor;
+
+    fn div(self, rhs: f64) -> Self::Output {
+        Tensor::new(
+            UnrealizedOp::Div(Box::new(self.clone()), Box::new(Tensor::from_scalar(rhs))),
+            None,
+            None,
+        )
+    }
+}
+
+impl ops::Div<Tensor> for f64 {
+    type Output = Tensor;
+
+    fn div(self, rhs: Tensor) -> Self::Output {
+        Tensor::new(
+            UnrealizedOp::Div(Box::new(Tensor::from_scalar(self)), Box::new(rhs)),
+            None,
+            None,
+        )
+    }
+}
+
+impl ops::Div<Tensor> for Tensor {
+    type Output = Tensor;
+
+    fn div(self, rhs: Tensor) -> Self::Output {
+        Tensor::new(
+            UnrealizedOp::Div(Box::new(self.clone()), Box::new(rhs)),
+            None,
+            None,
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{tensor::Tensor, util};
@@ -266,6 +302,35 @@ mod tests {
 
         let output = (input * 2.0).realize();
         let tch_result = tch_input * 2.0;
+        let tch_shape = util::tch_shape(&tch_result);
+        let tch_output = util::tch_data(&tch_result);
+
+        assert_eq!(output.data.unwrap(), tch_output);
+        assert_eq!(output.shape.unwrap(), tch_shape);
+    }
+
+    #[test]
+    fn div() {
+        let input = Tensor::rand(vec![10, 10, 10]);
+        let tch_input = input.realize().to_tch();
+        let tch_input2 = input.realize().to_tch();
+
+        let output = (input.clone() / input).realize();
+        let tch_result = tch_input / tch_input2;
+        let tch_shape = util::tch_shape(&tch_result);
+        let tch_output = util::tch_data(&tch_result);
+
+        assert_eq!(output.data.unwrap(), tch_output);
+        assert_eq!(output.shape.unwrap(), tch_shape);
+    }
+
+    #[test]
+    fn div_scalar() {
+        let input = Tensor::rand(vec![10, 10, 10]);
+        let tch_input = input.realize().to_tch();
+
+        let output = (input / 2.0).realize();
+        let tch_result = tch_input / 2.0;
         let tch_shape = util::tch_shape(&tch_result);
         let tch_output = util::tch_data(&tch_result);
 

@@ -5,5 +5,6 @@ pub enum UnrealizedOp {
     Add(Box<Tensor>, Box<Tensor>),
     Sub(Box<Tensor>, Box<Tensor>),
     Mul(Box<Tensor>, Box<Tensor>),
+    Div(Box<Tensor>, Box<Tensor>),
     Load(Vec<f64>, Vec<usize>),
 }
