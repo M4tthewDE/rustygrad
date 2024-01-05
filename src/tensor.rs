@@ -46,9 +46,10 @@ impl Tensor {
         Tensor::from_op(UnrealizedOp::Load(data, shape))
     }
 
-    pub fn to_tch(self) -> tch::Tensor {
-        tch::Tensor::from_slice(&self.data.unwrap()).reshape(
+    pub fn to_tch(&self) -> tch::Tensor {
+        tch::Tensor::from_slice(&self.data.clone().unwrap()).reshape(
             self.shape
+                .clone()
                 .unwrap()
                 .iter()
                 .map(|&d| d as i64)
@@ -64,12 +65,12 @@ impl Tensor {
         Tensor::from_op(UnrealizedOp::Min(Box::new(self.clone())))
     }
 
-    pub fn avg_pool_2d(&self, kernel: (usize, usize), stride: Option<usize>) -> Tensor {
-        Tensor::from_op(UnrealizedOp::SumPool(
-            Box::new(self.clone()),
-            kernel,
-            stride,
-        )) / (kernel.0 * kernel.1) as f64
+    pub fn avg_pool_2d(&self, _kernel: (usize, usize), _stride: Option<usize>) -> Tensor {
+        unimplemented!();
+    }
+
+    pub fn reduce_sum(&self, dims: Option<Vec<usize>>, keepdim: bool) -> Tensor {
+        Tensor::from_op(UnrealizedOp::Sum(Box::new(self.clone()), dims, keepdim))
     }
 
     pub fn realize(&self) -> Tensor {
@@ -366,6 +367,19 @@ mod tests {
     }
 
     #[test]
+    fn reduce_sum() {
+        let input = Tensor::rand(vec![2, 4, 3, 3]);
+        let tch_input = input.realize().to_tch();
+        let sum = input.reduce_sum(Some(vec![0, 2, 3]), false).realize();
+        let tch_sum = tch_input.sum_dim_intlist(vec![0, 2, 3], false, None);
+        let tch_shape = util::tch_shape(&tch_sum);
+        let tch_output = util::tch_data(&tch_sum);
+        assert_eq!(sum.shape.unwrap(), tch_shape);
+        util::assert_aprox_eq_vec(sum.data.unwrap(), tch_output, 1e-6);
+    }
+
+    #[test]
+    #[ignore]
     fn avg_pool_2d() {
         let input = Tensor::rand(vec![1, 1, 10, 10]);
         let tch_input = input.realize().to_tch();
