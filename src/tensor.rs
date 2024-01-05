@@ -1,5 +1,7 @@
 use std::ops;
 
+use rand::{distributions::Uniform, prelude::Distribution};
+
 use crate::op::UnrealizedOp;
 
 #[derive(Debug, Clone)]
@@ -27,6 +29,25 @@ impl Tensor {
 
     pub fn from_scalar(data: f64) -> Tensor {
         Tensor::new(UnrealizedOp::Load(vec![data], vec![1]), None, None)
+    }
+
+    pub fn rand(shape: Vec<usize>) -> Tensor {
+        let data = Uniform::new(-1.0, 1.0)
+            .sample_iter(rand::thread_rng())
+            .take(shape.iter().product::<usize>())
+            .collect();
+
+        Tensor::new(UnrealizedOp::Load(data, shape), None, None)
+    }
+
+    pub fn to_tch(self) -> tch::Tensor {
+        tch::Tensor::from_slice(&self.data.unwrap()).reshape(
+            self.shape
+                .unwrap()
+                .iter()
+                .map(|&d| d as i64)
+                .collect::<Vec<i64>>(),
+        )
     }
 
     pub fn realize(&self) -> Tensor {
@@ -102,9 +123,44 @@ impl ops::Sub<Tensor> for Tensor {
     }
 }
 
+impl ops::Mul<f64> for Tensor {
+    type Output = Tensor;
+
+    fn mul(self, rhs: f64) -> Self::Output {
+        Tensor::new(
+            UnrealizedOp::Mul(Box::new(self.clone()), Box::new(Tensor::from_scalar(rhs))),
+            None,
+            None,
+        )
+    }
+}
+
+impl ops::Mul<Tensor> for f64 {
+    type Output = Tensor;
+    fn mul(self, rhs: Tensor) -> Self::Output {
+        Tensor::new(
+            UnrealizedOp::Mul(Box::new(Tensor::from_scalar(self)), Box::new(rhs)),
+            None,
+            None,
+        )
+    }
+}
+
+impl ops::Mul<Tensor> for Tensor {
+    type Output = Tensor;
+
+    fn mul(self, rhs: Tensor) -> Self::Output {
+        Tensor::new(
+            UnrealizedOp::Mul(Box::new(self.clone()), Box::new(rhs)),
+            None,
+            None,
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::tensor::Tensor;
+    use crate::{tensor::Tensor, util};
     #[test]
     fn addition_scalar() {
         let a = Tensor::from_scalar(2.0);
@@ -186,5 +242,34 @@ mod tests {
             vec![-4., -3., -6., -7., -8., 0., -1., 0., -3., -4., -5., 3.]
         );
         assert_eq!(result.shape.unwrap(), vec![2, 3, 2]);
+    }
+
+    #[test]
+    fn mul() {
+        let input = Tensor::rand(vec![10, 10, 10]);
+        let tch_input = input.realize().to_tch();
+        let tch_input2 = input.realize().to_tch();
+
+        let output = (input.clone() * input).realize();
+        let tch_result = tch_input * tch_input2;
+        let tch_shape = util::tch_shape(&tch_result);
+        let tch_output = util::tch_data(&tch_result);
+
+        assert_eq!(output.data.unwrap(), tch_output);
+        assert_eq!(output.shape.unwrap(), tch_shape);
+    }
+
+    #[test]
+    fn mul_scalar() {
+        let input = Tensor::rand(vec![10, 10, 10]);
+        let tch_input = input.realize().to_tch();
+
+        let output = (input * 2.0).realize();
+        let tch_result = tch_input * 2.0;
+        let tch_shape = util::tch_shape(&tch_result);
+        let tch_output = util::tch_data(&tch_result);
+
+        assert_eq!(output.data.unwrap(), tch_output);
+        assert_eq!(output.shape.unwrap(), tch_shape);
     }
 }
