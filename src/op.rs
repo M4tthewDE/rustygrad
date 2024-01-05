@@ -7,5 +7,6 @@ pub enum UnrealizedOp {
     Mul(Box<Tensor>, Box<Tensor>),
     Div(Box<Tensor>, Box<Tensor>),
     Max(Box<Tensor>),
+    Min(Box<Tensor>),
     Load(Vec<f64>, Vec<usize>),
 }

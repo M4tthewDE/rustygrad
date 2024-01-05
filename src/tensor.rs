@@ -54,6 +54,10 @@ impl Tensor {
         Tensor::new(UnrealizedOp::Max(Box::new(self.clone())), None, None)
     }
 
+    pub fn min(&self) -> Tensor {
+        Tensor::new(UnrealizedOp::Min(Box::new(self.clone())), None, None)
+    }
+
     pub fn realize(&self) -> Tensor {
         self.unrealized_op.realize()
     }
@@ -349,6 +353,21 @@ mod tests {
 
         let output = input.max().realize();
         let tch_result = tch_input.max();
+        let tch_output = util::tch_data(&tch_result);
+        let tch_shape = util::tch_shape(&tch_result);
+
+        dbg!(&tch_shape, &tch_output);
+        assert_eq!(output.data.unwrap(), tch_output);
+        assert_eq!(output.shape.unwrap(), tch_shape);
+    }
+
+    #[test]
+    fn min() {
+        let input = Tensor::rand(vec![10, 10, 10]);
+        let tch_input = input.realize().to_tch();
+
+        let output = input.min().realize();
+        let tch_result = tch_input.min();
         let tch_output = util::tch_data(&tch_result);
         let tch_shape = util::tch_shape(&tch_result);
 
