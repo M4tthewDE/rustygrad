@@ -150,6 +150,12 @@ impl Tensor {
         self.reduce_sum(dims, keepdim) / (divisor - correction.unwrap_or(0.0)).max(1.0)
     }
 
+    pub fn variance(&self, dims: Option<&Vec<usize>>, correction: Option<f64>) -> Tensor {
+        let mean = self.reduce_mean(dims, true, None);
+        let diff = self.clone() - mean;
+        (diff.clone() * diff).reduce_mean(dims, false, correction.or(Some(1.0)))
+    }
+
     pub fn realize(&self) -> Tensor {
         self.unrealized_op.realize()
     }
@@ -567,5 +573,18 @@ mod tests {
         let tch_output = util::tch_data(&tch_mean);
         assert_eq!(mean.shape, tch_shape);
         util::assert_aprox_eq_vec(mean.data.unwrap(), tch_output, 1e-6);
+    }
+
+    #[test]
+    fn variance_4d_over_3_axis() {
+        let input = Tensor::rand(vec![2, 4, 3, 3]);
+        let tch_input = input.realize().to_tch();
+
+        let var = input.variance(Some(&vec![0, 2, 3]), None).realize();
+        let tch_var = tch_input.var_dim(vec![0, 2, 3], true, false);
+        let tch_shape = util::tch_shape(&tch_var);
+        let tch_output = util::tch_data(&tch_var);
+        assert_eq!(var.shape, tch_shape);
+        util::assert_aprox_eq_vec(var.data.unwrap(), tch_output, 1e-6);
     }
 }
