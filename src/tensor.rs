@@ -222,6 +222,13 @@ impl Tensor {
         )
     }
 
+    pub fn expand(&self, shape: Vec<usize>) -> Tensor {
+        Tensor::from_op(
+            UnrealizedOp::Expand(Box::new(self.clone()), shape.clone()),
+            shape,
+        )
+    }
+
     pub fn realize(&self) -> Tensor {
         self.unrealized_op.realize()
     }
@@ -756,5 +763,19 @@ mod tests {
         let result = input.numel();
         let tch_result = tch_input.numel();
         assert_eq!(result, tch_result);
+    }
+
+    #[test]
+    fn expand() {
+        let input = Tensor::rand(vec![10, 1]);
+        let tch_input = input.realize().to_tch();
+
+        let output = input.expand(vec![10, 10]).realize();
+        let tch_result = tch_input.expand(vec![10, 10], false);
+        let tch_output = util::tch_data(&tch_result);
+        let tch_shape = util::tch_shape(&tch_result);
+
+        util::assert_aprox_eq_vec(output.data.unwrap(), tch_output, 1e-6);
+        assert_eq!(output.shape, tch_shape);
     }
 }
