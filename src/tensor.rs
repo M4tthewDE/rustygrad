@@ -192,6 +192,11 @@ impl Tensor {
         )
     }
 
+    // does not require tensor to be realized!
+    pub fn numel(&self) -> usize {
+        self.shape.iter().product::<usize>()
+    }
+
     pub fn realize(&self) -> Tensor {
         self.unrealized_op.realize()
     }
@@ -700,5 +705,15 @@ mod tests {
 
         util::assert_aprox_eq_vec(output.data.unwrap(), tch_output, 1e-6);
         assert_eq!(output.shape, tch_shape);
+    }
+
+    #[test]
+    fn numel() {
+        let input = Tensor::rand(vec![10, 10]);
+        let tch_input = input.realize().to_tch();
+
+        let result = input.numel();
+        let tch_result = tch_input.numel();
+        assert_eq!(result, tch_result);
     }
 }
