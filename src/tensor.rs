@@ -108,6 +108,13 @@ impl Tensor {
         )
     }
 
+    pub fn permute(&self, dims: Vec<usize>) -> Tensor {
+        Tensor::from_op(
+            UnrealizedOp::Permute(Box::new(self.clone()), dims.clone()),
+            dims.iter().map(|&d| self.shape[d]).collect(),
+        )
+    }
+
     pub fn realize(&self) -> Tensor {
         self.unrealized_op.realize()
     }
@@ -477,6 +484,20 @@ mod tests {
 
         let output = input.reshape(vec![25, 2, 2]).realize();
         let tch_result = tch_input.reshape(vec![25, 2, 2]);
+        let tch_output = util::tch_data(&tch_result);
+        let tch_shape = util::tch_shape(&tch_result);
+
+        assert_eq!(output.data.unwrap(), tch_output);
+        assert_eq!(output.shape, tch_shape);
+    }
+
+    #[test]
+    fn permute() {
+        let input = Tensor::rand(vec![5, 15]);
+        let tch_input = input.realize().to_tch();
+
+        let output = input.permute(vec![1, 0]).realize();
+        let tch_result = tch_input.permute(vec![1, 0]);
         let tch_output = util::tch_data(&tch_result);
         let tch_shape = util::tch_shape(&tch_result);
 

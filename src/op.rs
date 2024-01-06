@@ -12,6 +12,7 @@ pub enum UnrealizedOp {
     // FIXME: generic sum???
     Sum(Box<Tensor>, Option<Vec<usize>>, bool),
     Reshape(Box<Tensor>, Vec<usize>),
+    Permute(Box<Tensor>, Vec<usize>),
     Load(Vec<f64>, Vec<usize>),
 }
 
