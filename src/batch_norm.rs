@@ -1,6 +1,6 @@
 use std::ops::Add;
 
-use crate::Tensor;
+use crate::tensor::Tensor;
 
 #[derive(Debug, Clone)]
 pub struct BatchNorm2d {
@@ -19,7 +19,7 @@ impl BatchNorm2d {
         let batch_invstd = self
             .running_var
             .reshape(vec![1, self.num_features, 1, 1])
-            .expand(&x.shape)
+            .expand(x.shape.clone())
             .add(self.eps)
             .rsqrt();
 
@@ -31,6 +31,7 @@ impl BatchNorm2d {
         )
     }
 }
+
 pub struct BatchNorm2dBuilder {
     num_features: usize,
     eps: f64,
@@ -75,11 +76,7 @@ impl BatchNorm2dBuilder {
 #[cfg(test)]
 mod tests {
 
-    use crate::{
-        batch_norm::BatchNorm2dBuilder,
-        util::{self, assert_aprox_eq_vec},
-        Tensor,
-    };
+    use crate::{batch_norm::BatchNorm2dBuilder, tensor::Tensor, util};
 
     #[test]
     fn test_batchnorm2d_no_training() {
@@ -91,12 +88,12 @@ mod tests {
         bn.running_var = Tensor::rand(vec![4]);
 
         let input = Tensor::rand(vec![2, num_features, 3, 3]);
-        let tch_input = input.to_tch();
-        let out = bn.forward(input);
-        let tch_weight = bn.weight.unwrap().to_tch();
-        let tch_bias = bn.bias.unwrap().to_tch();
-        let tch_running_mean = bn.running_mean.to_tch();
-        let tch_running_var = bn.running_var.to_tch();
+        let tch_input = input.realize().to_tch();
+        let out = bn.forward(input).realize();
+        let tch_weight = bn.weight.unwrap().realize().to_tch();
+        let tch_bias = bn.bias.unwrap().realize().to_tch();
+        let tch_running_mean = bn.running_mean.realize().to_tch();
+        let tch_running_var = bn.running_var.realize().to_tch();
         let tch_out = tch_input.batch_norm(
             Some(tch_weight),
             Some(tch_bias),
@@ -111,6 +108,6 @@ mod tests {
         let tch_output = util::tch_data(&tch_out);
 
         assert_eq!(out.shape, tch_shape);
-        assert_aprox_eq_vec(out.data, tch_output, 1e-6);
+        util::assert_aprox_eq_vec(out.data.unwrap(), tch_output, 1e-6);
     }
 }
