@@ -13,6 +13,11 @@ pub struct Tensor {
 
 impl Tensor {
     pub fn new(unrealized_op: UnrealizedOp, data: Vec<f64>, shape: Vec<usize>) -> Tensor {
+        assert_eq!(
+            data.len(),
+            shape.iter().product::<usize>(),
+            "invalid shape for data length"
+        );
         Tensor {
             unrealized_op,
             data: Some(data),
