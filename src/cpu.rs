@@ -135,9 +135,10 @@ impl UnrealizedOp {
 
                 Tensor::new(self.clone(), new_data, new_shape)
             }
-            UnrealizedOp::Pool2D(t, kernel, stride) => {
+            UnrealizedOp::Pool2D(t, kernel, stride, init_val, pool_op) => {
                 let t = t.realize();
                 let data = t.data.unwrap();
+                // FIXME: remove this constraint, just reshape or something smarter
                 assert_eq!(t.shape.len(), 4, "only supporting 4d tensors");
 
                 let (batch, channels, height, width) =
@@ -153,7 +154,7 @@ impl UnrealizedOp {
                     for c in 0..channels {
                         for i in 0..output_height {
                             for j in 0..output_width {
-                                let mut sum_val: f64 = 0.0;
+                                let mut result_val = *init_val;
                                 for ki in 0..kernel_height {
                                     for kj in 0..kernel_width {
                                         let row = i * stride + ki;
@@ -162,10 +163,10 @@ impl UnrealizedOp {
                                             + c * (height * width)
                                             + row * width
                                             + col;
-                                        sum_val += data[idx];
+                                        result_val = (pool_op)(result_val, data[idx]);
                                     }
                                 }
-                                output_data.push(sum_val);
+                                output_data.push(result_val);
                             }
                         }
                     }
