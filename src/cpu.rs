@@ -99,6 +99,42 @@ impl UnrealizedOp {
                 let t = t.realize();
                 Tensor::new(self.clone(), t.data.unwrap(), shape.clone())
             }
+            UnrealizedOp::Permute(t, dims) => {
+                let t = t.realize();
+                let data = t.data.unwrap();
+                let new_shape: Vec<usize> = dims.iter().map(|&d| t.shape[d]).collect();
+                let mut new_data = vec![0.0; data.len()];
+
+                // Permute the data
+                for (i, item) in data.iter().enumerate() {
+                    let mut temp_index = i;
+                    let mut multi_dim_index = Vec::new();
+                    for &size in t.shape.iter().rev() {
+                        multi_dim_index.push(temp_index % size);
+                        temp_index /= size;
+                    }
+                    multi_dim_index.reverse();
+
+                    let mut new_multi_dim_index: Vec<usize> = vec![0; dims.len()];
+                    for (new_i, &old_i) in dims.iter().enumerate() {
+                        new_multi_dim_index[new_i] = multi_dim_index[old_i];
+                    }
+
+                    let mut new_index = 0;
+                    let mut stride = 1;
+                    for (&size, &index) in
+                        new_shape.iter().rev().zip(new_multi_dim_index.iter().rev())
+                    {
+                        new_index += index * stride;
+                        stride *= size;
+                    }
+
+                    // Place the original data into its new position
+                    new_data[new_index] = *item;
+                }
+
+                Tensor::new(self.clone(), new_data, new_shape)
+            }
             UnrealizedOp::Load(data, shape) => {
                 Tensor::new(self.clone(), data.clone(), shape.clone())
             }
