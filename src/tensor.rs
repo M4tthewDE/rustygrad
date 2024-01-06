@@ -66,14 +66,17 @@ impl Tensor {
         Tensor::from_op(UnrealizedOp::Min(Box::new(self.clone())), vec![1])
     }
 
-    pub fn avg_pool_2d(&self, kernel: (usize, usize), _stride: Option<usize>) -> Tensor {
-        let x = self.reshape(vec![
-            self.shape.iter().product::<usize>() / kernel.0 / kernel.1,
-            kernel.0,
-            kernel.1,
-        ]);
-        dbg!(x.shape);
-        unimplemented!();
+    pub fn avg_pool_2d(&self, kernel: (usize, usize), stride: Option<usize>) -> Tensor {
+        let stride = stride.unwrap_or(1);
+        Tensor::from_op(
+            UnrealizedOp::Pool2D(Box::new(self.clone()), kernel, stride),
+            vec![
+                self.shape[0],
+                self.shape[1],
+                ((self.shape[2] - kernel.0) / stride) + 1,
+                ((self.shape[3] - kernel.1) / stride) + 1,
+            ],
+        ) / (kernel.0 * kernel.1) as f64
     }
 
     pub fn reduce_sum(&self, dims: Option<Vec<usize>>, keepdim: bool) -> Tensor {
@@ -465,7 +468,7 @@ mod tests {
 
     #[test]
     fn avg_pool_2d() {
-        let input = Tensor::rand(vec![10, 10]);
+        let input = Tensor::rand(vec![1, 1, 10, 10]);
         let tch_input = input.realize().to_tch();
 
         let output = input.avg_pool_2d((2, 2), None).realize();

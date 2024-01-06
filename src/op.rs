@@ -8,9 +8,8 @@ pub enum UnrealizedOp {
     Div(Box<Tensor>, Box<Tensor>),
     Max(Box<Tensor>),
     Min(Box<Tensor>),
-    // this is sum_pool_2d, not generic sum!
-    // FIXME: generic sum???
     Sum(Box<Tensor>, Option<Vec<usize>>, bool),
+    Pool2D(Box<Tensor>, (usize, usize), usize),
     Reshape(Box<Tensor>, Vec<usize>),
     Permute(Box<Tensor>, Vec<usize>),
     Load(Vec<f64>, Vec<usize>),
