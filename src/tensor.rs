@@ -215,6 +215,13 @@ impl Tensor {
         self.shape.iter().product::<usize>()
     }
 
+    pub fn matmul(&self, rhs: Tensor) -> Tensor {
+        Tensor::from_op(
+            UnrealizedOp::MatMul(Box::new(self.clone()), Box::new(rhs.clone())),
+            vec![self.shape[0], rhs.shape[1]],
+        )
+    }
+
     pub fn realize(&self) -> Tensor {
         self.unrealized_op.realize()
     }
@@ -718,6 +725,22 @@ mod tests {
 
         let output = input.relu().realize();
         let tch_result = tch_input.relu();
+        let tch_output = util::tch_data(&tch_result);
+        let tch_shape = util::tch_shape(&tch_result);
+
+        util::assert_aprox_eq_vec(output.data.unwrap(), tch_output, 1e-6);
+        assert_eq!(output.shape, tch_shape);
+    }
+
+    #[test]
+    fn matmul() {
+        let input1 = Tensor::rand(vec![8, 10]);
+        let input2 = Tensor::rand(vec![10, 12]);
+        let tch_input1 = input1.realize().to_tch();
+        let tch_input2 = input2.realize().to_tch();
+
+        let output = input1.matmul(input2).realize();
+        let tch_result = tch_input1.matmul(&tch_input2);
         let tch_output = util::tch_data(&tch_result);
         let tch_shape = util::tch_shape(&tch_result);
 
