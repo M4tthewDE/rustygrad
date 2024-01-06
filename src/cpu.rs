@@ -53,6 +53,16 @@ impl UnrealizedOp {
                 t.realize().data.unwrap().iter().map(|x| x.log2()).collect(),
                 t.shape.clone(),
             ),
+            UnrealizedOp::Relu(t) => Tensor::new(
+                self.clone(),
+                t.realize()
+                    .data
+                    .unwrap()
+                    .iter()
+                    .map(|&x| if x < 0.0 { 0.0 } else { x })
+                    .collect(),
+                t.shape.clone(),
+            ),
             UnrealizedOp::Sigmoid(t) => Tensor::new(
                 self.clone(),
                 t.realize()

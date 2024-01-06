@@ -11,6 +11,7 @@ pub enum UnrealizedOp {
     Sqrt(Box<Tensor>),
     Log(Box<Tensor>),
     Sigmoid(Box<Tensor>),
+    Relu(Box<Tensor>),
     Sum(Box<Tensor>, Option<Vec<usize>>, bool),
     Pool2D(Box<Tensor>, (usize, usize), usize, f64, PoolOp),
     Reshape(Box<Tensor>, Vec<usize>),
