@@ -95,7 +95,7 @@ impl Tensor {
     }
 
     pub fn reduce_sum(&self, dims: Option<&Vec<usize>>, keepdim: bool) -> Tensor {
-        let new_shape = if let Some(dims) = dims.clone() {
+        let new_shape = if let Some(dims) = dims {
             if keepdim {
                 self.shape
                     .iter()
@@ -154,6 +154,17 @@ impl Tensor {
         let mean = self.reduce_mean(dims, true, None);
         let diff = self.clone() - mean;
         (diff.clone() * diff).reduce_mean(dims, false, correction.or(Some(1.0)))
+    }
+
+    pub fn sqrt(&self) -> Tensor {
+        Tensor::from_op(
+            UnrealizedOp::Sqrt(Box::new(self.clone())),
+            self.shape.clone(),
+        )
+    }
+
+    pub fn rsqrt(&self) -> Tensor {
+        1.0 / self.sqrt()
     }
 
     pub fn realize(&self) -> Tensor {
@@ -586,5 +597,33 @@ mod tests {
         let tch_output = util::tch_data(&tch_var);
         assert_eq!(var.shape, tch_shape);
         util::assert_aprox_eq_vec(var.data.unwrap(), tch_output, 1e-6);
+    }
+
+    #[test]
+    fn sqrt() {
+        let input = Tensor::rand(vec![10, 10]);
+        let tch_input = input.realize().to_tch();
+
+        let output = input.sqrt().realize();
+        let tch_result = tch_input.sqrt();
+        let tch_output = util::tch_data(&tch_result);
+        let tch_shape = util::tch_shape(&tch_result);
+
+        util::assert_aprox_eq_vec(output.data.unwrap(), tch_output, 1e-6);
+        assert_eq!(output.shape, tch_shape);
+    }
+
+    #[test]
+    fn rsqrt() {
+        let input = Tensor::rand(vec![10, 10]);
+        let tch_input = input.realize().to_tch();
+
+        let output = input.rsqrt().realize();
+        let tch_result = tch_input.rsqrt();
+        let tch_output = util::tch_data(&tch_result);
+        let tch_shape = util::tch_shape(&tch_result);
+
+        util::assert_aprox_eq_vec(output.data.unwrap(), tch_output, 1e-6);
+        assert_eq!(output.shape, tch_shape);
     }
 }

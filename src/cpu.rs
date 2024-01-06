@@ -43,6 +43,11 @@ impl UnrealizedOp {
                     .expect("no max value found");
                 Tensor::new(self.clone(), vec![val], vec![])
             }
+            UnrealizedOp::Sqrt(t) => Tensor::new(
+                self.clone(),
+                t.realize().data.unwrap().iter().map(|x| x.sqrt()).collect(),
+                t.shape.clone(),
+            ),
             UnrealizedOp::Sum(t, dims, keepdim) => {
                 let t = t.realize();
                 let data = t.data.expect("no data. tensor not loaded?");
