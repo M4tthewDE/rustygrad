@@ -53,6 +53,14 @@ impl Tensor {
         Tensor::from_op(UnrealizedOp::Load(data, shape.clone()), shape)
     }
 
+    pub fn zeros(size: usize) -> Tensor {
+        Tensor::from_op(UnrealizedOp::Load(vec![0.0; size], vec![size]), vec![size])
+    }
+
+    pub fn ones(size: usize) -> Tensor {
+        Tensor::from_op(UnrealizedOp::Load(vec![1.0; size], vec![size]), vec![size])
+    }
+
     pub fn to_tch(&self) -> tch::Tensor {
         tch::Tensor::from_slice(&self.data.clone().unwrap())
             .reshape(self.shape.iter().map(|&d| d as i64).collect::<Vec<i64>>())
