@@ -185,6 +185,13 @@ impl Tensor {
         self.clone() * self.sigmoid()
     }
 
+    pub fn relu(&self) -> Tensor {
+        Tensor::from_op(
+            UnrealizedOp::Relu(Box::new(self.clone())),
+            self.shape.clone(),
+        )
+    }
+
     pub fn realize(&self) -> Tensor {
         self.unrealized_op.realize()
     }
@@ -674,6 +681,20 @@ mod tests {
 
         let output = input.swish().realize();
         let tch_result = tch_input.silu();
+        let tch_output = util::tch_data(&tch_result);
+        let tch_shape = util::tch_shape(&tch_result);
+
+        util::assert_aprox_eq_vec(output.data.unwrap(), tch_output, 1e-6);
+        assert_eq!(output.shape, tch_shape);
+    }
+
+    #[test]
+    fn relu() {
+        let input = Tensor::rand(vec![10, 10]);
+        let tch_input = input.realize().to_tch();
+
+        let output = input.relu().realize();
+        let tch_result = tch_input.relu();
         let tch_output = util::tch_data(&tch_result);
         let tch_shape = util::tch_shape(&tch_result);
 
