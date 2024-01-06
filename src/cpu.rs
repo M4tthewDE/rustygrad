@@ -46,25 +46,24 @@ impl UnrealizedOp {
             UnrealizedOp::Sum(t, dims, keepdim) => {
                 let t = t.realize();
                 let data = t.data.unwrap();
-                let shape = t.shape.unwrap();
                 let dims = match dims {
                     Some(dims) => dims,
                     None => return Tensor::from_scalar(data.iter().sum()),
                 };
 
-                let mut reduced_shape = shape.clone();
+                let mut reduced_shape = t.shape.clone();
                 for (i, dim) in dims.iter().enumerate() {
                     reduced_shape.remove(*dim - i);
                 }
 
                 let mut result: Vec<f64> = vec![0.; reduced_shape.iter().product()];
 
-                let mut shape_pos = Vec::with_capacity(shape.len() - dims.len());
+                let mut shape_pos = Vec::with_capacity(t.shape.len() - dims.len());
                 for (i, elem) in data.iter().enumerate() {
                     shape_pos.clear();
                     let mut offset = 0;
-                    for (j, _shape) in shape.iter().enumerate() {
-                        let count = shape[..=j].iter().product::<usize>();
+                    for (j, _shape) in t.shape.iter().enumerate() {
+                        let count = t.shape[..=j].iter().product::<usize>();
                         let index = (i - offset) / (data.len() / count);
                         if !dims.contains(&j) {
                             shape_pos.push(index);
@@ -85,7 +84,7 @@ impl UnrealizedOp {
                 }
 
                 let new_shape = if *keepdim {
-                    shape
+                    t.shape
                         .iter()
                         .enumerate()
                         .map(|(i, &d)| if dims.contains(&i) { 1 } else { d })
@@ -122,14 +121,8 @@ type BroadcastOp = fn(lhs: f64, rhs: f64) -> f64;
 
 // https://pytorch.org/docs/stable/notes/broadcasting.html
 fn broadcast_op(lhs: Tensor, rhs: Tensor, op: BroadcastOp) -> (Vec<f64>, Vec<usize>) {
-    let (lhs_data, mut lhs_shape) = (
-        lhs.data.expect("no data. tensor not loaded?"),
-        lhs.shape.expect("no shape. tensor not loaded?"),
-    );
-    let (rhs_data, mut rhs_shape) = (
-        rhs.data.expect("no data. tensor not loaded?"),
-        rhs.shape.expect("no shape. tensor not loaded?"),
-    );
+    let (lhs_data, mut lhs_shape) = (lhs.data.expect("no data. tensor not loaded?"), lhs.shape);
+    let (rhs_data, mut rhs_shape) = (rhs.data.expect("no data. tensor not loaded?"), rhs.shape);
     assert!(
         broadcastable(&lhs_shape, &rhs_shape),
         "{:?} and {:?} aren't broadcastable",
