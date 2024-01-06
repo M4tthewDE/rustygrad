@@ -17,6 +17,7 @@ pub enum UnrealizedOp {
     Reshape(Box<Tensor>, Vec<usize>),
     Permute(Box<Tensor>, Vec<usize>),
     MatMul(Box<Tensor>, Box<Tensor>),
+    Expand(Box<Tensor>, Vec<usize>),
     Load(Vec<f64>, Vec<usize>),
 }
 

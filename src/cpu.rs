@@ -234,6 +234,48 @@ impl UnrealizedOp {
 
                 Tensor::new(self.clone(), result, vec![lhs.shape[0], rhs.shape[1]])
             }
+            UnrealizedOp::Expand(t, shape) => {
+                assert_eq!(
+                    t.shape.len(),
+                    shape.len(),
+                    "Only supporting same size shapes for now"
+                );
+                for (old, new) in t.shape.iter().zip(shape) {
+                    assert!(
+                        *old == *new || *old == 1,
+                        "The old dimension must be either 1 or the same as the new dimension"
+                    );
+                }
+
+                let total_elements = shape.iter().product::<usize>();
+                let mut new_data = Vec::with_capacity(total_elements);
+
+                let data = t.realize().data.unwrap();
+
+                for index in 0..total_elements {
+                    let mut temp_index = index;
+                    let mut old_indices = Vec::with_capacity(t.shape.len());
+
+                    for (&size_new, &size_old) in shape.iter().zip(&t.shape).rev() {
+                        old_indices.push(if size_old == 1 {
+                            0
+                        } else {
+                            temp_index % size_old
+                        });
+                        temp_index /= size_new;
+                    }
+                    old_indices.reverse();
+
+                    let old_index = old_indices
+                        .iter()
+                        .zip(t.shape.iter())
+                        .fold(0, |acc, (&i, &dim)| acc * dim + i);
+
+                    new_data.push(data[old_index]);
+                }
+
+                Tensor::new(self.clone(), new_data, shape.clone())
+            }
             UnrealizedOp::Load(data, shape) => {
                 Tensor::new(self.clone(), data.clone(), shape.clone())
             }
