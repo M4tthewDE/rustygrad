@@ -69,7 +69,7 @@ impl Tensor {
     pub fn avg_pool_2d(&self, kernel: (usize, usize), stride: Option<usize>) -> Tensor {
         let stride = stride.unwrap_or(1);
         Tensor::from_op(
-            UnrealizedOp::Pool2D(Box::new(self.clone()), kernel, stride),
+            UnrealizedOp::Pool2D(Box::new(self.clone()), kernel, stride, 0.0, |a, b| a + b),
             vec![
                 self.shape[0],
                 self.shape[1],
@@ -77,6 +77,21 @@ impl Tensor {
                 ((self.shape[3] - kernel.1) / stride) + 1,
             ],
         ) / (kernel.0 * kernel.1) as f64
+    }
+
+    pub fn max_pool_2d(&self, kernel: (usize, usize), stride: Option<usize>) -> Tensor {
+        let stride = stride.unwrap_or(1);
+        Tensor::from_op(
+            UnrealizedOp::Pool2D(Box::new(self.clone()), kernel, stride, f64::MIN, |a, b| {
+                a.max(b)
+            }),
+            vec![
+                self.shape[0],
+                self.shape[1],
+                ((self.shape[2] - kernel.0) / stride) + 1,
+                ((self.shape[3] - kernel.1) / stride) + 1,
+            ],
+        )
     }
 
     pub fn reduce_sum(&self, dims: Option<Vec<usize>>, keepdim: bool) -> Tensor {
@@ -473,6 +488,20 @@ mod tests {
 
         let output = input.avg_pool_2d((2, 2), None).realize();
         let tch_result = tch_input.avg_pool2d(vec![2, 2], 1, 0, false, true, None);
+        let tch_output = util::tch_data(&tch_result);
+        let tch_shape = util::tch_shape(&tch_result);
+
+        assert_eq!(output.data.unwrap(), tch_output);
+        assert_eq!(output.shape, tch_shape);
+    }
+
+    #[test]
+    fn max_pool_2d() {
+        let input = Tensor::rand(vec![1, 1, 10, 10]);
+        let tch_input = input.realize().to_tch();
+
+        let output = input.max_pool_2d((2, 2), None).realize();
+        let tch_result = tch_input.max_pool2d(vec![2, 2], 1, 0, 1, false);
         let tch_output = util::tch_data(&tch_result);
         let tch_shape = util::tch_shape(&tch_result);
 
