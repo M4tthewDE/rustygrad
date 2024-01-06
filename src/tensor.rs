@@ -94,7 +94,7 @@ impl Tensor {
         )
     }
 
-    pub fn reduce_sum(&self, dims: Option<Vec<usize>>, keepdim: bool) -> Tensor {
+    pub fn reduce_sum(&self, dims: Option<&Vec<usize>>, keepdim: bool) -> Tensor {
         let new_shape = if let Some(dims) = dims.clone() {
             if keepdim {
                 self.shape
@@ -114,7 +114,7 @@ impl Tensor {
             self.shape.clone()
         };
         Tensor::from_op(
-            UnrealizedOp::Sum(Box::new(self.clone()), dims, keepdim),
+            UnrealizedOp::Sum(Box::new(self.clone()), dims.cloned(), keepdim),
             new_shape,
         )
     }
@@ -131,6 +131,23 @@ impl Tensor {
             UnrealizedOp::Permute(Box::new(self.clone()), dims.clone()),
             dims.iter().map(|&d| self.shape[d]).collect(),
         )
+    }
+
+    pub fn reduce_mean(
+        &self,
+        dims: Option<&Vec<usize>>,
+        keepdim: bool,
+        correction: Option<f64>,
+    ) -> Tensor {
+        let divisor = dims
+            .map(|dims| {
+                dims.iter()
+                    .map(|&dim| self.shape[dim] as f64)
+                    .product::<f64>()
+            })
+            .unwrap_or(self.shape.iter().product::<usize>() as f64);
+
+        self.reduce_sum(dims, keepdim) / (divisor - correction.unwrap_or(0.0)).max(1.0)
     }
 
     pub fn realize(&self) -> Tensor {
@@ -473,7 +490,7 @@ mod tests {
     fn reduce_sum() {
         let input = Tensor::rand(vec![2, 4, 3, 3]);
         let tch_input = input.realize().to_tch();
-        let sum = input.reduce_sum(Some(vec![0, 2, 3]), false).realize();
+        let sum = input.reduce_sum(Some(&vec![0, 2, 3]), false).realize();
         let tch_sum = tch_input.sum_dim_intlist(vec![0, 2, 3], false, None);
         let tch_shape = util::tch_shape(&tch_sum);
         let tch_output = util::tch_data(&tch_sum);
@@ -535,5 +552,20 @@ mod tests {
 
         assert_eq!(output.data.unwrap(), tch_output);
         assert_eq!(output.shape, tch_shape);
+    }
+
+    #[test]
+    fn mean_4d_over_3_axis() {
+        let input = Tensor::rand(vec![2, 4, 3, 3]);
+        let tch_input = input.realize().to_tch();
+
+        let mean = input
+            .reduce_mean(Some(&vec![0, 2, 3]), false, None)
+            .realize();
+        let tch_mean = tch_input.mean_dim(vec![0, 2, 3], false, None);
+        let tch_shape = util::tch_shape(&tch_mean);
+        let tch_output = util::tch_data(&tch_mean);
+        assert_eq!(mean.shape, tch_shape);
+        util::assert_aprox_eq_vec(mean.data.unwrap(), tch_output, 1e-6);
     }
 }
