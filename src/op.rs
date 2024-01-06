@@ -16,6 +16,7 @@ pub enum UnrealizedOp {
     Pool2D(Box<Tensor>, (usize, usize), usize, f64, PoolOp),
     Reshape(Box<Tensor>, Vec<usize>),
     Permute(Box<Tensor>, Vec<usize>),
+    MatMul(Box<Tensor>, Box<Tensor>),
     Load(Vec<f64>, Vec<usize>),
 }
 

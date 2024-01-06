@@ -212,6 +212,28 @@ impl UnrealizedOp {
                     vec![batch, channels, output_height, output_width],
                 )
             }
+            UnrealizedOp::MatMul(lhs, rhs) => {
+                assert!(
+                    lhs.shape.len() == 2 && rhs.shape.len() == 2,
+                    "only supporting 2d tensors for now"
+                );
+                assert_eq!(lhs.shape[1], rhs.shape[0]);
+
+                let lhs = lhs.realize();
+                let rhs = rhs.realize();
+                let lhs_data = lhs.data.unwrap();
+                let rhs_data = rhs.data.unwrap();
+
+                let mut result = vec![0.0; lhs.shape[0] * rhs.shape[1]];
+                for (i, elem) in lhs_data.iter().enumerate() {
+                    for j in 0..rhs.shape[1] {
+                        result[(i / rhs.shape[0]) * rhs.shape[1] + j] +=
+                            elem * rhs_data[i % rhs.shape[0] * rhs.shape[1] + j];
+                    }
+                }
+
+                Tensor::new(self.clone(), result, vec![lhs.shape[0], rhs.shape[1]])
+            }
             UnrealizedOp::Load(data, shape) => {
                 Tensor::new(self.clone(), data.clone(), shape.clone())
             }
