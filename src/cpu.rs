@@ -135,6 +135,48 @@ impl UnrealizedOp {
 
                 Tensor::new(self.clone(), new_data, new_shape)
             }
+            UnrealizedOp::Pool2D(t, kernel, stride) => {
+                let t = t.realize();
+                let data = t.data.unwrap();
+                assert_eq!(t.shape.len(), 4, "only supporting 4d tensors");
+
+                let (batch, channels, height, width) =
+                    (t.shape[0], t.shape[1], t.shape[2], t.shape[3]);
+                let (kernel_height, kernel_width) = (kernel.0, kernel.1);
+
+                let output_height = ((height - kernel_height) / stride) + 1;
+                let output_width = ((width - kernel_width) / stride) + 1;
+
+                let mut output_data =
+                    Vec::with_capacity(batch * channels * output_height * output_width);
+                for n in 0..batch {
+                    for c in 0..channels {
+                        for i in 0..output_height {
+                            for j in 0..output_width {
+                                let mut sum_val: f64 = 0.0;
+                                for ki in 0..kernel_height {
+                                    for kj in 0..kernel_width {
+                                        let row = i * stride + ki;
+                                        let col = j * stride + kj;
+                                        let idx = n * (channels * height * width)
+                                            + c * (height * width)
+                                            + row * width
+                                            + col;
+                                        sum_val += data[idx];
+                                    }
+                                }
+                                output_data.push(sum_val);
+                            }
+                        }
+                    }
+                }
+
+                Tensor::new(
+                    self.clone(),
+                    output_data,
+                    vec![batch, channels, output_height, output_width],
+                )
+            }
             UnrealizedOp::Load(data, shape) => {
                 Tensor::new(self.clone(), data.clone(), shape.clone())
             }
