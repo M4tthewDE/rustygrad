@@ -951,6 +951,19 @@ mod tests {
     }
 
     #[test]
+    fn avg_pool2d_tch() {
+        let input = Tensor::rand(vec![1, 1, 10, 10]);
+        let tch_input = input.to_tch();
+        let output = input.avg_pool2d((2, 2), None);
+        let tch_output = tch_input.avg_pool2d(vec![2, 2], 1, 0, false, true, None);
+        let tch_shape = util::tch_shape(&tch_output);
+        let tch_output = util::tch_data(&tch_output);
+
+        assert_eq!(output.shape, tch_shape);
+        assert_aprox_eq_vec(output.data, tch_output, 1e-6);
+    }
+
+    #[test]
     fn conv2d_group_not_1() {
         let input = Tensor::rand(vec![1, 32, 112, 112]);
         let tch_input = input.to_tch();

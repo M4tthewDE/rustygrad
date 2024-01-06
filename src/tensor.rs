@@ -73,6 +73,10 @@ impl Tensor {
         Tensor::from_op(UnrealizedOp::Sum(Box::new(self.clone()), dims, keepdim))
     }
 
+    pub fn reshape(&self, shape: Vec<usize>) -> Tensor {
+        Tensor::from_op(UnrealizedOp::Reshape(Box::new(self.clone()), shape))
+    }
+
     pub fn realize(&self) -> Tensor {
         self.unrealized_op.realize()
     }
@@ -386,6 +390,20 @@ mod tests {
 
         let output = input.avg_pool_2d((2, 2), None).realize();
         let tch_result = tch_input.avg_pool2d(vec![2, 2], 1, 0, false, true, None);
+        let tch_output = util::tch_data(&tch_result);
+        let tch_shape = util::tch_shape(&tch_result);
+
+        assert_eq!(output.data.unwrap(), tch_output);
+        assert_eq!(output.shape.unwrap(), tch_shape);
+    }
+
+    #[test]
+    fn reshape() {
+        let input = Tensor::rand(vec![10, 10]);
+        let tch_input = input.realize().to_tch();
+
+        let output = input.reshape(vec![25, 2, 2]).realize();
+        let tch_result = tch_input.reshape(vec![25, 2, 2]);
         let tch_output = util::tch_data(&tch_result);
         let tch_shape = util::tch_shape(&tch_result);
 

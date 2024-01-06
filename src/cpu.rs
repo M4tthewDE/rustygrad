@@ -96,6 +96,10 @@ impl UnrealizedOp {
 
                 Tensor::new(self.clone(), result, new_shape)
             }
+            UnrealizedOp::Reshape(t, shape) => {
+                let t = t.realize();
+                Tensor::new(self.clone(), t.data.unwrap(), shape.clone())
+            }
             UnrealizedOp::Load(data, shape) => {
                 Tensor::new(self.clone(), data.clone(), shape.clone())
             }
