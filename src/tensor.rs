@@ -1,5 +1,7 @@
-use std::ops;
+use std::iter::zip;
+use std::{cmp, ops};
 
+use itertools::{EitherOrBoth, Itertools};
 use rand::{distributions::Uniform, prelude::Distribution};
 
 use crate::op::UnrealizedOp;
@@ -57,34 +59,52 @@ impl Tensor {
     }
 
     pub fn max(&self) -> Tensor {
-        Tensor::from_op(
-            UnrealizedOp::Max(Box::new(self.clone())),
-            self.shape.clone(),
-        )
+        Tensor::from_op(UnrealizedOp::Max(Box::new(self.clone())), vec![1])
     }
 
     pub fn min(&self) -> Tensor {
-        Tensor::from_op(
-            UnrealizedOp::Min(Box::new(self.clone())),
-            self.shape.clone(),
-        )
+        Tensor::from_op(UnrealizedOp::Min(Box::new(self.clone())), vec![1])
     }
 
-    pub fn avg_pool_2d(&self, _kernel: (usize, usize), _stride: Option<usize>) -> Tensor {
+    pub fn avg_pool_2d(&self, kernel: (usize, usize), _stride: Option<usize>) -> Tensor {
+        let x = self.reshape(vec![
+            self.shape.iter().product::<usize>() / kernel.0 / kernel.1,
+            kernel.0,
+            kernel.1,
+        ]);
+        dbg!(x.shape);
         unimplemented!();
     }
 
     pub fn reduce_sum(&self, dims: Option<Vec<usize>>, keepdim: bool) -> Tensor {
+        let new_shape = if let Some(dims) = dims.clone() {
+            if keepdim {
+                self.shape
+                    .iter()
+                    .enumerate()
+                    .map(|(i, &d)| if dims.contains(&i) { 1 } else { d })
+                    .collect()
+            } else {
+                let mut reduced_shape = self.shape.clone();
+                for (i, dim) in dims.iter().enumerate() {
+                    reduced_shape.remove(*dim - i);
+                }
+
+                reduced_shape
+            }
+        } else {
+            self.shape.clone()
+        };
         Tensor::from_op(
             UnrealizedOp::Sum(Box::new(self.clone()), dims, keepdim),
-            self.shape.clone(),
+            new_shape,
         )
     }
 
     pub fn reshape(&self, shape: Vec<usize>) -> Tensor {
         Tensor::from_op(
-            UnrealizedOp::Reshape(Box::new(self.clone()), shape),
-            self.shape.clone(),
+            UnrealizedOp::Reshape(Box::new(self.clone()), shape.clone()),
+            shape,
         )
     }
 
@@ -107,8 +127,8 @@ impl ops::Add<Tensor> for f64 {
     type Output = Tensor;
     fn add(self, rhs: Tensor) -> Self::Output {
         Tensor::from_op(
-            UnrealizedOp::Add(Box::new(Tensor::from_scalar(self)), Box::new(rhs)),
-            vec![1],
+            UnrealizedOp::Add(Box::new(Tensor::from_scalar(self)), Box::new(rhs.clone())),
+            rhs.shape,
         )
     }
 }
@@ -117,8 +137,8 @@ impl ops::Add<Tensor> for Tensor {
     type Output = Tensor;
     fn add(self, rhs: Tensor) -> Self::Output {
         Tensor::from_op(
-            UnrealizedOp::Add(Box::new(self.clone()), Box::new(rhs)),
-            self.shape,
+            UnrealizedOp::Add(Box::new(self.clone()), Box::new(rhs.clone())),
+            broadcast_shape(self.shape, rhs.shape),
         )
     }
 }
@@ -138,8 +158,8 @@ impl ops::Sub<Tensor> for f64 {
     type Output = Tensor;
     fn sub(self, rhs: Tensor) -> Self::Output {
         Tensor::from_op(
-            UnrealizedOp::Sub(Box::new(Tensor::from_scalar(self)), Box::new(rhs)),
-            vec![1],
+            UnrealizedOp::Sub(Box::new(Tensor::from_scalar(self)), Box::new(rhs.clone())),
+            rhs.shape,
         )
     }
 }
@@ -149,8 +169,8 @@ impl ops::Sub<Tensor> for Tensor {
 
     fn sub(self, rhs: Tensor) -> Self::Output {
         Tensor::from_op(
-            UnrealizedOp::Sub(Box::new(self.clone()), Box::new(rhs)),
-            self.shape,
+            UnrealizedOp::Sub(Box::new(self.clone()), Box::new(rhs.clone())),
+            broadcast_shape(self.shape, rhs.shape),
         )
     }
 }
@@ -170,8 +190,8 @@ impl ops::Mul<Tensor> for f64 {
     type Output = Tensor;
     fn mul(self, rhs: Tensor) -> Self::Output {
         Tensor::from_op(
-            UnrealizedOp::Mul(Box::new(Tensor::from_scalar(self)), Box::new(rhs)),
-            vec![1],
+            UnrealizedOp::Mul(Box::new(Tensor::from_scalar(self)), Box::new(rhs.clone())),
+            rhs.shape,
         )
     }
 }
@@ -181,8 +201,8 @@ impl ops::Mul<Tensor> for Tensor {
 
     fn mul(self, rhs: Tensor) -> Self::Output {
         Tensor::from_op(
-            UnrealizedOp::Mul(Box::new(self.clone()), Box::new(rhs)),
-            self.shape,
+            UnrealizedOp::Mul(Box::new(self.clone()), Box::new(rhs.clone())),
+            broadcast_shape(self.shape, rhs.shape),
         )
     }
 }
@@ -203,8 +223,8 @@ impl ops::Div<Tensor> for f64 {
 
     fn div(self, rhs: Tensor) -> Self::Output {
         Tensor::from_op(
-            UnrealizedOp::Div(Box::new(Tensor::from_scalar(self)), Box::new(rhs)),
-            vec![1],
+            UnrealizedOp::Div(Box::new(Tensor::from_scalar(self)), Box::new(rhs.clone())),
+            rhs.shape,
         )
     }
 }
@@ -214,10 +234,41 @@ impl ops::Div<Tensor> for Tensor {
 
     fn div(self, rhs: Tensor) -> Self::Output {
         Tensor::from_op(
-            UnrealizedOp::Div(Box::new(self.clone()), Box::new(rhs)),
-            self.shape,
+            UnrealizedOp::Div(Box::new(self.clone()), Box::new(rhs.clone())),
+            broadcast_shape(self.shape, rhs.shape),
         )
     }
+}
+
+fn broadcast_shape(mut lhs_shape: Vec<usize>, mut rhs_shape: Vec<usize>) -> Vec<usize> {
+    let broadcastable = lhs_shape
+        .iter()
+        .rev()
+        .zip_longest(rhs_shape.iter().rev())
+        .all(|dim_pair| match dim_pair {
+            EitherOrBoth::Both(&left, &right) => left == right || left == 1 || right == 1,
+            _ => true,
+        });
+    assert!(
+        broadcastable,
+        "{:?} and {:?} aren't broadcastable",
+        lhs_shape, rhs_shape
+    );
+
+    let max_len = lhs_shape.len().max(rhs_shape.len());
+    while rhs_shape.len() < max_len {
+        rhs_shape.insert(0, 1);
+    }
+
+    while lhs_shape.len() < max_len {
+        lhs_shape.insert(0, 1);
+    }
+
+    let output_shape: Vec<usize> = zip(&lhs_shape, &rhs_shape)
+        .map(|(d1, d2)| cmp::max(*d1, *d2))
+        .collect();
+
+    output_shape
 }
 
 #[cfg(test)]
@@ -406,9 +457,8 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn avg_pool_2d() {
-        let input = Tensor::rand(vec![1, 1, 10, 10]);
+        let input = Tensor::rand(vec![10, 10]);
         let tch_input = input.realize().to_tch();
 
         let output = input.avg_pool_2d((2, 2), None).realize();
