@@ -45,7 +45,7 @@ impl UnrealizedOp {
             }
             UnrealizedOp::Sum(t, dims, keepdim) => {
                 let t = t.realize();
-                let data = t.data.unwrap();
+                let data = t.data.expect("no data. tensor not loaded?");
                 let dims = match dims {
                     Some(dims) => dims,
                     None => return Tensor::from_scalar(data.iter().sum()),
@@ -97,11 +97,15 @@ impl UnrealizedOp {
             }
             UnrealizedOp::Reshape(t, shape) => {
                 let t = t.realize();
-                Tensor::new(self.clone(), t.data.unwrap(), shape.clone())
+                Tensor::new(
+                    self.clone(),
+                    t.data.expect("no data. tensor not loaded?"),
+                    shape.clone(),
+                )
             }
             UnrealizedOp::Permute(t, dims) => {
                 let t = t.realize();
-                let data = t.data.unwrap();
+                let data = t.data.expect("no data. tensor not loaded?");
                 let new_shape: Vec<usize> = dims.iter().map(|&d| t.shape[d]).collect();
                 let mut new_data = vec![0.0; data.len()];
 
@@ -137,7 +141,7 @@ impl UnrealizedOp {
             }
             UnrealizedOp::Pool2D(t, kernel, stride, init_val, pool_op) => {
                 let t = t.realize();
-                let data = t.data.unwrap();
+                let data = t.data.expect("no data. tensor not loaded?");
                 // FIXME: remove this constraint, just reshape or something smarter
                 assert_eq!(t.shape.len(), 4, "only supporting 4d tensors");
 
