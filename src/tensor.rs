@@ -316,9 +316,9 @@ impl Tensor {
             ),
             vec![
                 x.shape[0],
-                x.shape[1],
-                ((x.shape[2] - kernel.shape[1]) / strides.unwrap_or((1, 1)).0) + 1,
-                ((x.shape[3] - kernel.shape[2]) / strides.unwrap_or((1, 1)).1) + 1,
+                kernel.shape[0],
+                ((x.shape[2] - kernel.shape[2]) / strides.unwrap_or((1, 1)).0) + 1,
+                ((x.shape[3] - kernel.shape[3]) / strides.unwrap_or((1, 1)).1) + 1,
             ],
         );
 
