@@ -1,4 +1,4 @@
-use std::{cmp, iter::zip};
+use std::{cmp, f64::consts::E, iter::zip};
 
 use itertools::{EitherOrBoth, Itertools};
 
@@ -46,6 +46,21 @@ impl UnrealizedOp {
             UnrealizedOp::Sqrt(t) => Tensor::new(
                 self.clone(),
                 t.realize().data.unwrap().iter().map(|x| x.sqrt()).collect(),
+                t.shape.clone(),
+            ),
+            UnrealizedOp::Log(t) => Tensor::new(
+                self.clone(),
+                t.realize().data.unwrap().iter().map(|x| x.log2()).collect(),
+                t.shape.clone(),
+            ),
+            UnrealizedOp::Sigmoid(t) => Tensor::new(
+                self.clone(),
+                t.realize()
+                    .data
+                    .unwrap()
+                    .iter()
+                    .map(|x| (1.0 / (1.0 + E.powf(-x))))
+                    .collect(),
                 t.shape.clone(),
             ),
             UnrealizedOp::Sum(t, dims, keepdim) => {

@@ -9,6 +9,8 @@ pub enum UnrealizedOp {
     Max(Box<Tensor>),
     Min(Box<Tensor>),
     Sqrt(Box<Tensor>),
+    Log(Box<Tensor>),
+    Sigmoid(Box<Tensor>),
     Sum(Box<Tensor>, Option<Vec<usize>>, bool),
     Pool2D(Box<Tensor>, (usize, usize), usize, f64, PoolOp),
     Reshape(Box<Tensor>, Vec<usize>),
