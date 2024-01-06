@@ -1,6 +1,7 @@
 use std::iter::zip;
 use std::{cmp, ops};
 
+use image::DynamicImage;
 use itertools::{EitherOrBoth, Itertools};
 use rand::{distributions::Uniform, prelude::Distribution};
 
@@ -39,6 +40,11 @@ impl Tensor {
         Tensor::from_op(UnrealizedOp::Load(data, shape.clone()), shape)
     }
 
+    pub fn from_vec_single_dim(data: Vec<f64>) -> Tensor {
+        let data_len = data.len();
+        Tensor::from_op(UnrealizedOp::Load(data, vec![data_len]), vec![data_len])
+    }
+
     pub fn from_scalar(data: f64) -> Tensor {
         Tensor::from_op(UnrealizedOp::Load(vec![data], vec![1]), vec![1])
     }
@@ -71,7 +77,19 @@ impl Tensor {
         Tensor::from_op(UnrealizedOp::Load(vec![1.0; size], vec![size]), vec![size])
     }
 
+    pub fn from_image(img: DynamicImage) -> Tensor {
+        let shape = vec![img.width() as usize, img.height() as usize, 3];
+        let data: Vec<f64> = img
+            .to_rgb8()
+            .pixels()
+            .flat_map(|p| p.0.map(|x| x as f64))
+            .collect_vec();
+
+        Tensor::from_op(UnrealizedOp::Load(data, shape.clone()), shape)
+    }
+
     pub fn to_tch(&self) -> tch::Tensor {
+        // TODO: this should realize, avoids a lot of typing that way
         tch::Tensor::from_slice(&self.data.clone().unwrap())
             .reshape(self.shape.iter().map(|&d| d as i64).collect::<Vec<i64>>())
     }
@@ -232,6 +250,104 @@ impl Tensor {
     pub fn realize(&self) -> Tensor {
         self.unrealized_op.realize()
     }
+
+    pub fn batchnorm(
+        &self,
+        weight: Option<&Tensor>,
+        bias: Option<&Tensor>,
+        mean: &Tensor,
+        invstd: &Tensor,
+    ) -> Tensor {
+        let x = self.clone() - mean.reshape(vec![1, mean.shape[0], 1, 1]);
+        let x = if let Some(weight) = weight {
+            x * weight.reshape(vec![1, weight.shape[0], 1, 1])
+        } else {
+            x
+        };
+
+        let ret = if invstd.shape.len() == 1 {
+            x * (invstd.reshape(vec![1, invstd.shape[1], 1, 1]))
+        } else {
+            x * invstd.clone()
+        };
+
+        if let Some(bias) = bias {
+            ret + bias.reshape(vec![1, bias.shape[0], 1, 1])
+        } else {
+            ret
+        }
+    }
+
+    pub fn index_4d_to_1d(self, n: usize, c: usize, h: usize, w: usize) -> usize {
+        let (height, width) = (self.shape[2], self.shape[3]);
+        let channels = self.shape[1];
+        n * (channels * height * width) + c * (height * width) + h * width + w
+    }
+
+    pub fn pad_2d(self, value: f64, padding: [usize; 4]) -> Tensor {
+        let mut new_shape: Vec<usize> = self.shape.clone();
+        new_shape[self.shape.len() - 2] += padding[2] + padding[3];
+        new_shape[self.shape.len() - 1] += padding[0] + padding[1];
+        Tensor::from_op(
+            UnrealizedOp::Pad2D(Box::new(self.clone()), value, padding),
+            new_shape,
+        )
+    }
+
+    pub fn conv2d(
+        self,
+        kernel: &Tensor,
+        bias: Option<&Tensor>,
+        padding: Option<[usize; 4]>,
+        strides: Option<(usize, usize)>,
+        groups: Option<usize>,
+    ) -> Tensor {
+        let x = if let Some(padding) = padding {
+            self.clone().pad_2d(0.0, padding)
+        } else {
+            self.clone()
+        };
+        let res = Tensor::from_op(
+            UnrealizedOp::Conv2D(
+                Box::new(x.clone()),
+                Box::new(kernel.clone()),
+                strides,
+                groups,
+            ),
+            vec![
+                x.shape[0],
+                x.shape[1],
+                ((x.shape[2] - kernel.shape[1]) / strides.unwrap_or((1, 1)).0) + 1,
+                ((x.shape[3] - kernel.shape[2]) / strides.unwrap_or((1, 1)).1) + 1,
+            ],
+        );
+
+        if let Some(bias) = bias {
+            res + bias.clone()
+        } else {
+            res
+        }
+    }
+
+    pub fn linear(&self, weight: &Tensor, bias: Option<&Tensor>) -> Tensor {
+        match bias {
+            Some(bias) => self.matmul(weight.clone()) + bias.clone(),
+            None => self.matmul(weight.clone()),
+        }
+    }
+
+    pub fn sequential(&self, callables: &Vec<Box<dyn Callable>>) -> Tensor {
+        let mut x = self.clone();
+        for callable in callables {
+            x = callable.call(x);
+        }
+
+        x
+    }
+}
+
+pub trait Callable {
+    fn call(&self, x: Tensor) -> Tensor;
 }
 
 impl ops::Neg for Tensor {
@@ -777,5 +893,43 @@ mod tests {
 
         util::assert_aprox_eq_vec(output.data.unwrap(), tch_output, 1e-6);
         assert_eq!(output.shape, tch_shape);
+    }
+
+    #[test]
+    fn conv2d_4d() {
+        let input = Tensor::rand(vec![1, 3, 224, 224]);
+        let tch_input = input.realize().to_tch();
+        let kernel = Tensor::rand(vec![32, 3, 3, 3]);
+        let tch_kernel = kernel.realize().to_tch();
+        let output = input
+            .conv2d(&kernel, None, Some([1, 1, 1, 1]), Some((2, 2)), None)
+            .realize();
+        let tch_output = tch_input.conv2d(
+            &tch_kernel,
+            None::<tch::Tensor>,
+            vec![2, 2],
+            vec![1, 1],
+            1,
+            1,
+        );
+
+        let tch_shape = util::tch_shape(&tch_output);
+        let tch_output = util::tch_data(&tch_output);
+
+        assert_eq!(output.shape, tch_shape);
+        util::assert_aprox_eq_vec(output.data.unwrap(), tch_output, 1e-6);
+    }
+
+    #[test]
+    fn pad_2d_weird_padding() {
+        let input = Tensor::rand(vec![1, 3, 16, 16]);
+        let tch_input = input.realize().to_tch();
+        let output = input.pad_2d(0., [1, 2, 3, 4]).realize();
+        let tch_output = tch_input.zero_pad2d(1, 2, 3, 4);
+        let tch_shape = util::tch_shape(&tch_output);
+        let tch_output = util::tch_data(&tch_output);
+
+        assert_eq!(output.shape, tch_shape);
+        assert_eq!(output.data.unwrap(), tch_output,);
     }
 }

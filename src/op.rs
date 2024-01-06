@@ -1,5 +1,8 @@
 use crate::tensor::Tensor;
 
+// TODO: should there be Option in here ever?
+// default values could be inserted instead in tensor.rs
+
 #[derive(Debug, Clone)]
 pub enum UnrealizedOp {
     Add(Box<Tensor>, Box<Tensor>),
@@ -14,6 +17,13 @@ pub enum UnrealizedOp {
     Relu(Box<Tensor>),
     Sum(Box<Tensor>, Option<Vec<usize>>, bool),
     Pool2D(Box<Tensor>, (usize, usize), usize, f64, PoolOp),
+    Conv2D(
+        Box<Tensor>,
+        Box<Tensor>,
+        Option<(usize, usize)>,
+        Option<usize>,
+    ),
+    Pad2D(Box<Tensor>, f64, [usize; 4]),
     Reshape(Box<Tensor>, Vec<usize>),
     Permute(Box<Tensor>, Vec<usize>),
     MatMul(Box<Tensor>, Box<Tensor>),

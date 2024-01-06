@@ -11,7 +11,7 @@ use std::path::PathBuf;
 use std::process::Command;
 use tracing::info;
 
-use crate::Tensor;
+use crate::tensor::Tensor;
 
 pub fn load_torch_model(url: &str) -> Result<Value> {
     let file_name = url
@@ -106,7 +106,7 @@ pub fn extract_floats(array: &Value) -> Option<Vec<f64>> {
 
 pub fn extract_2d_tensor(v: &Value) -> Option<Tensor> {
     let data = extract_2d_array(v)?;
-    Some(Tensor::new(
+    Some(Tensor::from_vec(
         data.clone().into_iter().flatten().collect(),
         vec![data.len(), data[0].len()],
     ))
@@ -140,7 +140,7 @@ fn extract_4d_array(v: &Value) -> Option<Vec<Vec<Vec<Vec<f64>>>>> {
 
 pub fn extract_4d_tensor(v: &Value) -> Option<Tensor> {
     let data = extract_4d_array(v)?;
-    Some(Tensor::new(
+    Some(Tensor::from_vec(
         data.clone()
             .into_iter()
             .flat_map(|x| x.into_iter())
@@ -156,10 +156,11 @@ pub fn extract_4d_tensor(v: &Value) -> Option<Tensor> {
     ))
 }
 
-pub fn argmax(t: &Tensor) -> usize {
+pub fn argmax(t: Tensor) -> usize {
+    let data = t.data.unwrap();
     let mut index = 0;
-    for (i, d) in t.data.iter().enumerate() {
-        if d > &t.data[index] {
+    for (i, d) in data.iter().enumerate() {
+        if d > &data[index] {
             index = i;
         }
     }
@@ -176,4 +177,10 @@ pub fn tch_data(tch: &tch::Tensor) -> Vec<f64> {
 
 pub fn tch_shape(tch: &tch::Tensor) -> Vec<usize> {
     tch.size().iter().map(|&d| d as usize).collect()
+}
+
+pub fn index_4d_to_1d(shape: Vec<usize>, n: usize, c: usize, h: usize, w: usize) -> usize {
+    let (height, width) = (shape[2], shape[3]);
+    let channels = shape[1];
+    n * (channels * height * width) + c * (height * width) + h * width + w
 }

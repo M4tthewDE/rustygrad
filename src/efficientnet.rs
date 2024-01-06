@@ -7,7 +7,9 @@ use tracing::info;
 
 use crate::{
     batch_norm::{BatchNorm2d, BatchNorm2dBuilder},
-    util, Callable, Tensor,
+    tensor::Callable,
+    tensor::Tensor,
+    util,
 };
 
 pub static MODEL_URLS: [&str; 8] = [
@@ -134,12 +136,12 @@ impl MBConvBlock {
         // we always have se!
         let num_squeezed_channels = ((input_filters as f64 * se_ratio) as usize).max(1);
         let se_reduce = Tensor::glorot_uniform(vec![num_squeezed_channels, oup, 1, 1]);
-        let se_reduce_bias = Tensor::new(
+        let se_reduce_bias = Tensor::from_vec(
             vec![0.0; num_squeezed_channels],
             vec![1, num_squeezed_channels, 1, 1],
         );
         let se_expand = Tensor::glorot_uniform(vec![oup, num_squeezed_channels, 1, 1]);
-        let se_expand_bias = Tensor::new(vec![0.0; oup], vec![1, oup, 1, 1]);
+        let se_expand_bias = Tensor::from_vec(vec![0.0; oup], vec![1, oup, 1, 1]);
 
         let project_conv = Tensor::glorot_uniform(vec![output_filters, oup, 1, 1]);
         let bn2 = BatchNorm2dBuilder::new(output_filters).build();
@@ -175,13 +177,13 @@ impl Callable for MBConvBlock {
         x = x.conv2d(
             &self.depthwise_conv,
             None,
-            Some(&self.pad.clone()),
+            Some(self.pad),
             Some(self.strides),
             Some(self.depthwise_conv.shape[0]),
         );
         x = self.bn1.clone().forward(x).swish();
 
-        let mut x_squeezed = x.avg_pool2d((x.shape[2], x.shape[3]), None);
+        let mut x_squeezed = x.avg_pool_2d((x.shape[2], x.shape[3]), None);
         x_squeezed = x_squeezed
             .conv2d(
                 &self.se_reduce,
@@ -273,26 +275,30 @@ impl Default for Efficientnet {
         info!("loading model, this might take a while...");
 
         let model_data = util::load_torch_model(MODEL_URLS[number]).unwrap();
-        bn0.weight = Some(Tensor::from_vec(
+        bn0.weight = Some(Tensor::from_vec_single_dim(
             util::extract_floats(&model_data["_bn0.weight"]).unwrap(),
         ));
-        bn0.bias = Some(Tensor::from_vec(
+        bn0.bias = Some(Tensor::from_vec_single_dim(
             util::extract_floats(&model_data["_bn0.bias"]).unwrap(),
         ));
-        bn0.running_mean =
-            Tensor::from_vec(util::extract_floats(&model_data["_bn0.running_mean"]).unwrap());
-        bn0.running_var =
-            Tensor::from_vec(util::extract_floats(&model_data["_bn0.running_var"]).unwrap());
-        bn1.weight = Some(Tensor::from_vec(
+        bn0.running_mean = Tensor::from_vec_single_dim(
+            util::extract_floats(&model_data["_bn0.running_mean"]).unwrap(),
+        );
+        bn0.running_var = Tensor::from_vec_single_dim(
+            util::extract_floats(&model_data["_bn0.running_var"]).unwrap(),
+        );
+        bn1.weight = Some(Tensor::from_vec_single_dim(
             util::extract_floats(&model_data["_bn1.weight"]).unwrap(),
         ));
-        bn1.bias = Some(Tensor::from_vec(
+        bn1.bias = Some(Tensor::from_vec_single_dim(
             util::extract_floats(&model_data["_bn1.bias"]).unwrap(),
         ));
-        bn1.running_mean =
-            Tensor::from_vec(util::extract_floats(&model_data["_bn1.running_mean"]).unwrap());
-        bn1.running_var =
-            Tensor::from_vec(util::extract_floats(&model_data["_bn1.running_var"]).unwrap());
+        bn1.running_mean = Tensor::from_vec_single_dim(
+            util::extract_floats(&model_data["_bn1.running_mean"]).unwrap(),
+        );
+        bn1.running_var = Tensor::from_vec_single_dim(
+            util::extract_floats(&model_data["_bn1.running_var"]).unwrap(),
+        );
 
         let conv_head = util::extract_4d_tensor(&model_data["_conv_head.weight"]).unwrap();
         let conv_stem = util::extract_4d_tensor(&model_data["_conv_stem.weight"]).unwrap();
@@ -300,7 +306,8 @@ impl Default for Efficientnet {
         let fc = util::extract_2d_tensor(&model_data["_fc.weight"])
             .unwrap()
             .permute(vec![1, 0]);
-        let fc_bias = Tensor::from_vec(util::extract_floats(&model_data["_fc.bias"]).unwrap());
+        let fc_bias =
+            Tensor::from_vec_single_dim(util::extract_floats(&model_data["_fc.bias"]).unwrap());
 
         for (i, block) in blocks.iter_mut().enumerate() {
             block.depthwise_conv = util::extract_4d_tensor(
@@ -314,7 +321,7 @@ impl Default for Efficientnet {
             block.se_reduce =
                 util::extract_4d_tensor(&model_data[format!("_blocks.{}._se_reduce.weight", i)])
                     .unwrap();
-            block.se_reduce_bias = Tensor::new(
+            block.se_reduce_bias = Tensor::from_vec(
                 util::extract_floats(&model_data[format!("_blocks.{}._se_reduce.bias", i)])
                     .unwrap(),
                 block.se_reduce_bias.clone().shape,
@@ -323,7 +330,7 @@ impl Default for Efficientnet {
             block.se_expand =
                 util::extract_4d_tensor(&model_data[format!("_blocks.{}._se_expand.weight", i)])
                     .unwrap();
-            block.se_expand_bias = Tensor::new(
+            block.se_expand_bias = Tensor::from_vec(
                 util::extract_floats(&model_data[format!("_blocks.{}._se_expand.bias", i)])
                     .unwrap(),
                 block.se_expand_bias.clone().shape,
@@ -350,21 +357,21 @@ impl Default for Efficientnet {
                     _ => panic!(),
                 };
 
-                bn.weight = Some(Tensor::from_vec(
+                bn.weight = Some(Tensor::from_vec_single_dim(
                     util::extract_floats(&model_data[format!("_blocks.{}._bn{}.weight", i, j)])
                         .unwrap(),
                 ));
-                bn.bias = Some(Tensor::from_vec(
+                bn.bias = Some(Tensor::from_vec_single_dim(
                     util::extract_floats(&model_data[format!("_blocks.{}._bn{}.bias", i, j)])
                         .unwrap(),
                 ));
-                bn.running_mean = Tensor::from_vec(
+                bn.running_mean = Tensor::from_vec_single_dim(
                     util::extract_floats(
                         &model_data[format!("_blocks.{}._bn{}.running_mean", i, j)],
                     )
                     .unwrap(),
                 );
-                bn.running_var = Tensor::from_vec(
+                bn.running_var = Tensor::from_vec_single_dim(
                     util::extract_floats(
                         &model_data[format!("_blocks.{}._bn{}.running_var", i, j)],
                     )
@@ -401,7 +408,7 @@ impl Efficientnet {
             .forward(x.conv2d(
                 &self.conv_stem,
                 None,
-                Some(&[0, 1, 0, 1]),
+                Some([0, 1, 0, 1]),
                 Some((2, 2)),
                 None,
             ))
@@ -413,7 +420,7 @@ impl Efficientnet {
             .clone()
             .forward(x.conv2d(&self.conv_head, None, None, None, None))
             .swish();
-        x = x.avg_pool2d((x.shape[2], x.shape[3]), None);
+        x = x.avg_pool_2d((x.shape[2], x.shape[3]), None);
         x = x.reshape(vec![1, x.shape[1]]);
         x.linear(&self.fc, Some(&self.fc_bias))
     }
