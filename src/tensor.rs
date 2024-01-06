@@ -167,8 +167,34 @@ impl Tensor {
         1.0 / self.sqrt()
     }
 
+    pub fn log(&self) -> Tensor {
+        Tensor::from_op(
+            UnrealizedOp::Log(Box::new(self.clone())),
+            self.shape.clone(),
+        )
+    }
+
+    pub fn sigmoid(&self) -> Tensor {
+        Tensor::from_op(
+            UnrealizedOp::Sigmoid(Box::new(self.clone())),
+            self.shape.clone(),
+        )
+    }
+
+    pub fn swish(&self) -> Tensor {
+        self.clone() * self.sigmoid()
+    }
+
     pub fn realize(&self) -> Tensor {
         self.unrealized_op.realize()
+    }
+}
+
+impl ops::Neg for Tensor {
+    type Output = Tensor;
+
+    fn neg(self) -> Self::Output {
+        self * -1.0
     }
 }
 
@@ -620,6 +646,34 @@ mod tests {
 
         let output = input.rsqrt().realize();
         let tch_result = tch_input.rsqrt();
+        let tch_output = util::tch_data(&tch_result);
+        let tch_shape = util::tch_shape(&tch_result);
+
+        util::assert_aprox_eq_vec(output.data.unwrap(), tch_output, 1e-6);
+        assert_eq!(output.shape, tch_shape);
+    }
+
+    #[test]
+    fn log() {
+        let input = Tensor::rand(vec![10, 10]);
+        let tch_input = input.realize().to_tch();
+
+        let output = input.log().realize();
+        let tch_result = tch_input.log2();
+        let tch_output = util::tch_data(&tch_result);
+        let tch_shape = util::tch_shape(&tch_result);
+
+        util::assert_aprox_eq_vec(output.data.unwrap(), tch_output, 1e-6);
+        assert_eq!(output.shape, tch_shape);
+    }
+
+    #[test]
+    fn swish() {
+        let input = Tensor::rand(vec![10, 10]);
+        let tch_input = input.realize().to_tch();
+
+        let output = input.swish().realize();
+        let tch_result = tch_input.silu();
         let tch_output = util::tch_data(&tch_result);
         let tch_shape = util::tch_shape(&tch_result);
 
