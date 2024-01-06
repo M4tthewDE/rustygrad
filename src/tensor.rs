@@ -8,7 +8,7 @@ use crate::op::UnrealizedOp;
 pub struct Tensor {
     pub unrealized_op: UnrealizedOp,
     pub data: Option<Vec<f64>>,
-    pub shape: Option<Vec<usize>>,
+    pub shape: Vec<usize>,
 }
 
 impl Tensor {
@@ -21,24 +21,24 @@ impl Tensor {
         Tensor {
             unrealized_op,
             data: Some(data),
-            shape: Some(shape),
+            shape,
         }
     }
 
-    fn from_op(unrealized_op: UnrealizedOp) -> Tensor {
+    fn from_op(unrealized_op: UnrealizedOp, shape: Vec<usize>) -> Tensor {
         Tensor {
             unrealized_op,
             data: None,
-            shape: None,
+            shape,
         }
     }
 
     pub fn from_vec(data: Vec<f64>, shape: Vec<usize>) -> Tensor {
-        Tensor::from_op(UnrealizedOp::Load(data, shape))
+        Tensor::from_op(UnrealizedOp::Load(data, shape.clone()), shape)
     }
 
     pub fn from_scalar(data: f64) -> Tensor {
-        Tensor::from_op(UnrealizedOp::Load(vec![data], vec![1]))
+        Tensor::from_op(UnrealizedOp::Load(vec![data], vec![1]), vec![1])
     }
 
     pub fn rand(shape: Vec<usize>) -> Tensor {
@@ -48,26 +48,26 @@ impl Tensor {
             .take(shape.iter().product::<usize>())
             .collect();
 
-        Tensor::from_op(UnrealizedOp::Load(data, shape))
+        Tensor::from_op(UnrealizedOp::Load(data, shape.clone()), shape)
     }
 
     pub fn to_tch(&self) -> tch::Tensor {
-        tch::Tensor::from_slice(&self.data.clone().unwrap()).reshape(
-            self.shape
-                .clone()
-                .unwrap()
-                .iter()
-                .map(|&d| d as i64)
-                .collect::<Vec<i64>>(),
-        )
+        tch::Tensor::from_slice(&self.data.clone().unwrap())
+            .reshape(self.shape.iter().map(|&d| d as i64).collect::<Vec<i64>>())
     }
 
     pub fn max(&self) -> Tensor {
-        Tensor::from_op(UnrealizedOp::Max(Box::new(self.clone())))
+        Tensor::from_op(
+            UnrealizedOp::Max(Box::new(self.clone())),
+            self.shape.clone(),
+        )
     }
 
     pub fn min(&self) -> Tensor {
-        Tensor::from_op(UnrealizedOp::Min(Box::new(self.clone())))
+        Tensor::from_op(
+            UnrealizedOp::Min(Box::new(self.clone())),
+            self.shape.clone(),
+        )
     }
 
     pub fn avg_pool_2d(&self, _kernel: (usize, usize), _stride: Option<usize>) -> Tensor {
@@ -75,11 +75,17 @@ impl Tensor {
     }
 
     pub fn reduce_sum(&self, dims: Option<Vec<usize>>, keepdim: bool) -> Tensor {
-        Tensor::from_op(UnrealizedOp::Sum(Box::new(self.clone()), dims, keepdim))
+        Tensor::from_op(
+            UnrealizedOp::Sum(Box::new(self.clone()), dims, keepdim),
+            self.shape.clone(),
+        )
     }
 
     pub fn reshape(&self, shape: Vec<usize>) -> Tensor {
-        Tensor::from_op(UnrealizedOp::Reshape(Box::new(self.clone()), shape))
+        Tensor::from_op(
+            UnrealizedOp::Reshape(Box::new(self.clone()), shape),
+            self.shape.clone(),
+        )
     }
 
     pub fn realize(&self) -> Tensor {
@@ -90,27 +96,30 @@ impl Tensor {
 impl ops::Add<f64> for Tensor {
     type Output = Tensor;
     fn add(self, rhs: f64) -> Self::Output {
-        Tensor::from_op(UnrealizedOp::Add(
-            Box::new(self.clone()),
-            Box::new(Tensor::from_scalar(rhs)),
-        ))
+        Tensor::from_op(
+            UnrealizedOp::Add(Box::new(self.clone()), Box::new(Tensor::from_scalar(rhs))),
+            self.shape,
+        )
     }
 }
 
 impl ops::Add<Tensor> for f64 {
     type Output = Tensor;
     fn add(self, rhs: Tensor) -> Self::Output {
-        Tensor::from_op(UnrealizedOp::Add(
-            Box::new(Tensor::from_scalar(self)),
-            Box::new(rhs),
-        ))
+        Tensor::from_op(
+            UnrealizedOp::Add(Box::new(Tensor::from_scalar(self)), Box::new(rhs)),
+            vec![1],
+        )
     }
 }
 
 impl ops::Add<Tensor> for Tensor {
     type Output = Tensor;
     fn add(self, rhs: Tensor) -> Self::Output {
-        Tensor::from_op(UnrealizedOp::Add(Box::new(self.clone()), Box::new(rhs)))
+        Tensor::from_op(
+            UnrealizedOp::Add(Box::new(self.clone()), Box::new(rhs)),
+            self.shape,
+        )
     }
 }
 
@@ -118,20 +127,20 @@ impl ops::Sub<f64> for Tensor {
     type Output = Tensor;
 
     fn sub(self, rhs: f64) -> Self::Output {
-        Tensor::from_op(UnrealizedOp::Sub(
-            Box::new(self.clone()),
-            Box::new(Tensor::from_scalar(rhs)),
-        ))
+        Tensor::from_op(
+            UnrealizedOp::Sub(Box::new(self.clone()), Box::new(Tensor::from_scalar(rhs))),
+            self.shape,
+        )
     }
 }
 
 impl ops::Sub<Tensor> for f64 {
     type Output = Tensor;
     fn sub(self, rhs: Tensor) -> Self::Output {
-        Tensor::from_op(UnrealizedOp::Sub(
-            Box::new(Tensor::from_scalar(self)),
-            Box::new(rhs),
-        ))
+        Tensor::from_op(
+            UnrealizedOp::Sub(Box::new(Tensor::from_scalar(self)), Box::new(rhs)),
+            vec![1],
+        )
     }
 }
 
@@ -139,7 +148,10 @@ impl ops::Sub<Tensor> for Tensor {
     type Output = Tensor;
 
     fn sub(self, rhs: Tensor) -> Self::Output {
-        Tensor::from_op(UnrealizedOp::Sub(Box::new(self.clone()), Box::new(rhs)))
+        Tensor::from_op(
+            UnrealizedOp::Sub(Box::new(self.clone()), Box::new(rhs)),
+            self.shape,
+        )
     }
 }
 
@@ -147,20 +159,20 @@ impl ops::Mul<f64> for Tensor {
     type Output = Tensor;
 
     fn mul(self, rhs: f64) -> Self::Output {
-        Tensor::from_op(UnrealizedOp::Mul(
-            Box::new(self.clone()),
-            Box::new(Tensor::from_scalar(rhs)),
-        ))
+        Tensor::from_op(
+            UnrealizedOp::Mul(Box::new(self.clone()), Box::new(Tensor::from_scalar(rhs))),
+            self.shape,
+        )
     }
 }
 
 impl ops::Mul<Tensor> for f64 {
     type Output = Tensor;
     fn mul(self, rhs: Tensor) -> Self::Output {
-        Tensor::from_op(UnrealizedOp::Mul(
-            Box::new(Tensor::from_scalar(self)),
-            Box::new(rhs),
-        ))
+        Tensor::from_op(
+            UnrealizedOp::Mul(Box::new(Tensor::from_scalar(self)), Box::new(rhs)),
+            vec![1],
+        )
     }
 }
 
@@ -168,7 +180,10 @@ impl ops::Mul<Tensor> for Tensor {
     type Output = Tensor;
 
     fn mul(self, rhs: Tensor) -> Self::Output {
-        Tensor::from_op(UnrealizedOp::Mul(Box::new(self.clone()), Box::new(rhs)))
+        Tensor::from_op(
+            UnrealizedOp::Mul(Box::new(self.clone()), Box::new(rhs)),
+            self.shape,
+        )
     }
 }
 
@@ -176,10 +191,10 @@ impl ops::Div<f64> for Tensor {
     type Output = Tensor;
 
     fn div(self, rhs: f64) -> Self::Output {
-        Tensor::from_op(UnrealizedOp::Div(
-            Box::new(self.clone()),
-            Box::new(Tensor::from_scalar(rhs)),
-        ))
+        Tensor::from_op(
+            UnrealizedOp::Div(Box::new(self.clone()), Box::new(Tensor::from_scalar(rhs))),
+            self.shape,
+        )
     }
 }
 
@@ -187,10 +202,10 @@ impl ops::Div<Tensor> for f64 {
     type Output = Tensor;
 
     fn div(self, rhs: Tensor) -> Self::Output {
-        Tensor::from_op(UnrealizedOp::Div(
-            Box::new(Tensor::from_scalar(self)),
-            Box::new(rhs),
-        ))
+        Tensor::from_op(
+            UnrealizedOp::Div(Box::new(Tensor::from_scalar(self)), Box::new(rhs)),
+            vec![1],
+        )
     }
 }
 
@@ -198,7 +213,10 @@ impl ops::Div<Tensor> for Tensor {
     type Output = Tensor;
 
     fn div(self, rhs: Tensor) -> Self::Output {
-        Tensor::from_op(UnrealizedOp::Div(Box::new(self.clone()), Box::new(rhs)))
+        Tensor::from_op(
+            UnrealizedOp::Div(Box::new(self.clone()), Box::new(rhs)),
+            self.shape,
+        )
     }
 }
 
@@ -248,7 +266,7 @@ mod tests {
         let result = (input1 - input2).realize();
 
         assert_eq!(result.data.unwrap(), vec![0., 0., 0., 0.]);
-        assert_eq!(result.shape.unwrap(), vec![4]);
+        assert_eq!(result.shape, vec![4]);
     }
 
     #[test]
@@ -273,7 +291,7 @@ mod tests {
             result.data.unwrap(),
             vec![-4., -2., -5., -5., -6., 3., 2., 4., 1., 1., 0., 9.]
         );
-        assert_eq!(result.shape.unwrap(), vec![2, 3, 2]);
+        assert_eq!(result.shape, vec![2, 3, 2]);
     }
 
     #[test]
@@ -286,7 +304,7 @@ mod tests {
             result.data.unwrap(),
             vec![-4., -3., -6., -7., -8., 0., -1., 0., -3., -4., -5., 3.]
         );
-        assert_eq!(result.shape.unwrap(), vec![2, 3, 2]);
+        assert_eq!(result.shape, vec![2, 3, 2]);
     }
 
     #[test]
@@ -301,7 +319,7 @@ mod tests {
         let tch_shape = util::tch_shape(&tch_result);
 
         assert_eq!(output.data.unwrap(), tch_output);
-        assert_eq!(output.shape.unwrap(), tch_shape);
+        assert_eq!(output.shape, tch_shape);
     }
 
     #[test]
@@ -315,7 +333,7 @@ mod tests {
         let tch_shape = util::tch_shape(&tch_result);
 
         assert_eq!(output.data.unwrap(), tch_output);
-        assert_eq!(output.shape.unwrap(), tch_shape);
+        assert_eq!(output.shape, tch_shape);
     }
 
     #[test]
@@ -330,7 +348,7 @@ mod tests {
         let tch_shape = util::tch_shape(&tch_result);
 
         assert_eq!(output.data.unwrap(), tch_output);
-        assert_eq!(output.shape.unwrap(), tch_shape);
+        assert_eq!(output.shape, tch_shape);
     }
 
     #[test]
@@ -344,7 +362,7 @@ mod tests {
         let tch_shape = util::tch_shape(&tch_result);
 
         assert_eq!(output.data.unwrap(), tch_output);
-        assert_eq!(output.shape.unwrap(), tch_shape);
+        assert_eq!(output.shape, tch_shape);
     }
 
     #[test]
@@ -358,7 +376,7 @@ mod tests {
         let tch_shape = util::tch_shape(&tch_result);
 
         assert_eq!(output.data.unwrap(), tch_output);
-        assert_eq!(output.shape.unwrap(), tch_shape);
+        assert_eq!(output.shape, tch_shape);
     }
 
     #[test]
@@ -372,7 +390,7 @@ mod tests {
         let tch_shape = util::tch_shape(&tch_result);
 
         assert_eq!(output.data.unwrap(), tch_output);
-        assert_eq!(output.shape.unwrap(), tch_shape);
+        assert_eq!(output.shape, tch_shape);
     }
 
     #[test]
@@ -383,7 +401,7 @@ mod tests {
         let tch_sum = tch_input.sum_dim_intlist(vec![0, 2, 3], false, None);
         let tch_shape = util::tch_shape(&tch_sum);
         let tch_output = util::tch_data(&tch_sum);
-        assert_eq!(sum.shape.unwrap(), tch_shape);
+        assert_eq!(sum.shape, tch_shape);
         util::assert_aprox_eq_vec(sum.data.unwrap(), tch_output, 1e-6);
     }
 
@@ -399,7 +417,7 @@ mod tests {
         let tch_shape = util::tch_shape(&tch_result);
 
         assert_eq!(output.data.unwrap(), tch_output);
-        assert_eq!(output.shape.unwrap(), tch_shape);
+        assert_eq!(output.shape, tch_shape);
     }
 
     #[test]
@@ -413,6 +431,6 @@ mod tests {
         let tch_shape = util::tch_shape(&tch_result);
 
         assert_eq!(output.data.unwrap(), tch_output);
-        assert_eq!(output.shape.unwrap(), tch_shape);
+        assert_eq!(output.shape, tch_shape);
     }
 }
