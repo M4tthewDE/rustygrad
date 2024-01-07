@@ -40,6 +40,26 @@ impl Tensor {
             UnrealizedOp::Sigmoid(ref t) => t.shape.clone(),
             UnrealizedOp::Relu(ref t) => t.shape.clone(),
             UnrealizedOp::Load(_, ref shape) => shape.to_vec(),
+            UnrealizedOp::Sum(ref t, ref dims, keepdim) => {
+                if let Some(dims) = dims {
+                    if keepdim {
+                        t.shape
+                            .iter()
+                            .enumerate()
+                            .map(|(i, &d)| if dims.contains(&i) { 1 } else { d })
+                            .collect()
+                    } else {
+                        let mut reduced_shape = t.shape.clone();
+                        for (i, dim) in dims.iter().enumerate() {
+                            reduced_shape.remove(*dim - i);
+                        }
+
+                        reduced_shape
+                    }
+                } else {
+                    t.shape.clone()
+                }
+            }
         };
         Tensor {
             unrealized_op,
@@ -104,6 +124,10 @@ impl Tensor {
 
     pub fn relu(self) -> Tensor {
         Tensor::from_op(UnrealizedOp::Relu(Box::new(self)))
+    }
+
+    pub fn reduce_sum(self, dims: Option<&Vec<usize>>, keepdim: bool) -> Tensor {
+        Tensor::from_op(UnrealizedOp::Sum(Box::new(self), dims.cloned(), keepdim))
     }
 
     pub fn realize(&mut self) {
@@ -421,5 +445,18 @@ mod tests {
 
         util::assert_aprox_eq_vec(output.data.unwrap(), tch_output, 1e-6);
         assert_eq!(output.shape, tch_shape);
+    }
+
+    #[test]
+    fn reduce_sum() {
+        let input = Tensor::rand(vec![2, 4, 3, 3]);
+        let tch_input = input.to_tch();
+        let mut sum = input.reduce_sum(Some(&vec![0, 2, 3]), false);
+        sum.realize();
+        let tch_sum = tch_input.sum_dim_intlist(vec![0, 2, 3], false, None);
+        let tch_shape = util::tch_shape(&tch_sum);
+        let tch_output = util::tch_data(&tch_sum);
+        assert_eq!(sum.shape, tch_shape);
+        util::assert_aprox_eq_vec(sum.data.unwrap(), tch_output, 1e-6);
     }
 }

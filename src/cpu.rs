@@ -87,6 +87,58 @@ impl UnrealizedOp {
                     .expect("no min value found");
                 (vec![val], vec![])
             }
+            UnrealizedOp::Sum(t, dims, keepdim) => {
+                t.realize();
+                let data = t.data.clone().expect("no data. tensor not loaded?");
+                let dims = match dims {
+                    Some(dims) => dims,
+                    None => return (vec![data.iter().sum()], vec![]),
+                };
+
+                let mut reduced_shape = t.shape.clone();
+                for (i, dim) in dims.iter().enumerate() {
+                    reduced_shape.remove(*dim - i);
+                }
+
+                let mut result: Vec<f64> = vec![0.; reduced_shape.iter().product()];
+
+                let mut shape_pos = Vec::with_capacity(t.shape.len() - dims.len());
+                for (i, elem) in data.iter().enumerate() {
+                    shape_pos.clear();
+                    let mut offset = 0;
+                    for (j, _shape) in t.shape.iter().enumerate() {
+                        let count = t.shape[..=j].iter().product::<usize>();
+                        let index = (i - offset) / (data.len() / count);
+                        if !dims.contains(&j) {
+                            shape_pos.push(index);
+                        }
+                        offset += (data.len() / count) * index;
+                    }
+
+                    let mut index = 0;
+                    for (j, dim) in reduced_shape.iter().rev().enumerate() {
+                        if j == reduced_shape.len() - 1 {
+                            index += shape_pos[j];
+                        } else {
+                            index += shape_pos[j] * dim;
+                        }
+                    }
+
+                    *result.get_mut(index).unwrap() += elem;
+                }
+
+                let new_shape = if *keepdim {
+                    t.shape
+                        .iter()
+                        .enumerate()
+                        .map(|(i, &d)| if dims.contains(&i) { 1 } else { d })
+                        .collect()
+                } else {
+                    reduced_shape
+                };
+
+                (result, new_shape)
+            }
             UnrealizedOp::Load(data, shape) => (data.clone(), shape.clone()),
         }
     }
