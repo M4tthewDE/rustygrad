@@ -25,6 +25,10 @@ pub enum UnrealizedOp {
         Option<usize>,
     ),
     Pad2D(Box<Tensor>, f64, [usize; 4]),
+    Reshape(Box<Tensor>, Vec<usize>),
+    Permute(Box<Tensor>, Vec<usize>),
+    Expand(Box<Tensor>, Vec<usize>),
+    MatMul(Box<Tensor>, Box<Tensor>),
 }
 
 pub type PoolOp = fn(lhs: f64, rhs: f64) -> f64;

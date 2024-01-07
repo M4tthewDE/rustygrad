@@ -297,6 +297,114 @@ impl UnrealizedOp {
 
                 (new_data, new_shape)
             }
+            UnrealizedOp::Reshape(t, shape) => {
+                t.realize();
+                (
+                    t.data.clone().expect("no data. tensor not loaded?"),
+                    shape.clone(),
+                )
+            }
+            UnrealizedOp::Permute(t, dims) => {
+                t.realize();
+                let data = t.data.clone().expect("no data. tensor not loaded?");
+                let new_shape: Vec<usize> = dims.iter().map(|&d| t.shape[d]).collect();
+                let mut new_data = vec![0.0; data.len()];
+
+                // Permute the data
+                for (i, item) in data.iter().enumerate() {
+                    let mut temp_index = i;
+                    let mut multi_dim_index = Vec::new();
+                    for &size in t.shape.iter().rev() {
+                        multi_dim_index.push(temp_index % size);
+                        temp_index /= size;
+                    }
+                    multi_dim_index.reverse();
+
+                    let mut new_multi_dim_index: Vec<usize> = vec![0; dims.len()];
+                    for (new_i, &old_i) in dims.iter().enumerate() {
+                        new_multi_dim_index[new_i] = multi_dim_index[old_i];
+                    }
+
+                    let mut new_index = 0;
+                    let mut stride = 1;
+                    for (&size, &index) in
+                        new_shape.iter().rev().zip(new_multi_dim_index.iter().rev())
+                    {
+                        new_index += index * stride;
+                        stride *= size;
+                    }
+
+                    // Place the original data into its new position
+                    new_data[new_index] = *item;
+                }
+
+                (new_data, new_shape)
+            }
+            UnrealizedOp::Expand(t, shape) => {
+                assert_eq!(
+                    t.shape.len(),
+                    shape.len(),
+                    "Only supporting same size shapes for now"
+                );
+                for (old, new) in t.shape.iter().zip(shape.clone()) {
+                    assert!(
+                        *old == new || *old == 1,
+                        "The old dimension must be either 1 or the same as the new dimension"
+                    );
+                }
+
+                let total_elements = shape.iter().product::<usize>();
+                let mut new_data = Vec::with_capacity(total_elements);
+
+                t.realize();
+                let data = t.data.clone().unwrap();
+
+                for index in 0..total_elements {
+                    let mut temp_index = index;
+                    let mut old_indices = Vec::with_capacity(t.shape.len());
+
+                    for (&size_new, &size_old) in shape.iter().zip(&t.shape).rev() {
+                        old_indices.push(if size_old == 1 {
+                            0
+                        } else {
+                            temp_index % size_old
+                        });
+                        temp_index /= size_new;
+                    }
+                    old_indices.reverse();
+
+                    let old_index = old_indices
+                        .iter()
+                        .zip(t.shape.iter())
+                        .fold(0, |acc, (&i, &dim)| acc * dim + i);
+
+                    new_data.push(data[old_index]);
+                }
+
+                (new_data, shape.to_owned())
+            }
+            UnrealizedOp::MatMul(lhs, rhs) => {
+                assert!(
+                    lhs.shape.len() == 2 && rhs.shape.len() == 2,
+                    "only supporting 2d tensors for now"
+                );
+                assert_eq!(lhs.shape[1], rhs.shape[0]);
+
+                lhs.realize();
+                rhs.realize();
+                let lhs_data = lhs.data.clone().unwrap();
+                let rhs_data = rhs.data.clone().unwrap();
+
+                let mut result = vec![0.0; lhs.shape[0] * rhs.shape[1]];
+                for (i, elem) in lhs_data.iter().enumerate() {
+                    for j in 0..rhs.shape[1] {
+                        result[(i / rhs.shape[0]) * rhs.shape[1] + j] +=
+                            elem * rhs_data[i % rhs.shape[0] * rhs.shape[1] + j];
+                    }
+                }
+
+                (result, vec![lhs.shape[0], rhs.shape[1]])
+            }
             UnrealizedOp::Load(data, shape) => (data.clone(), shape.clone()),
         }
     }

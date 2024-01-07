@@ -82,6 +82,12 @@ impl Tensor {
                 new_shape[t.shape.len() - 1] += padding[0] + padding[1];
                 new_shape
             }
+            UnrealizedOp::Reshape(_, ref shape) => shape.clone(),
+            UnrealizedOp::Permute(ref t, ref dims) => dims.iter().map(|&d| t.shape[d]).collect(),
+            UnrealizedOp::Expand(_, ref shape) => shape.clone(),
+            UnrealizedOp::MatMul(ref lhs, ref rhs) => {
+                vec![lhs.shape[0], rhs.shape[1]]
+            }
         };
         Tensor {
             unrealized_op,
@@ -203,6 +209,22 @@ impl Tensor {
         } else {
             res
         }
+    }
+
+    pub fn reshape(self, shape: Vec<usize>) -> Tensor {
+        Tensor::from_op(UnrealizedOp::Reshape(Box::new(self), shape))
+    }
+
+    pub fn permute(self, dims: Vec<usize>) -> Tensor {
+        Tensor::from_op(UnrealizedOp::Permute(Box::new(self), dims.clone()))
+    }
+
+    pub fn expand(self, shape: Vec<usize>) -> Tensor {
+        Tensor::from_op(UnrealizedOp::Expand(Box::new(self), shape.clone()))
+    }
+
+    pub fn matmul(self, rhs: Tensor) -> Tensor {
+        Tensor::from_op(UnrealizedOp::MatMul(Box::new(self), Box::new(rhs)))
     }
 
     pub fn realize(&mut self) {
@@ -602,5 +624,52 @@ mod tests {
 
         assert_eq!(output.shape, tch_shape);
         assert_eq!(output.data.unwrap(), tch_output,);
+    }
+
+    #[test]
+    fn permute() {
+        let input = Tensor::rand(vec![5, 15]);
+        let tch_input = input.to_tch();
+
+        let mut output = input.permute(vec![1, 0]);
+        output.realize();
+        let tch_result = tch_input.permute(vec![1, 0]);
+        let tch_output = util::tch_data(&tch_result);
+        let tch_shape = util::tch_shape(&tch_result);
+
+        assert_eq!(output.data.unwrap(), tch_output);
+        assert_eq!(output.shape, tch_shape);
+    }
+
+    #[test]
+    fn expand() {
+        let input = Tensor::rand(vec![10, 1]);
+        let tch_input = input.to_tch();
+
+        let mut output = input.expand(vec![10, 10]);
+        output.realize();
+        let tch_result = tch_input.expand(vec![10, 10], false);
+        let tch_output = util::tch_data(&tch_result);
+        let tch_shape = util::tch_shape(&tch_result);
+
+        util::assert_aprox_eq_vec(output.data.unwrap(), tch_output, 1e-6);
+        assert_eq!(output.shape, tch_shape);
+    }
+
+    #[test]
+    fn matmul() {
+        let input1 = Tensor::rand(vec![8, 10]);
+        let input2 = Tensor::rand(vec![10, 12]);
+        let tch_input1 = input1.to_tch();
+        let tch_input2 = input2.to_tch();
+
+        let mut output = input1.matmul(input2);
+        output.realize();
+        let tch_result = tch_input1.matmul(&tch_input2);
+        let tch_output = util::tch_data(&tch_result);
+        let tch_shape = util::tch_shape(&tch_result);
+
+        util::assert_aprox_eq_vec(output.data.unwrap(), tch_output, 1e-6);
+        assert_eq!(output.shape, tch_shape);
     }
 }
