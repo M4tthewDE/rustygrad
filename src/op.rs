@@ -11,6 +11,8 @@ pub enum UnrealizedOp {
     Div(Box<Tensor>, Box<Tensor>),
     Max(Box<Tensor>),
     Min(Box<Tensor>),
+    Sqrt(Box<Tensor>),
+    Log(Box<Tensor>),
     Load(Vec<f64>, Vec<usize>),
 }
 

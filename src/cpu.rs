@@ -27,6 +27,20 @@ impl UnrealizedOp {
                 rhs.realize();
                 broadcast_op(lhs, rhs, |x1, x2| x1 / x2)
             }
+            UnrealizedOp::Sqrt(t) => {
+                t.realize();
+                (
+                    t.data.clone().unwrap().iter().map(|x| x.sqrt()).collect(),
+                    t.shape.clone(),
+                )
+            }
+            UnrealizedOp::Log(t) => {
+                t.realize();
+                (
+                    t.data.clone().unwrap().iter().map(|x| x.log2()).collect(),
+                    t.shape.clone(),
+                )
+            }
             UnrealizedOp::Max(t) => {
                 t.realize();
                 let val = t
