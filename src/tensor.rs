@@ -666,7 +666,7 @@ mod tests {
         let kernel = Tensor::rand(vec![32, 3, 3, 3]);
         let tch_kernel = kernel.to_tch();
 
-        let mut output = input.conv2d(&kernel, None, Some([1, 1, 1, 1]), Some((2, 2)), None);
+        let mut output = input.conv2d(kernel, None, Some([1, 1, 1, 1]), Some((2, 2)), None);
         output.realize();
         let tch_output = tch_input.conv2d(
             &tch_kernel,
