@@ -156,8 +156,7 @@ pub fn extract_4d_tensor(v: &Value) -> Option<Tensor> {
     ))
 }
 
-pub fn argmax(t: Tensor) -> usize {
-    let data = t.data.unwrap();
+pub fn argmax(data: &[f64]) -> usize {
     let mut index = 0;
     for (i, d) in data.iter().enumerate() {
         if d > &data[index] {

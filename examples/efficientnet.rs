@@ -44,10 +44,13 @@ fn infer(mut model: Efficientnet, mut image: DynamicImage) {
     input = input / scale;
     let mut out = model.forward(input);
     out.realize();
-    let argmax = util::argmax(out.clone());
-    let mut max = out.max();
-    max.realize();
-    let max = max.data.unwrap()[0];
+    let argmax = util::argmax(&out.data.clone().unwrap());
+    let max = out
+        .data
+        .unwrap()
+        .into_iter()
+        .max_by(|a, b| a.partial_cmp(b).unwrap())
+        .expect("no min value found");
 
     info!("{} {} {}", argmax, max, labels.get(&argmax).unwrap());
 }
