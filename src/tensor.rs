@@ -33,6 +33,8 @@ impl Tensor {
             UnrealizedOp::Sub(ref lhs, ref rhs) => broadcast_shape(&lhs.shape, &rhs.shape),
             UnrealizedOp::Mul(ref lhs, ref rhs) => broadcast_shape(&lhs.shape, &rhs.shape),
             UnrealizedOp::Div(ref lhs, ref rhs) => broadcast_shape(&lhs.shape, &rhs.shape),
+            UnrealizedOp::Max(_) => vec![],
+            UnrealizedOp::Min(_) => vec![],
             UnrealizedOp::Load(_, ref shape) => shape.to_vec(),
         };
         Tensor {
@@ -70,6 +72,14 @@ impl Tensor {
         x.realize();
         tch::Tensor::from_slice(&x.data.unwrap())
             .reshape(x.shape.iter().map(|&d| d as i64).collect::<Vec<i64>>())
+    }
+
+    pub fn max(self) -> Tensor {
+        Tensor::from_op(UnrealizedOp::Max(Box::new(self)))
+    }
+
+    pub fn min(self) -> Tensor {
+        Tensor::from_op(UnrealizedOp::Min(Box::new(self)))
     }
 
     pub fn realize(&mut self) {
@@ -293,6 +303,35 @@ mod tests {
         output.realize();
 
         let tch_result = tch_input / 2.0;
+        let tch_output = util::tch_data(&tch_result);
+        let tch_shape = util::tch_shape(&tch_result);
+
+        assert_eq!(output.data.unwrap(), tch_output);
+        assert_eq!(output.shape, tch_shape);
+    }
+    #[test]
+    fn max() {
+        let input = Tensor::rand(vec![10, 10, 10]);
+        let tch_input = input.to_tch();
+
+        let mut output = input.max();
+        output.realize();
+        let tch_result = tch_input.max();
+        let tch_output = util::tch_data(&tch_result);
+        let tch_shape = util::tch_shape(&tch_result);
+
+        assert_eq!(output.data.unwrap(), tch_output);
+        assert_eq!(output.shape, tch_shape);
+    }
+
+    #[test]
+    fn min() {
+        let input = Tensor::rand(vec![10, 10, 10]);
+        let tch_input = input.to_tch();
+
+        let mut output = input.min();
+        output.realize();
+        let tch_result = tch_input.min();
         let tch_output = util::tch_data(&tch_result);
         let tch_shape = util::tch_shape(&tch_result);
 
