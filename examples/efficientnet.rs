@@ -42,7 +42,8 @@ fn infer(mut model: Efficientnet, mut image: DynamicImage) {
     input = input / 255.0;
     input = input - bias;
     input = input / scale;
-    let out = model.forward(input);
+    let mut out = model.forward(input);
+    out.realize();
     let argmax = util::argmax(out.clone());
     let mut max = out.max();
     max.realize();

@@ -1,32 +1,34 @@
 // TODO: should there be Option in here ever?
 // default values could be inserted instead in tensor.rs
 
+use std::rc::Rc;
+
 #[derive(Debug, Clone)]
 pub enum UnrealizedOp {
-    Add(Box<UnrealizedOp>, Box<UnrealizedOp>),
-    Sub(Box<UnrealizedOp>, Box<UnrealizedOp>),
-    Mul(Box<UnrealizedOp>, Box<UnrealizedOp>),
-    Div(Box<UnrealizedOp>, Box<UnrealizedOp>),
-    Max(Box<UnrealizedOp>),
-    Min(Box<UnrealizedOp>),
-    Sqrt(Box<UnrealizedOp>),
-    Log(Box<UnrealizedOp>),
+    Add(Rc<UnrealizedOp>, Rc<UnrealizedOp>),
+    Sub(Rc<UnrealizedOp>, Rc<UnrealizedOp>),
+    Mul(Rc<UnrealizedOp>, Rc<UnrealizedOp>),
+    Div(Rc<UnrealizedOp>, Rc<UnrealizedOp>),
+    Max(Rc<UnrealizedOp>),
+    Min(Rc<UnrealizedOp>),
+    Sqrt(Rc<UnrealizedOp>),
+    Log(Rc<UnrealizedOp>),
     Load(Vec<f64>, Vec<usize>),
-    Sigmoid(Box<UnrealizedOp>),
-    Relu(Box<UnrealizedOp>),
-    Sum(Box<UnrealizedOp>, Option<Vec<usize>>, bool),
-    Pool2D(Box<UnrealizedOp>, (usize, usize), usize, f64, PoolOp),
+    Sigmoid(Rc<UnrealizedOp>),
+    Relu(Rc<UnrealizedOp>),
+    Sum(Rc<UnrealizedOp>, Option<Vec<usize>>, bool),
+    Pool2D(Rc<UnrealizedOp>, (usize, usize), usize, f64, PoolOp),
     Conv2D(
-        Box<UnrealizedOp>,
-        Box<UnrealizedOp>,
+        Rc<UnrealizedOp>,
+        Rc<UnrealizedOp>,
         Option<(usize, usize)>,
         Option<usize>,
     ),
-    Pad2D(Box<UnrealizedOp>, f64, [usize; 4]),
-    Reshape(Box<UnrealizedOp>, Vec<usize>),
-    Permute(Box<UnrealizedOp>, Vec<usize>),
-    Expand(Box<UnrealizedOp>, Vec<usize>),
-    MatMul(Box<UnrealizedOp>, Box<UnrealizedOp>),
+    Pad2D(Rc<UnrealizedOp>, f64, [usize; 4]),
+    Reshape(Rc<UnrealizedOp>, Vec<usize>),
+    Permute(Rc<UnrealizedOp>, Vec<usize>),
+    Expand(Rc<UnrealizedOp>, Vec<usize>),
+    MatMul(Rc<UnrealizedOp>, Rc<UnrealizedOp>),
 }
 
 pub type PoolOp = fn(lhs: f64, rhs: f64) -> f64;
