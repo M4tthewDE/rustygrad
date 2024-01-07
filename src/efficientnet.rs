@@ -7,7 +7,6 @@ use tracing::info;
 
 use crate::{
     batch_norm::{BatchNorm2d, BatchNorm2dBuilder},
-    tensor::Callable,
     tensor::Tensor,
     util,
 };
@@ -163,10 +162,10 @@ impl MBConvBlock {
     }
 }
 
-impl Callable for MBConvBlock {
-    fn call(&self, input: Tensor) -> Tensor {
+impl MBConvBlock {
+    fn call(self, input: Tensor) -> Tensor {
         let mut x = input.clone();
-        if let Some(expand_conv) = &self.expand_conv {
+        if let Some(expand_conv) = self.expand_conv {
             x = self
                 .bn0
                 .clone()
@@ -174,12 +173,13 @@ impl Callable for MBConvBlock {
                 .forward(x.conv2d(expand_conv, None, None, None, None))
                 .swish();
         }
+        let shape = self.depthwise_conv.shape.clone();
         x = x.conv2d(
-            &self.depthwise_conv,
+            self.depthwise_conv,
             None,
             Some(self.pad),
             Some(self.strides),
-            Some(self.depthwise_conv.shape[0]),
+            Some(shape[0]),
         );
         x = self.bn1.clone().forward(x).swish();
 
@@ -187,28 +187,16 @@ impl Callable for MBConvBlock {
         let old_x = x.clone();
         let mut x_squeezed = x.avg_pool_2d((shape[2], shape[3]), None);
         x_squeezed = x_squeezed
-            .conv2d(
-                &self.se_reduce,
-                Some(&self.se_reduce_bias),
-                None,
-                None,
-                None,
-            )
+            .conv2d(self.se_reduce, Some(self.se_reduce_bias), None, None, None)
             .swish();
 
-        x_squeezed = x_squeezed.conv2d(
-            &self.se_expand,
-            Some(&self.se_expand_bias),
-            None,
-            None,
-            None,
-        );
+        x_squeezed = x_squeezed.conv2d(self.se_expand, Some(self.se_expand_bias), None, None, None);
 
         x = old_x * x_squeezed.sigmoid();
         x = self
             .bn2
             .clone()
-            .forward(x.conv2d(&self.project_conv, None, None, None, None));
+            .forward(x.conv2d(self.project_conv, None, None, None, None));
 
         if x.shape == input.shape {
             x = x + input;
@@ -221,7 +209,7 @@ impl Callable for MBConvBlock {
 pub struct Efficientnet {
     pub global_params: GlobalParams,
     pub blocks_args: Vec<BlockArgs>,
-    pub blocks: Vec<Box<dyn Callable>>,
+    pub blocks: Vec<MBConvBlock>,
     conv_stem: Tensor,
     conv_head: Tensor,
     bn0: BatchNorm2d,
@@ -384,11 +372,6 @@ impl Default for Efficientnet {
 
         info!("loaded model in {:?}", start.elapsed());
 
-        let blocks = blocks
-            .into_iter()
-            .map(|b| Box::new(b) as Box<dyn Callable>)
-            .collect::<Vec<Box<dyn Callable>>>();
-
         Self {
             global_params,
             blocks_args,
@@ -408,7 +391,7 @@ impl Efficientnet {
         let mut x = self
             .bn0
             .forward(x.conv2d(
-                &self.conv_stem,
+                self.conv_stem.clone(),
                 None,
                 Some([0, 1, 0, 1]),
                 Some((2, 2)),
@@ -416,11 +399,14 @@ impl Efficientnet {
             ))
             .swish();
 
-        x = x.sequential(&self.blocks);
+        for block in &self.blocks {
+            x = block.clone().call(x);
+        }
+
         x = self
             .bn1
             .clone()
-            .forward(x.conv2d(&self.conv_head, None, None, None, None))
+            .forward(x.conv2d(self.conv_head.clone(), None, None, None, None))
             .swish();
         let shape = x.shape.clone();
         x = x.avg_pool_2d((shape[2], shape[3]), None);

@@ -215,13 +215,13 @@ impl Tensor {
     }
 
     pub fn pad_2d(self, value: f64, padding: [usize; 4]) -> Tensor {
-        Tensor::from_op(UnrealizedOp::Pad2D(Box::new(self.clone()), value, padding))
+        Tensor::from_op(UnrealizedOp::Pad2D(Box::new(self), value, padding))
     }
 
     pub fn conv2d(
         self,
-        kernel: &Tensor,
-        bias: Option<&Tensor>,
+        kernel: Tensor,
+        bias: Option<Tensor>,
         padding: Option<[usize; 4]>,
         strides: Option<(usize, usize)>,
         groups: Option<usize>,
@@ -232,14 +232,14 @@ impl Tensor {
             self
         };
         let res = Tensor::from_op(UnrealizedOp::Conv2D(
-            Box::new(x.clone()),
-            Box::new(kernel.clone()),
+            Box::new(x),
+            Box::new(kernel),
             strides,
             groups,
         ));
 
         if let Some(bias) = bias {
-            res + bias.clone()
+            res + bias
         } else {
             res
         }
@@ -299,24 +299,11 @@ impl Tensor {
         }
     }
 
-    pub fn sequential(&self, callables: &Vec<Box<dyn Callable>>) -> Tensor {
-        let mut x = self.clone();
-        for callable in callables {
-            x = callable.call(x);
-        }
-
-        x
-    }
-
     pub fn realize(&mut self) {
         let (data, shape) = self.unrealized_op.realize();
         self.data = Some(data);
         self.shape = shape;
     }
-}
-
-pub trait Callable {
-    fn call(&self, x: Tensor) -> Tensor;
 }
 
 impl ops::Add<f64> for Tensor {
