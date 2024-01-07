@@ -28,20 +28,14 @@ impl UnrealizedOp {
             }
             UnrealizedOp::Sub(lhs, rhs, uuid) => {
                 see_uuid(uuid);
-                lhs.realize();
-                rhs.realize();
                 broadcast_op(lhs.realize(), rhs.realize(), |x1, x2| x1 - x2)
             }
             UnrealizedOp::Mul(lhs, rhs, uuid) => {
                 see_uuid(uuid);
-                lhs.realize();
-                rhs.realize();
                 broadcast_op(lhs.realize(), rhs.realize(), |x1, x2| x1 * x2)
             }
             UnrealizedOp::Div(lhs, rhs, uuid) => {
                 see_uuid(uuid);
-                lhs.realize();
-                rhs.realize();
                 broadcast_op(lhs.realize(), rhs.realize(), |x1, x2| x1 / x2)
             }
             UnrealizedOp::Sqrt(t, uuid) => {
