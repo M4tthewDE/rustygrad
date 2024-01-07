@@ -109,6 +109,14 @@ impl Tensor {
         Tensor::from_op(UnrealizedOp::Load(vec![data], vec![1]))
     }
 
+    pub fn zeros(size: usize) -> Tensor {
+        Tensor::from_op(UnrealizedOp::Load(vec![0.0; size], vec![size]))
+    }
+
+    pub fn ones(size: usize) -> Tensor {
+        Tensor::from_op(UnrealizedOp::Load(vec![1.0; size], vec![size]))
+    }
+
     pub fn rand(shape: Vec<usize>) -> Tensor {
         // feels like this should happen in an op
         let data = Uniform::new(-1.0, 1.0)
@@ -136,6 +144,10 @@ impl Tensor {
 
     pub fn sqrt(self) -> Tensor {
         Tensor::from_op(UnrealizedOp::Sqrt(Box::new(self)))
+    }
+
+    pub fn rsqrt(self) -> Tensor {
+        1.0 / self.sqrt()
     }
 
     pub fn log(self) -> Tensor {
@@ -225,6 +237,37 @@ impl Tensor {
 
     pub fn matmul(self, rhs: Tensor) -> Tensor {
         Tensor::from_op(UnrealizedOp::MatMul(Box::new(self), Box::new(rhs)))
+    }
+
+    pub fn batchnorm(
+        self,
+        weight: Option<Tensor>,
+        bias: Option<Tensor>,
+        mean: Tensor,
+        invstd: Tensor,
+    ) -> Tensor {
+        let mean_shape = mean.shape.clone();
+        let x = self.clone() - mean.reshape(vec![1, mean_shape[0], 1, 1]);
+        let x = if let Some(weight) = weight {
+            let shape = weight.shape.clone();
+            x * weight.reshape(vec![1, shape[0], 1, 1])
+        } else {
+            x
+        };
+
+        let ret = if invstd.shape.len() == 1 {
+            let shape = invstd.shape.clone();
+            x * (invstd.reshape(vec![1, shape[1], 1, 1]))
+        } else {
+            x * invstd.clone()
+        };
+
+        if let Some(bias) = bias {
+            let shape = bias.shape.clone();
+            ret + bias.reshape(vec![1, shape[0], 1, 1])
+        } else {
+            ret
+        }
     }
 
     pub fn realize(&mut self) {
