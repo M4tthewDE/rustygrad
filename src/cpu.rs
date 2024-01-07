@@ -5,7 +5,7 @@ use itertools::{EitherOrBoth, Itertools};
 use crate::{op::UnrealizedOp, util};
 
 impl UnrealizedOp {
-    pub fn realize(&mut self) -> (Vec<f64>, Vec<usize>) {
+    pub fn realize(&self) -> (Vec<f64>, Vec<usize>) {
         match self {
             UnrealizedOp::Add(lhs, rhs) => {
                 broadcast_op(lhs.realize(), rhs.realize(), |x1, x2| x1 + x2)
