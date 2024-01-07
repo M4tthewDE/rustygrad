@@ -14,6 +14,8 @@ pub enum UnrealizedOp {
     Sqrt(Box<Tensor>),
     Log(Box<Tensor>),
     Load(Vec<f64>, Vec<usize>),
+    Sigmoid(Box<Tensor>),
+    Relu(Box<Tensor>),
 }
 
 pub type PoolOp = fn(lhs: f64, rhs: f64) -> f64;
