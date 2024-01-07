@@ -289,7 +289,7 @@ impl Tensor {
             let shape = invstd.shape.clone();
             x * (invstd.reshape(vec![1, shape[1], 1, 1]))
         } else {
-            x * invstd.clone()
+            x * invstd
         };
 
         if let Some(bias) = bias {
@@ -300,10 +300,10 @@ impl Tensor {
         }
     }
 
-    pub fn linear(self, weight: &Tensor, bias: Option<&Tensor>) -> Tensor {
+    pub fn linear(self, weight: Tensor, bias: Option<Tensor>) -> Tensor {
         match bias {
-            Some(bias) => self.matmul(weight.clone()) + bias.clone(),
-            None => self.matmul(weight.clone()),
+            Some(bias) => self.matmul(weight) + bias.clone(),
+            None => self.matmul(weight),
         }
     }
 
