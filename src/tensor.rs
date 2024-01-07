@@ -28,25 +28,25 @@ impl Tensor {
         }
     }
 
-    fn from_op(unrealized_op: UnrealizedOp) -> Tensor {
+    fn from_op(unrealized_op: UnrealizedOp, shape: &[usize]) -> Tensor {
         Tensor {
             unrealized_op,
             data: None,
-            shape: Vec::new(),
+            shape: shape.to_owned(),
         }
     }
 
     pub fn from_vec(data: Vec<f64>, shape: Vec<usize>) -> Tensor {
-        Tensor::from_op(UnrealizedOp::Load(data, shape))
+        Tensor::from_op(UnrealizedOp::Load(data, shape.clone()), &shape)
     }
 
     pub fn from_vec_single_dim(data: Vec<f64>) -> Tensor {
         let data_len = data.len();
-        Tensor::from_op(UnrealizedOp::Load(data, vec![data_len]))
+        Tensor::from_op(UnrealizedOp::Load(data, vec![data_len]), &[data_len])
     }
 
     pub fn from_scalar(data: f64) -> Tensor {
-        Tensor::from_op(UnrealizedOp::Load(vec![data], vec![1]))
+        Tensor::from_op(UnrealizedOp::Load(vec![data], vec![1]), &[1])
     }
 
     pub fn from_image(img: DynamicImage) -> Tensor {
@@ -57,15 +57,15 @@ impl Tensor {
             .flat_map(|p| p.0.map(|x| x as f64))
             .collect_vec();
 
-        Tensor::from_op(UnrealizedOp::Load(data, shape))
+        Tensor::from_op(UnrealizedOp::Load(data, shape.clone()), &shape)
     }
 
     pub fn zeros(size: usize) -> Tensor {
-        Tensor::from_op(UnrealizedOp::Load(vec![0.0; size], vec![size]))
+        Tensor::from_op(UnrealizedOp::Load(vec![0.0; size], vec![size]), &[size])
     }
 
     pub fn ones(size: usize) -> Tensor {
-        Tensor::from_op(UnrealizedOp::Load(vec![1.0; size], vec![size]))
+        Tensor::from_op(UnrealizedOp::Load(vec![1.0; size], vec![size]), &[size])
     }
 
     pub fn glorot_uniform(shape: Vec<usize>) -> Tensor {
@@ -75,7 +75,7 @@ impl Tensor {
             .take(shape.iter().product::<usize>())
             .collect();
 
-        Tensor::from_op(UnrealizedOp::Load(data, shape))
+        Tensor::from_op(UnrealizedOp::Load(data, shape.clone()), &shape)
     }
 
     pub fn rand(shape: Vec<usize>) -> Tensor {
@@ -85,7 +85,7 @@ impl Tensor {
             .take(shape.iter().product::<usize>())
             .collect();
 
-        Tensor::from_op(UnrealizedOp::Load(data, shape))
+        Tensor::from_op(UnrealizedOp::Load(data, shape.clone()), &shape)
     }
 
     pub fn to_tch(&self) -> tch::Tensor {
@@ -96,15 +96,18 @@ impl Tensor {
     }
 
     pub fn max(self) -> Tensor {
-        Tensor::from_op(UnrealizedOp::Max(Box::new(self.unrealized_op)))
+        Tensor::from_op(UnrealizedOp::Max(Box::new(self.unrealized_op)), &[1])
     }
 
     pub fn min(self) -> Tensor {
-        Tensor::from_op(UnrealizedOp::Min(Box::new(self.unrealized_op)))
+        Tensor::from_op(UnrealizedOp::Min(Box::new(self.unrealized_op)), &[1])
     }
 
     pub fn sqrt(self) -> Tensor {
-        Tensor::from_op(UnrealizedOp::Sqrt(Box::new(self.unrealized_op)))
+        Tensor::from_op(
+            UnrealizedOp::Sqrt(Box::new(self.unrealized_op)),
+            &self.shape,
+        )
     }
 
     pub fn rsqrt(self) -> Tensor {
@@ -112,11 +115,14 @@ impl Tensor {
     }
 
     pub fn log(self) -> Tensor {
-        Tensor::from_op(UnrealizedOp::Log(Box::new(self.unrealized_op)))
+        Tensor::from_op(UnrealizedOp::Log(Box::new(self.unrealized_op)), &self.shape)
     }
 
     pub fn sigmoid(self) -> Tensor {
-        Tensor::from_op(UnrealizedOp::Sigmoid(Box::new(self.unrealized_op)))
+        Tensor::from_op(
+            UnrealizedOp::Sigmoid(Box::new(self.unrealized_op)),
+            &self.shape,
+        )
     }
 
     pub fn swish(self) -> Tensor {
@@ -124,45 +130,79 @@ impl Tensor {
     }
 
     pub fn relu(self) -> Tensor {
-        Tensor::from_op(UnrealizedOp::Relu(Box::new(self.unrealized_op)))
+        Tensor::from_op(
+            UnrealizedOp::Relu(Box::new(self.unrealized_op)),
+            &self.shape,
+        )
     }
 
     pub fn reduce_sum(self, dims: Option<&Vec<usize>>, keepdim: bool) -> Tensor {
-        Tensor::from_op(UnrealizedOp::Sum(
-            Box::new(self.unrealized_op),
-            dims.cloned(),
-            keepdim,
-        ))
+        let shape = if let Some(dims) = dims {
+            if keepdim {
+                self.shape
+                    .iter()
+                    .enumerate()
+                    .map(|(i, &d)| if dims.contains(&i) { 1 } else { d })
+                    .collect()
+            } else {
+                let mut reduced_shape = self.shape.clone();
+                for (i, dim) in dims.iter().enumerate() {
+                    reduced_shape.remove(*dim - i);
+                }
+
+                reduced_shape
+            }
+        } else {
+            self.shape
+        };
+        Tensor::from_op(
+            UnrealizedOp::Sum(Box::new(self.unrealized_op), dims.cloned(), keepdim),
+            &shape,
+        )
     }
 
     pub fn avg_pool_2d(self, kernel: (usize, usize), stride: Option<usize>) -> Tensor {
         let stride = stride.unwrap_or(1);
-        Tensor::from_op(UnrealizedOp::Pool2D(
-            Box::new(self.unrealized_op),
-            kernel,
-            stride,
-            0.0,
-            |a, b| a + b,
-        )) / (kernel.0 * kernel.1) as f64
+        Tensor::from_op(
+            UnrealizedOp::Pool2D(Box::new(self.unrealized_op), kernel, stride, 0.0, |a, b| {
+                a + b
+            }),
+            &[
+                self.shape[0],
+                self.shape[1],
+                ((self.shape[2] - kernel.0) / stride) + 1,
+                ((self.shape[3] - kernel.1) / stride) + 1,
+            ],
+        ) / (kernel.0 * kernel.1) as f64
     }
 
     pub fn max_pool_2d(self, kernel: (usize, usize), stride: Option<usize>) -> Tensor {
         let stride = stride.unwrap_or(1);
-        Tensor::from_op(UnrealizedOp::Pool2D(
-            Box::new(self.unrealized_op),
-            kernel,
-            stride,
-            f64::MIN,
-            |a, b| a.max(b),
-        ))
+        Tensor::from_op(
+            UnrealizedOp::Pool2D(
+                Box::new(self.unrealized_op),
+                kernel,
+                stride,
+                f64::MIN,
+                |a, b| a.max(b),
+            ),
+            &[
+                self.shape[0],
+                self.shape[1],
+                ((self.shape[2] - kernel.0) / stride) + 1,
+                ((self.shape[3] - kernel.1) / stride) + 1,
+            ],
+        )
     }
 
     pub fn pad_2d(self, value: f64, padding: [usize; 4]) -> Tensor {
-        Tensor::from_op(UnrealizedOp::Pad2D(
-            Box::new(self.unrealized_op),
-            value,
-            padding,
-        ))
+        let mut new_shape: Vec<usize> = self.shape.clone();
+        new_shape[self.shape.len() - 2] += padding[2] + padding[3];
+        new_shape[self.shape.len() - 1] += padding[0] + padding[1];
+        Tensor::from_op(
+            UnrealizedOp::Pad2D(Box::new(self.unrealized_op), value, padding),
+            &new_shape,
+        )
     }
 
     pub fn conv2d(
@@ -173,17 +213,26 @@ impl Tensor {
         strides: Option<(usize, usize)>,
         groups: Option<usize>,
     ) -> Tensor {
+        let shape = self.shape.clone();
         let x = if let Some(padding) = padding {
             self.pad_2d(0.0, padding)
         } else {
             self
         };
-        let res = Tensor::from_op(UnrealizedOp::Conv2D(
-            Box::new(x.unrealized_op),
-            Box::new(kernel.unrealized_op),
-            strides,
-            groups,
-        ));
+        let res = Tensor::from_op(
+            UnrealizedOp::Conv2D(
+                Box::new(x.unrealized_op),
+                Box::new(kernel.unrealized_op),
+                strides,
+                groups,
+            ),
+            &[
+                shape[0],
+                kernel.shape[0],
+                ((shape[2] - kernel.shape[2]) / strides.unwrap_or((1, 1)).0) + 1,
+                ((shape[3] - kernel.shape[3]) / strides.unwrap_or((1, 1)).1) + 1,
+            ],
+        );
 
         if let Some(bias) = bias {
             res + bias
@@ -193,28 +242,31 @@ impl Tensor {
     }
 
     pub fn reshape(self, shape: Vec<usize>) -> Tensor {
-        Tensor::from_op(UnrealizedOp::Reshape(Box::new(self.unrealized_op), shape))
+        Tensor::from_op(
+            UnrealizedOp::Reshape(Box::new(self.unrealized_op), shape.clone()),
+            &shape,
+        )
     }
 
     pub fn permute(self, dims: Vec<usize>) -> Tensor {
-        Tensor::from_op(UnrealizedOp::Permute(
-            Box::new(self.unrealized_op),
-            dims.clone(),
-        ))
+        Tensor::from_op(
+            UnrealizedOp::Permute(Box::new(self.unrealized_op), dims.clone()),
+            &dims.iter().map(|&d| self.shape[d]).collect::<Vec<usize>>(),
+        )
     }
 
     pub fn expand(self, shape: Vec<usize>) -> Tensor {
-        Tensor::from_op(UnrealizedOp::Expand(
-            Box::new(self.unrealized_op),
-            shape.clone(),
-        ))
+        Tensor::from_op(
+            UnrealizedOp::Expand(Box::new(self.unrealized_op), shape.clone()),
+            &shape,
+        )
     }
 
     pub fn matmul(self, rhs: Tensor) -> Tensor {
-        Tensor::from_op(UnrealizedOp::MatMul(
-            Box::new(self.unrealized_op),
-            Box::new(rhs.unrealized_op),
-        ))
+        Tensor::from_op(
+            UnrealizedOp::MatMul(Box::new(self.unrealized_op), Box::new(rhs.unrealized_op)),
+            &[self.shape[0], rhs.shape[1]],
+        )
     }
 
     pub fn batchnorm(
@@ -265,30 +317,36 @@ impl Tensor {
 impl ops::Add<f64> for Tensor {
     type Output = Tensor;
     fn add(self, rhs: f64) -> Self::Output {
-        Tensor::from_op(UnrealizedOp::Add(
-            Box::new(self.unrealized_op),
-            Box::new(UnrealizedOp::Load(vec![rhs], vec![1])),
-        ))
+        Tensor::from_op(
+            UnrealizedOp::Add(
+                Box::new(self.unrealized_op),
+                Box::new(UnrealizedOp::Load(vec![rhs], vec![1])),
+            ),
+            &broadcast_shape(&self.shape, &[1]),
+        )
     }
 }
 
 impl ops::Add<Tensor> for f64 {
     type Output = Tensor;
     fn add(self, rhs: Tensor) -> Self::Output {
-        Tensor::from_op(UnrealizedOp::Add(
-            Box::new(UnrealizedOp::Load(vec![self], vec![1])),
-            Box::new(rhs.unrealized_op),
-        ))
+        Tensor::from_op(
+            UnrealizedOp::Add(
+                Box::new(UnrealizedOp::Load(vec![self], vec![1])),
+                Box::new(rhs.unrealized_op),
+            ),
+            &broadcast_shape(&[1], &rhs.shape),
+        )
     }
 }
 
 impl ops::Add<Tensor> for Tensor {
     type Output = Tensor;
     fn add(self, rhs: Tensor) -> Self::Output {
-        Tensor::from_op(UnrealizedOp::Add(
-            Box::new(self.unrealized_op),
-            Box::new(rhs.unrealized_op),
-        ))
+        Tensor::from_op(
+            UnrealizedOp::Add(Box::new(self.unrealized_op), Box::new(rhs.unrealized_op)),
+            &broadcast_shape(&self.shape, &rhs.shape),
+        )
     }
 }
 
@@ -296,20 +354,26 @@ impl ops::Sub<f64> for Tensor {
     type Output = Tensor;
 
     fn sub(self, rhs: f64) -> Self::Output {
-        Tensor::from_op(UnrealizedOp::Sub(
-            Box::new(self.unrealized_op),
-            Box::new(UnrealizedOp::Load(vec![rhs], vec![1])),
-        ))
+        Tensor::from_op(
+            UnrealizedOp::Sub(
+                Box::new(self.unrealized_op),
+                Box::new(UnrealizedOp::Load(vec![rhs], vec![1])),
+            ),
+            &broadcast_shape(&self.shape, &[1]),
+        )
     }
 }
 
 impl ops::Sub<Tensor> for f64 {
     type Output = Tensor;
     fn sub(self, rhs: Tensor) -> Self::Output {
-        Tensor::from_op(UnrealizedOp::Sub(
-            Box::new(UnrealizedOp::Load(vec![self], vec![1])),
-            Box::new(rhs.unrealized_op),
-        ))
+        Tensor::from_op(
+            UnrealizedOp::Sub(
+                Box::new(UnrealizedOp::Load(vec![self], vec![1])),
+                Box::new(rhs.unrealized_op),
+            ),
+            &broadcast_shape(&[1], &rhs.shape),
+        )
     }
 }
 
@@ -317,10 +381,10 @@ impl ops::Sub<Tensor> for Tensor {
     type Output = Tensor;
 
     fn sub(self, rhs: Tensor) -> Self::Output {
-        Tensor::from_op(UnrealizedOp::Sub(
-            Box::new(self.unrealized_op),
-            Box::new(rhs.unrealized_op),
-        ))
+        Tensor::from_op(
+            UnrealizedOp::Sub(Box::new(self.unrealized_op), Box::new(rhs.unrealized_op)),
+            &broadcast_shape(&self.shape, &rhs.shape),
+        )
     }
 }
 
@@ -328,20 +392,26 @@ impl ops::Mul<f64> for Tensor {
     type Output = Tensor;
 
     fn mul(self, rhs: f64) -> Self::Output {
-        Tensor::from_op(UnrealizedOp::Mul(
-            Box::new(self.unrealized_op),
-            Box::new(UnrealizedOp::Load(vec![rhs], vec![1])),
-        ))
+        Tensor::from_op(
+            UnrealizedOp::Mul(
+                Box::new(self.unrealized_op),
+                Box::new(UnrealizedOp::Load(vec![rhs], vec![1])),
+            ),
+            &broadcast_shape(&self.shape, &[1]),
+        )
     }
 }
 
 impl ops::Mul<Tensor> for f64 {
     type Output = Tensor;
     fn mul(self, rhs: Tensor) -> Self::Output {
-        Tensor::from_op(UnrealizedOp::Mul(
-            Box::new(UnrealizedOp::Load(vec![self], vec![1])),
-            Box::new(rhs.unrealized_op),
-        ))
+        Tensor::from_op(
+            UnrealizedOp::Mul(
+                Box::new(UnrealizedOp::Load(vec![self], vec![1])),
+                Box::new(rhs.unrealized_op),
+            ),
+            &broadcast_shape(&[1], &rhs.shape),
+        )
     }
 }
 
@@ -349,10 +419,10 @@ impl ops::Mul<Tensor> for Tensor {
     type Output = Tensor;
 
     fn mul(self, rhs: Tensor) -> Self::Output {
-        Tensor::from_op(UnrealizedOp::Mul(
-            Box::new(self.unrealized_op),
-            Box::new(rhs.unrealized_op),
-        ))
+        Tensor::from_op(
+            UnrealizedOp::Mul(Box::new(self.unrealized_op), Box::new(rhs.unrealized_op)),
+            &broadcast_shape(&self.shape, &rhs.shape),
+        )
     }
 }
 
@@ -360,20 +430,26 @@ impl ops::Div<f64> for Tensor {
     type Output = Tensor;
 
     fn div(self, rhs: f64) -> Self::Output {
-        Tensor::from_op(UnrealizedOp::Div(
-            Box::new(self.unrealized_op),
-            Box::new(UnrealizedOp::Load(vec![rhs], vec![1])),
-        ))
+        Tensor::from_op(
+            UnrealizedOp::Div(
+                Box::new(self.unrealized_op),
+                Box::new(UnrealizedOp::Load(vec![rhs], vec![1])),
+            ),
+            &broadcast_shape(&self.shape, &[1]),
+        )
     }
 }
 
 impl ops::Div<Tensor> for f64 {
     type Output = Tensor;
     fn div(self, rhs: Tensor) -> Self::Output {
-        Tensor::from_op(UnrealizedOp::Div(
-            Box::new(UnrealizedOp::Load(vec![self], vec![1])),
-            Box::new(rhs.unrealized_op),
-        ))
+        Tensor::from_op(
+            UnrealizedOp::Div(
+                Box::new(UnrealizedOp::Load(vec![self], vec![1])),
+                Box::new(rhs.unrealized_op),
+            ),
+            &broadcast_shape(&[1], &rhs.shape),
+        )
     }
 }
 
@@ -381,10 +457,10 @@ impl ops::Div<Tensor> for Tensor {
     type Output = Tensor;
 
     fn div(self, rhs: Tensor) -> Self::Output {
-        Tensor::from_op(UnrealizedOp::Div(
-            Box::new(self.unrealized_op),
-            Box::new(rhs.unrealized_op),
-        ))
+        Tensor::from_op(
+            UnrealizedOp::Div(Box::new(self.unrealized_op), Box::new(rhs.unrealized_op)),
+            &broadcast_shape(&self.shape, &rhs.shape),
+        )
     }
 }
 
