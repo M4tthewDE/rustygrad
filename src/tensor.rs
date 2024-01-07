@@ -60,6 +60,14 @@ impl Tensor {
                     t.shape.clone()
                 }
             }
+            UnrealizedOp::Pool2D(ref t, kernel, stride, _, _) => {
+                vec![
+                    t.shape[0],
+                    t.shape[1],
+                    ((t.shape[2] - kernel.0) / stride) + 1,
+                    ((t.shape[3] - kernel.1) / stride) + 1,
+                ]
+            }
         };
         Tensor {
             unrealized_op,
@@ -128,6 +136,28 @@ impl Tensor {
 
     pub fn reduce_sum(self, dims: Option<&Vec<usize>>, keepdim: bool) -> Tensor {
         Tensor::from_op(UnrealizedOp::Sum(Box::new(self), dims.cloned(), keepdim))
+    }
+
+    pub fn avg_pool_2d(self, kernel: (usize, usize), stride: Option<usize>) -> Tensor {
+        let stride = stride.unwrap_or(1);
+        Tensor::from_op(UnrealizedOp::Pool2D(
+            Box::new(self),
+            kernel,
+            stride,
+            0.0,
+            |a, b| a + b,
+        )) / (kernel.0 * kernel.1) as f64
+    }
+
+    pub fn max_pool_2d(self, kernel: (usize, usize), stride: Option<usize>) -> Tensor {
+        let stride = stride.unwrap_or(1);
+        Tensor::from_op(UnrealizedOp::Pool2D(
+            Box::new(self),
+            kernel,
+            stride,
+            f64::MIN,
+            |a, b| a.max(b),
+        ))
     }
 
     pub fn realize(&mut self) {
@@ -458,5 +488,35 @@ mod tests {
         let tch_output = util::tch_data(&tch_sum);
         assert_eq!(sum.shape, tch_shape);
         util::assert_aprox_eq_vec(sum.data.unwrap(), tch_output, 1e-6);
+    }
+
+    #[test]
+    fn avg_pool_2d() {
+        let input = Tensor::rand(vec![1, 1, 10, 10]);
+        let tch_input = input.to_tch();
+
+        let mut output = input.avg_pool_2d((2, 2), None);
+        output.realize();
+        let tch_result = tch_input.avg_pool2d(vec![2, 2], 1, 0, false, true, None);
+        let tch_output = util::tch_data(&tch_result);
+        let tch_shape = util::tch_shape(&tch_result);
+
+        assert_eq!(output.data.unwrap(), tch_output);
+        assert_eq!(output.shape, tch_shape);
+    }
+
+    #[test]
+    fn max_pool_2d() {
+        let input = Tensor::rand(vec![1, 1, 10, 10]);
+        let tch_input = input.to_tch();
+
+        let mut output = input.max_pool_2d((2, 2), None);
+        output.realize();
+        let tch_result = tch_input.max_pool2d(vec![2, 2], 1, 0, 1, false);
+        let tch_output = util::tch_data(&tch_result);
+        let tch_shape = util::tch_shape(&tch_result);
+
+        assert_eq!(output.data.unwrap(), tch_output);
+        assert_eq!(output.shape, tch_shape);
     }
 }

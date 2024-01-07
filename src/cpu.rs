@@ -139,6 +139,47 @@ impl UnrealizedOp {
 
                 (result, new_shape)
             }
+            UnrealizedOp::Pool2D(t, kernel, stride, init_val, pool_op) => {
+                t.realize();
+                let data = t.data.clone().expect("no data. tensor not loaded?");
+                // FIXME: remove this constraint, just reshape or something smarter
+                assert_eq!(t.shape.len(), 4, "only supporting 4d tensors");
+
+                let (batch, channels, height, width) =
+                    (t.shape[0], t.shape[1], t.shape[2], t.shape[3]);
+                let (kernel_height, kernel_width) = (kernel.0, kernel.1);
+
+                let output_height = ((height - kernel_height) / *stride) + 1;
+                let output_width = ((width - kernel_width) / *stride) + 1;
+
+                let mut output_data =
+                    Vec::with_capacity(batch * channels * output_height * output_width);
+                for n in 0..batch {
+                    for c in 0..channels {
+                        for i in 0..output_height {
+                            for j in 0..output_width {
+                                let mut result_val = *init_val;
+                                for ki in 0..kernel_height {
+                                    for kj in 0..kernel_width {
+                                        let row = i * *stride + ki;
+                                        let col = j * *stride + kj;
+                                        let idx = n * (channels * height * width)
+                                            + c * (height * width)
+                                            + row * width
+                                            + col;
+                                        result_val = (pool_op)(result_val, data[idx]);
+                                    }
+                                }
+                                output_data.push(result_val);
+                            }
+                        }
+                    }
+                }
+                (
+                    output_data,
+                    vec![batch, channels, output_height, output_width],
+                )
+            }
             UnrealizedOp::Load(data, shape) => (data.clone(), shape.clone()),
         }
     }

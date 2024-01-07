@@ -17,6 +17,7 @@ pub enum UnrealizedOp {
     Sigmoid(Box<Tensor>),
     Relu(Box<Tensor>),
     Sum(Box<Tensor>, Option<Vec<usize>>, bool),
+    Pool2D(Box<Tensor>, (usize, usize), usize, f64, PoolOp),
 }
 
 pub type PoolOp = fn(lhs: f64, rhs: f64) -> f64;
