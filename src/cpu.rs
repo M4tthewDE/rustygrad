@@ -268,7 +268,7 @@ impl UnrealizedOp {
 
                 t.realize();
                 let data = t.data.clone().unwrap();
-                for i in 0..data.len() {
+                for (i, elem) in data.iter().enumerate() {
                     let mut temp_index = i;
                     let mut multi_dim_index = Vec::new();
 
@@ -292,7 +292,7 @@ impl UnrealizedOp {
                         stride *= size;
                     }
 
-                    new_data[new_index] = data[i];
+                    new_data[new_index] = *elem;
                 }
 
                 (new_data, new_shape)
