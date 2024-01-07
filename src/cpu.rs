@@ -27,6 +27,28 @@ impl UnrealizedOp {
                 rhs.realize();
                 broadcast_op(lhs, rhs, |x1, x2| x1 / x2)
             }
+            UnrealizedOp::Max(t) => {
+                t.realize();
+                let val = t
+                    .data
+                    .clone()
+                    .expect("no data. tensor not loaded?")
+                    .into_iter()
+                    .max_by(|a, b| a.partial_cmp(b).unwrap())
+                    .expect("no min value found");
+                (vec![val], vec![])
+            }
+            UnrealizedOp::Min(t) => {
+                t.realize();
+                let val = t
+                    .data
+                    .clone()
+                    .expect("no data. tensor not loaded?")
+                    .into_iter()
+                    .min_by(|a, b| a.partial_cmp(b).unwrap())
+                    .expect("no min value found");
+                (vec![val], vec![])
+            }
             UnrealizedOp::Load(data, shape) => (data.clone(), shape.clone()),
         }
     }
