@@ -1,5 +1,5 @@
 use lazy_static::lazy_static;
-use std::{cmp, f64::consts::E, iter::zip, sync::Mutex};
+use std::{cmp, collections::HashSet, f64::consts::E, iter::zip, sync::Mutex};
 use uuid::Uuid;
 
 use itertools::{EitherOrBoth, Itertools};
@@ -8,18 +8,16 @@ use tracing::trace;
 use crate::{op::UnrealizedOp, util};
 
 lazy_static! {
-    pub static ref SEEN_UUIDS: Mutex<Vec<Uuid>> = Mutex::new(Vec::new());
+    pub static ref SEEN_UUIDS: Mutex<HashSet<Uuid>> = Mutex::new(HashSet::new());
 }
 
 fn see_uuid(uuid: &Uuid) {
     let mut seen_uuids = SEEN_UUIDS.lock().unwrap();
-    assert!(!seen_uuids.contains(uuid), "LOOP DETECTED {}", uuid);
-    seen_uuids.push(*uuid);
+    assert!(seen_uuids.insert(*uuid), "LOOP DETECTED {}", uuid);
 }
 
 impl UnrealizedOp {
     pub fn realize(&self) -> (Vec<f64>, Vec<usize>) {
-        println!("Realizing {:?}", self);
         trace!("Realizing {:?}", self);
         match self {
             UnrealizedOp::Add(lhs, rhs, uuid) => {
