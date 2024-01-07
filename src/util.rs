@@ -179,7 +179,7 @@ pub fn tch_shape(tch: &tch::Tensor) -> Vec<usize> {
     tch.size().iter().map(|&d| d as usize).collect()
 }
 
-pub fn index_4d_to_1d(shape: &Vec<usize>, n: usize, c: usize, h: usize, w: usize) -> usize {
+pub fn index_4d_to_1d(shape: &[usize], n: usize, c: usize, h: usize, w: usize) -> usize {
     let (height, width) = (shape[2], shape[3]);
     let channels = shape[1];
     n * (channels * height * width) + c * (height * width) + h * width + w
