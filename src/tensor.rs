@@ -35,6 +35,8 @@ impl Tensor {
             UnrealizedOp::Div(ref lhs, ref rhs) => broadcast_shape(&lhs.shape, &rhs.shape),
             UnrealizedOp::Max(_) => vec![],
             UnrealizedOp::Min(_) => vec![],
+            UnrealizedOp::Sqrt(ref t) => t.shape.clone(),
+            UnrealizedOp::Log(ref t) => t.shape.clone(),
             UnrealizedOp::Load(_, ref shape) => shape.to_vec(),
         };
         Tensor {
@@ -80,6 +82,14 @@ impl Tensor {
 
     pub fn min(self) -> Tensor {
         Tensor::from_op(UnrealizedOp::Min(Box::new(self)))
+    }
+
+    pub fn sqrt(self) -> Tensor {
+        Tensor::from_op(UnrealizedOp::Sqrt(Box::new(self)))
+    }
+
+    pub fn log(self) -> Tensor {
+        Tensor::from_op(UnrealizedOp::Log(Box::new(self)))
     }
 
     pub fn realize(&mut self) {
@@ -336,6 +346,36 @@ mod tests {
         let tch_shape = util::tch_shape(&tch_result);
 
         assert_eq!(output.data.unwrap(), tch_output);
+        assert_eq!(output.shape, tch_shape);
+    }
+
+    #[test]
+    fn sqrt() {
+        let input = Tensor::rand(vec![10, 10]);
+        let tch_input = input.to_tch();
+
+        let mut output = input.sqrt();
+        output.realize();
+        let tch_result = tch_input.sqrt();
+        let tch_output = util::tch_data(&tch_result);
+        let tch_shape = util::tch_shape(&tch_result);
+
+        util::assert_aprox_eq_vec(output.data.unwrap(), tch_output, 1e-6);
+        assert_eq!(output.shape, tch_shape);
+    }
+
+    #[test]
+    fn log() {
+        let input = Tensor::rand(vec![10, 10]);
+        let tch_input = input.to_tch();
+
+        let mut output = input.log();
+        output.realize();
+        let tch_result = tch_input.log2();
+        let tch_output = util::tch_data(&tch_result);
+        let tch_shape = util::tch_shape(&tch_result);
+
+        util::assert_aprox_eq_vec(output.data.unwrap(), tch_output, 1e-6);
         assert_eq!(output.shape, tch_shape);
     }
 }
