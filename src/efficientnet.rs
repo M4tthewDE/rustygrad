@@ -164,7 +164,6 @@ impl MBConvBlock {
 
 impl MBConvBlock {
     fn call(self, input: Tensor) -> Tensor {
-        // FIXME: THIS makes it loop!
         let mut x = input.clone();
         if let Some(expand_conv) = self.expand_conv {
             x = self
