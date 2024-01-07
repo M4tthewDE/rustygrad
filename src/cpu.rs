@@ -5,19 +5,29 @@ use itertools::{EitherOrBoth, Itertools};
 use crate::{op::UnrealizedOp, tensor::Tensor};
 
 impl UnrealizedOp {
-    pub fn realize(&self) -> Tensor {
+    pub fn realize(&mut self) -> (Vec<f64>, Vec<usize>) {
         match self {
             UnrealizedOp::Add(lhs, rhs) => {
-                let (data, shape) = broadcast_op(lhs.realize(), rhs.realize(), |x1, x2| x1 + x2);
-                Tensor::new(self.clone(), data, shape)
+                lhs.realize();
+                rhs.realize();
+                broadcast_op(lhs, rhs, |x1, x2| x1 + x2)
+            }
+            UnrealizedOp::Sub(lhs, rhs) => {
+                lhs.realize();
+                rhs.realize();
+                broadcast_op(lhs, rhs, |x1, x2| x1 - x2)
             }
             UnrealizedOp::Mul(lhs, rhs) => {
-                let (data, shape) = broadcast_op(lhs.realize(), rhs.realize(), |x1, x2| x1 * x2);
-                Tensor::new(self.clone(), data, shape)
+                lhs.realize();
+                rhs.realize();
+                broadcast_op(lhs, rhs, |x1, x2| x1 * x2)
             }
-            UnrealizedOp::Load(data, shape) => {
-                Tensor::new(self.clone(), data.clone(), shape.clone())
+            UnrealizedOp::Div(lhs, rhs) => {
+                lhs.realize();
+                rhs.realize();
+                broadcast_op(lhs, rhs, |x1, x2| x1 / x2)
             }
+            UnrealizedOp::Load(data, shape) => (data.clone(), shape.clone()),
         }
     }
 }
@@ -36,9 +46,15 @@ fn broadcastable(shape1: &[usize], shape2: &[usize]) -> bool {
 type BroadcastOp = fn(lhs: f64, rhs: f64) -> f64;
 
 // https://pytorch.org/docs/stable/notes/broadcasting.html
-fn broadcast_op(lhs: Tensor, rhs: Tensor, op: BroadcastOp) -> (Vec<f64>, Vec<usize>) {
-    let (lhs_data, mut lhs_shape) = (lhs.data.expect("no data. tensor not loaded?"), lhs.shape);
-    let (rhs_data, mut rhs_shape) = (rhs.data.expect("no data. tensor not loaded?"), rhs.shape);
+fn broadcast_op(lhs: &Tensor, rhs: &Tensor, op: BroadcastOp) -> (Vec<f64>, Vec<usize>) {
+    let (lhs_data, mut lhs_shape) = (
+        lhs.data.clone().expect("no data. tensor not loaded?"),
+        lhs.shape.clone(),
+    );
+    let (rhs_data, mut rhs_shape) = (
+        rhs.data.clone().expect("no data. tensor not loaded?"),
+        rhs.shape.clone(),
+    );
     assert!(
         broadcastable(&lhs_shape, &rhs_shape),
         "{:?} and {:?} aren't broadcastable",
