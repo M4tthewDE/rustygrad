@@ -2,7 +2,7 @@ use std::{cmp, f64::consts::E, iter::zip};
 
 use itertools::{EitherOrBoth, Itertools};
 
-use crate::{op::UnrealizedOp, tensor::Tensor};
+use crate::{op::UnrealizedOp, tensor::Tensor, util};
 
 impl UnrealizedOp {
     pub fn realize(&mut self) -> (Vec<f64>, Vec<usize>) {
@@ -179,6 +179,123 @@ impl UnrealizedOp {
                     output_data,
                     vec![batch, channels, output_height, output_width],
                 )
+            }
+            UnrealizedOp::Conv2D(t, kernel, strides, groups) => {
+                assert_eq!(t.shape.len(), 4, "only supporting 4d tensors");
+                assert_eq!(kernel.shape.len(), 4, "only supporting 4d kernels");
+
+                let groups = groups.unwrap_or(1);
+                assert_eq!(
+                    t.shape[1] % groups,
+                    0,
+                    "input channels must be divisible by groups"
+                );
+                assert_eq!(
+                    kernel.shape[0] % groups,
+                    0,
+                    "output channels must be divisible by groups"
+                );
+
+                let strides = strides.unwrap_or((1, 1));
+
+                let (n, c_in, height, width) = (t.shape[0], t.shape[1], t.shape[2], t.shape[3]);
+                let (c_out, kernel_height, kernel_width) =
+                    (kernel.shape[0], kernel.shape[2], kernel.shape[3]);
+
+                let output_height = ((height - kernel_height) / strides.0) + 1;
+                let output_width = ((width - kernel_width) / strides.1) + 1;
+
+                let c_in_per_group = c_in / groups;
+                let c_out_per_group = c_out / groups;
+
+                t.realize();
+                let t_data = t.data.clone().unwrap();
+                kernel.realize();
+                let kernel_data = kernel.data.clone().unwrap();
+                let mut output_data = Vec::new();
+                for n_index in 0..n {
+                    for g in 0..groups {
+                        for c_out_index in (g * c_out_per_group)..((g + 1) * c_out_per_group) {
+                            for i in 0..output_height {
+                                for j in 0..output_width {
+                                    let mut value = 0.0;
+                                    for c_in_index in
+                                        (g * c_in_per_group)..((g + 1) * c_in_per_group)
+                                    {
+                                        for k_row in 0..kernel_height {
+                                            for k_col in 0..kernel_width {
+                                                let row = i * strides.0 + k_row;
+                                                let col = j * strides.1 + k_col;
+                                                if row < height && col < width {
+                                                    value += t_data[util::index_4d_to_1d(
+                                                        t.shape.clone(),
+                                                        n_index,
+                                                        c_in_index,
+                                                        row,
+                                                        col,
+                                                    )] * kernel_data[util::index_4d_to_1d(
+                                                        kernel.shape.clone(),
+                                                        c_out_index, // removed group adjustment as each kernel is only for one group
+                                                        c_in_index % c_in_per_group, // local index within group
+                                                        k_row,
+                                                        k_col,
+                                                    )];
+                                                }
+                                            }
+                                        }
+                                    }
+                                    output_data.push(value);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                (output_data, vec![n, c_out, output_height, output_width])
+            }
+            UnrealizedOp::Pad2D(t, value, padding) => {
+                if t.shape.len() < 2 {
+                    panic!("Tensor must have at least 2 dimensions for 2D padding.");
+                }
+
+                let last_two_dims = t.shape.len() - 2;
+                let mut new_shape: Vec<usize> = t.shape.clone();
+
+                new_shape[last_two_dims] += padding[2] + padding[3]; // top + bottom
+                new_shape[last_two_dims + 1] += padding[0] + padding[1]; // left + right
+
+                let mut new_data = vec![*value; new_shape.iter().product()];
+
+                t.realize();
+                let data = t.data.clone().unwrap();
+                for i in 0..data.len() {
+                    let mut temp_index = i;
+                    let mut multi_dim_index = Vec::new();
+
+                    for &size in t.shape.iter().rev() {
+                        multi_dim_index.push(temp_index % size);
+                        temp_index /= size;
+                    }
+                    multi_dim_index.reverse();
+
+                    // bottom and right padding is added in the initialization
+                    if multi_dim_index.len() >= 2 {
+                        multi_dim_index[last_two_dims] += padding[2]; // top padding
+                        multi_dim_index[last_two_dims + 1] += padding[0]; // left padding
+                    }
+
+                    let mut new_index = 0;
+                    let mut stride = 1;
+                    for (&size, &index) in new_shape.iter().rev().zip(multi_dim_index.iter().rev())
+                    {
+                        new_index += index * stride;
+                        stride *= size;
+                    }
+
+                    new_data[new_index] = data[i];
+                }
+
+                (new_data, new_shape)
             }
             UnrealizedOp::Load(data, shape) => (data.clone(), shape.clone()),
         }
