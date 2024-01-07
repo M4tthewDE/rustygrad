@@ -412,7 +412,7 @@ impl Efficientnet {
         x = x.avg_pool_2d((shape[2], shape[3]), None);
         let shape = x.shape.clone();
         x = x.reshape(vec![1, shape[1]]);
-        x.linear(&self.fc, Some(&self.fc_bias))
+        x.linear(self.fc.clone(), Some(self.fc_bias.clone()))
     }
 }
 

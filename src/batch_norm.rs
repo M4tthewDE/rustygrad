@@ -16,7 +16,6 @@ pub struct BatchNorm2d {
 // FIXME: I don't like these clones in here...
 impl BatchNorm2d {
     pub fn forward(&mut self, x: Tensor) -> Tensor {
-        let batch_mean = self.running_mean.clone();
         let batch_invstd = self
             .running_var
             .clone()
@@ -28,7 +27,7 @@ impl BatchNorm2d {
         x.batchnorm(
             self.weight.clone(),
             self.bias.clone(),
-            batch_mean,
+            self.running_mean.clone(),
             batch_invstd,
         )
     }
