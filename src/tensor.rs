@@ -1,6 +1,7 @@
 use std::iter::zip;
 use std::{cmp, ops};
 
+use image::DynamicImage;
 use itertools::{EitherOrBoth, Itertools};
 use rand::{distributions::Uniform, prelude::Distribution};
 
@@ -109,12 +110,33 @@ impl Tensor {
         Tensor::from_op(UnrealizedOp::Load(vec![data], vec![1]))
     }
 
+    pub fn from_image(img: DynamicImage) -> Tensor {
+        let shape = vec![img.width() as usize, img.height() as usize, 3];
+        let data: Vec<f64> = img
+            .to_rgb8()
+            .pixels()
+            .flat_map(|p| p.0.map(|x| x as f64))
+            .collect_vec();
+
+        Tensor::from_op(UnrealizedOp::Load(data, shape))
+    }
+
     pub fn zeros(size: usize) -> Tensor {
         Tensor::from_op(UnrealizedOp::Load(vec![0.0; size], vec![size]))
     }
 
     pub fn ones(size: usize) -> Tensor {
         Tensor::from_op(UnrealizedOp::Load(vec![1.0; size], vec![size]))
+    }
+
+    pub fn glorot_uniform(shape: Vec<usize>) -> Tensor {
+        let limit = (6.0 / (shape[0] + shape[1..].iter().product::<usize>()) as f64).sqrt();
+        let data = Uniform::new(0.0, limit)
+            .sample_iter(rand::thread_rng())
+            .take(shape.iter().product::<usize>())
+            .collect();
+
+        Tensor::from_op(UnrealizedOp::Load(data, shape))
     }
 
     pub fn rand(shape: Vec<usize>) -> Tensor {
@@ -270,11 +292,31 @@ impl Tensor {
         }
     }
 
+    pub fn linear(self, weight: &Tensor, bias: Option<&Tensor>) -> Tensor {
+        match bias {
+            Some(bias) => self.matmul(weight.clone()) + bias.clone(),
+            None => self.matmul(weight.clone()),
+        }
+    }
+
+    pub fn sequential(&self, callables: &Vec<Box<dyn Callable>>) -> Tensor {
+        let mut x = self.clone();
+        for callable in callables {
+            x = callable.call(x);
+        }
+
+        x
+    }
+
     pub fn realize(&mut self) {
         let (data, shape) = self.unrealized_op.realize();
         self.data = Some(data);
         self.shape = shape;
     }
+}
+
+pub trait Callable {
+    fn call(&self, x: Tensor) -> Tensor;
 }
 
 impl ops::Add<f64> for Tensor {
