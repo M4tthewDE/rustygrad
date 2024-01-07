@@ -1,4 +1,4 @@
-use std::{cmp, iter::zip};
+use std::{cmp, f64::consts::E, iter::zip};
 
 use itertools::{EitherOrBoth, Itertools};
 
@@ -38,6 +38,30 @@ impl UnrealizedOp {
                 t.realize();
                 (
                     t.data.clone().unwrap().iter().map(|x| x.log2()).collect(),
+                    t.shape.clone(),
+                )
+            }
+            UnrealizedOp::Sigmoid(t) => {
+                t.realize();
+                (
+                    t.data
+                        .clone()
+                        .unwrap()
+                        .iter()
+                        .map(|x| (1.0 / (1.0 + E.powf(-x))))
+                        .collect(),
+                    t.shape.clone(),
+                )
+            }
+            UnrealizedOp::Relu(t) => {
+                t.realize();
+                (
+                    t.data
+                        .clone()
+                        .unwrap()
+                        .iter()
+                        .map(|&x| if x < 0.0 { 0.0 } else { x })
+                        .collect(),
                     t.shape.clone(),
                 )
             }

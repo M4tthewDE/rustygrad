@@ -37,6 +37,8 @@ impl Tensor {
             UnrealizedOp::Min(_) => vec![],
             UnrealizedOp::Sqrt(ref t) => t.shape.clone(),
             UnrealizedOp::Log(ref t) => t.shape.clone(),
+            UnrealizedOp::Sigmoid(ref t) => t.shape.clone(),
+            UnrealizedOp::Relu(ref t) => t.shape.clone(),
             UnrealizedOp::Load(_, ref shape) => shape.to_vec(),
         };
         Tensor {
@@ -90,6 +92,18 @@ impl Tensor {
 
     pub fn log(self) -> Tensor {
         Tensor::from_op(UnrealizedOp::Log(Box::new(self)))
+    }
+
+    pub fn sigmoid(self) -> Tensor {
+        Tensor::from_op(UnrealizedOp::Sigmoid(Box::new(self)))
+    }
+
+    pub fn swish(self) -> Tensor {
+        self.clone() * self.sigmoid()
+    }
+
+    pub fn relu(self) -> Tensor {
+        Tensor::from_op(UnrealizedOp::Relu(Box::new(self)))
     }
 
     pub fn realize(&mut self) {
@@ -372,6 +386,36 @@ mod tests {
         let mut output = input.log();
         output.realize();
         let tch_result = tch_input.log2();
+        let tch_output = util::tch_data(&tch_result);
+        let tch_shape = util::tch_shape(&tch_result);
+
+        util::assert_aprox_eq_vec(output.data.unwrap(), tch_output, 1e-6);
+        assert_eq!(output.shape, tch_shape);
+    }
+
+    #[test]
+    fn swish() {
+        let input = Tensor::rand(vec![10, 10]);
+        let tch_input = input.to_tch();
+
+        let mut output = input.swish();
+        output.realize();
+        let tch_result = tch_input.silu();
+        let tch_output = util::tch_data(&tch_result);
+        let tch_shape = util::tch_shape(&tch_result);
+
+        util::assert_aprox_eq_vec(output.data.unwrap(), tch_output, 1e-6);
+        assert_eq!(output.shape, tch_shape);
+    }
+
+    #[test]
+    fn relu() {
+        let input = Tensor::rand(vec![10, 10]);
+        let tch_input = input.to_tch();
+
+        let mut output = input.relu();
+        output.realize();
+        let tch_result = tch_input.relu();
         let tch_output = util::tch_data(&tch_result);
         let tch_shape = util::tch_shape(&tch_result);
 
