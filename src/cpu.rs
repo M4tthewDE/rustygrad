@@ -1,11 +1,13 @@
 use std::{cmp, f64::consts::E, iter::zip};
 
 use itertools::{EitherOrBoth, Itertools};
+use tracing::trace;
 
 use crate::{op::UnrealizedOp, util};
 
 impl UnrealizedOp {
     pub fn realize(&self) -> (Vec<f64>, Vec<usize>) {
+        trace!("{}", self);
         match self {
             UnrealizedOp::Add(lhs, rhs) => {
                 broadcast_op(lhs.realize(), rhs.realize(), |x1, x2| x1 + x2)
