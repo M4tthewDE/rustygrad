@@ -2,112 +2,89 @@ use std::{cmp, f64::consts::E, iter::zip};
 
 use itertools::{EitherOrBoth, Itertools};
 
-use crate::{op::UnrealizedOp, tensor::Tensor, util};
+use crate::{op::UnrealizedOp, util};
 
 impl UnrealizedOp {
     pub fn realize(&mut self) -> (Vec<f64>, Vec<usize>) {
         match self {
             UnrealizedOp::Add(lhs, rhs) => {
-                lhs.realize();
-                rhs.realize();
-                broadcast_op(lhs, rhs, |x1, x2| x1 + x2)
+                broadcast_op(lhs.realize(), rhs.realize(), |x1, x2| x1 + x2)
             }
             UnrealizedOp::Sub(lhs, rhs) => {
                 lhs.realize();
                 rhs.realize();
-                broadcast_op(lhs, rhs, |x1, x2| x1 - x2)
+                broadcast_op(lhs.realize(), rhs.realize(), |x1, x2| x1 - x2)
             }
             UnrealizedOp::Mul(lhs, rhs) => {
                 lhs.realize();
                 rhs.realize();
-                broadcast_op(lhs, rhs, |x1, x2| x1 * x2)
+                broadcast_op(lhs.realize(), rhs.realize(), |x1, x2| x1 * x2)
             }
             UnrealizedOp::Div(lhs, rhs) => {
                 lhs.realize();
                 rhs.realize();
-                broadcast_op(lhs, rhs, |x1, x2| x1 / x2)
+                broadcast_op(lhs.realize(), rhs.realize(), |x1, x2| x1 / x2)
             }
             UnrealizedOp::Sqrt(t) => {
-                t.realize();
-                (
-                    t.data.clone().unwrap().iter().map(|x| x.sqrt()).collect(),
-                    t.shape.clone(),
-                )
+                let (data, shape) = t.realize();
+                (data.iter().map(|x| x.sqrt()).collect(), shape)
             }
             UnrealizedOp::Log(t) => {
-                t.realize();
-                (
-                    t.data.clone().unwrap().iter().map(|x| x.log2()).collect(),
-                    t.shape.clone(),
-                )
+                let (data, shape) = t.realize();
+                (data.iter().map(|x| x.log2()).collect(), shape)
             }
             UnrealizedOp::Sigmoid(t) => {
-                t.realize();
+                let (data, shape) = t.realize();
                 (
-                    t.data
-                        .clone()
-                        .unwrap()
-                        .iter()
-                        .map(|x| (1.0 / (1.0 + E.powf(-x))))
-                        .collect(),
-                    t.shape.clone(),
+                    data.iter().map(|x| (1.0 / (1.0 + E.powf(-x)))).collect(),
+                    shape,
                 )
             }
             UnrealizedOp::Relu(t) => {
-                t.realize();
+                let (data, shape) = t.realize();
                 (
-                    t.data
-                        .clone()
-                        .unwrap()
-                        .iter()
+                    data.iter()
                         .map(|&x| if x < 0.0 { 0.0 } else { x })
                         .collect(),
-                    t.shape.clone(),
+                    shape,
                 )
             }
             UnrealizedOp::Max(t) => {
-                t.realize();
-                let val = t
-                    .data
-                    .clone()
-                    .expect("no data. tensor not loaded?")
+                let (data, _) = t.realize();
+                let val = data
                     .into_iter()
                     .max_by(|a, b| a.partial_cmp(b).unwrap())
                     .expect("no min value found");
                 (vec![val], vec![])
             }
             UnrealizedOp::Min(t) => {
-                t.realize();
-                let val = t
-                    .data
-                    .clone()
-                    .expect("no data. tensor not loaded?")
+                let (data, _) = t.realize();
+                let val = data
                     .into_iter()
                     .min_by(|a, b| a.partial_cmp(b).unwrap())
                     .expect("no min value found");
                 (vec![val], vec![])
             }
             UnrealizedOp::Sum(t, dims, keepdim) => {
-                t.realize();
-                let data = t.data.clone().expect("no data. tensor not loaded?");
+                let (data, shape) = t.realize();
                 let dims = match dims {
                     Some(dims) => dims,
                     None => return (vec![data.iter().sum()], vec![]),
                 };
 
-                let mut reduced_shape = t.shape.clone();
+                let mut reduced_shape = shape.clone();
                 for (i, dim) in dims.iter().enumerate() {
                     reduced_shape.remove(*dim - i);
                 }
 
                 let mut result: Vec<f64> = vec![0.; reduced_shape.iter().product()];
 
-                let mut shape_pos = Vec::with_capacity(t.shape.len() - dims.len());
+                let mut shape_pos = Vec::with_capacity(shape.len() - dims.len());
                 for (i, elem) in data.iter().enumerate() {
                     shape_pos.clear();
                     let mut offset = 0;
-                    for (j, _shape) in t.shape.iter().enumerate() {
-                        let count = t.shape[..=j].iter().product::<usize>();
+                    for (j, _shape) in shape.iter().enumerate() {
+                        let count = shape[..=j].iter().product::<usize>();
                         let index = (i - offset) / (data.len() / count);
                         if !dims.contains(&j) {
                             shape_pos.push(index);
@@ -128,7 +105,7 @@ impl UnrealizedOp {
                 }
 
                 let new_shape = if *keepdim {
-                    t.shape
+                    shape
                         .iter()
                         .enumerate()
                         .map(|(i, &d)| if dims.contains(&i) { 1 } else { d })
@@ -140,13 +117,11 @@ impl UnrealizedOp {
                 (result, new_shape)
             }
             UnrealizedOp::Pool2D(t, kernel, stride, init_val, pool_op) => {
-                t.realize();
-                let data = t.data.clone().expect("no data. tensor not loaded?");
+                let (data, shape) = t.realize();
                 // FIXME: remove this constraint, just reshape or something smarter
-                assert_eq!(t.shape.len(), 4, "only supporting 4d tensors");
+                assert_eq!(shape.len(), 4, "only supporting 4d tensors");
 
-                let (batch, channels, height, width) =
-                    (t.shape[0], t.shape[1], t.shape[2], t.shape[3]);
+                let (batch, channels, height, width) = (shape[0], shape[1], shape[2], shape[3]);
                 let (kernel_height, kernel_width) = (kernel.0, kernel.1);
 
                 let output_height = ((height - kernel_height) / *stride) + 1;
@@ -181,26 +156,28 @@ impl UnrealizedOp {
                 )
             }
             UnrealizedOp::Conv2D(t, kernel, strides, groups) => {
-                assert_eq!(t.shape.len(), 4, "only supporting 4d tensors");
-                assert_eq!(kernel.shape.len(), 4, "only supporting 4d kernels");
+                let (data, shape) = t.realize();
+                let (kernel_data, kernel_shape) = kernel.realize();
+                assert_eq!(shape.len(), 4, "only supporting 4d tensors");
+                assert_eq!(kernel_shape.len(), 4, "only supporting 4d kernels");
 
                 let groups = groups.unwrap_or(1);
                 assert_eq!(
-                    t.shape[1] % groups,
+                    shape[1] % groups,
                     0,
                     "input channels must be divisible by groups"
                 );
                 assert_eq!(
-                    kernel.shape[0] % groups,
+                    kernel_shape[0] % groups,
                     0,
                     "output channels must be divisible by groups"
                 );
 
                 let strides = strides.unwrap_or((1, 1));
 
-                let (n, c_in, height, width) = (t.shape[0], t.shape[1], t.shape[2], t.shape[3]);
+                let (n, c_in, height, width) = (shape[0], shape[1], shape[2], shape[3]);
                 let (c_out, kernel_height, kernel_width) =
-                    (kernel.shape[0], kernel.shape[2], kernel.shape[3]);
+                    (kernel_shape[0], kernel_shape[2], kernel_shape[3]);
 
                 let output_height = ((height - kernel_height) / strides.0) + 1;
                 let output_width = ((width - kernel_width) / strides.1) + 1;
@@ -208,10 +185,6 @@ impl UnrealizedOp {
                 let c_in_per_group = c_in / groups;
                 let c_out_per_group = c_out / groups;
 
-                t.realize();
-                let t_data = t.data.clone().unwrap();
-                kernel.realize();
-                let kernel_data = kernel.data.clone().unwrap();
                 let mut output_data = Vec::new();
                 for n_index in 0..n {
                     for g in 0..groups {
@@ -227,14 +200,10 @@ impl UnrealizedOp {
                                                 let row = i * strides.0 + k_row;
                                                 let col = j * strides.1 + k_col;
                                                 if row < height && col < width {
-                                                    value += t_data[util::index_4d_to_1d(
-                                                        t.shape.clone(),
-                                                        n_index,
-                                                        c_in_index,
-                                                        row,
-                                                        col,
+                                                    value += data[util::index_4d_to_1d(
+                                                        &shape, n_index, c_in_index, row, col,
                                                     )] * kernel_data[util::index_4d_to_1d(
-                                                        kernel.shape.clone(),
+                                                        &kernel_shape,
                                                         c_out_index, // removed group adjustment as each kernel is only for one group
                                                         c_in_index % c_in_per_group, // local index within group
                                                         k_row,
@@ -254,25 +223,24 @@ impl UnrealizedOp {
                 (output_data, vec![n, c_out, output_height, output_width])
             }
             UnrealizedOp::Pad2D(t, value, padding) => {
-                if t.shape.len() < 2 {
+                let (data, shape) = t.realize();
+                if shape.len() < 2 {
                     panic!("Tensor must have at least 2 dimensions for 2D padding.");
                 }
 
-                let last_two_dims = t.shape.len() - 2;
-                let mut new_shape: Vec<usize> = t.shape.clone();
+                let last_two_dims = shape.len() - 2;
+                let mut new_shape: Vec<usize> = shape.clone();
 
                 new_shape[last_two_dims] += padding[2] + padding[3]; // top + bottom
                 new_shape[last_two_dims + 1] += padding[0] + padding[1]; // left + right
 
                 let mut new_data = vec![*value; new_shape.iter().product()];
 
-                t.realize();
-                let data = t.data.clone().unwrap();
                 for (i, elem) in data.iter().enumerate() {
                     let mut temp_index = i;
                     let mut multi_dim_index = Vec::new();
 
-                    for &size in t.shape.iter().rev() {
+                    for &size in shape.iter().rev() {
                         multi_dim_index.push(temp_index % size);
                         temp_index /= size;
                     }
@@ -298,23 +266,19 @@ impl UnrealizedOp {
                 (new_data, new_shape)
             }
             UnrealizedOp::Reshape(t, shape) => {
-                t.realize();
-                (
-                    t.data.clone().expect("no data. tensor not loaded?"),
-                    shape.clone(),
-                )
+                let (data, _) = t.realize();
+                (data, shape.to_owned())
             }
             UnrealizedOp::Permute(t, dims) => {
-                t.realize();
-                let data = t.data.clone().expect("no data. tensor not loaded?");
-                let new_shape: Vec<usize> = dims.iter().map(|&d| t.shape[d]).collect();
+                let (data, shape) = t.realize();
+                let new_shape: Vec<usize> = dims.iter().map(|&d| shape[d]).collect();
                 let mut new_data = vec![0.0; data.len()];
 
                 // Permute the data
                 for (i, item) in data.iter().enumerate() {
                     let mut temp_index = i;
                     let mut multi_dim_index = Vec::new();
-                    for &size in t.shape.iter().rev() {
+                    for &size in shape.iter().rev() {
                         multi_dim_index.push(temp_index % size);
                         temp_index /= size;
                     }
@@ -340,30 +304,28 @@ impl UnrealizedOp {
 
                 (new_data, new_shape)
             }
-            UnrealizedOp::Expand(t, shape) => {
+            UnrealizedOp::Expand(t, new_shape) => {
+                let (data, shape) = t.realize();
                 assert_eq!(
-                    t.shape.len(),
                     shape.len(),
+                    new_shape.len(),
                     "Only supporting same size shapes for now"
                 );
-                for (old, new) in t.shape.iter().zip(shape.clone()) {
+                for (old, new) in shape.iter().zip(new_shape.clone()) {
                     assert!(
                         *old == new || *old == 1,
                         "The old dimension must be either 1 or the same as the new dimension"
                     );
                 }
 
-                let total_elements = shape.iter().product::<usize>();
+                let total_elements = new_shape.iter().product::<usize>();
                 let mut new_data = Vec::with_capacity(total_elements);
-
-                t.realize();
-                let data = t.data.clone().unwrap();
 
                 for index in 0..total_elements {
                     let mut temp_index = index;
-                    let mut old_indices = Vec::with_capacity(t.shape.len());
+                    let mut old_indices = Vec::with_capacity(shape.len());
 
-                    for (&size_new, &size_old) in shape.iter().zip(&t.shape).rev() {
+                    for (&size_new, &size_old) in new_shape.iter().zip(&shape).rev() {
                         old_indices.push(if size_old == 1 {
                             0
                         } else {
@@ -375,35 +337,32 @@ impl UnrealizedOp {
 
                     let old_index = old_indices
                         .iter()
-                        .zip(t.shape.iter())
+                        .zip(shape.iter())
                         .fold(0, |acc, (&i, &dim)| acc * dim + i);
 
                     new_data.push(data[old_index]);
                 }
 
-                (new_data, shape.to_owned())
+                (new_data, new_shape.to_owned())
             }
             UnrealizedOp::MatMul(lhs, rhs) => {
+                let (lhs_data, lhs_shape) = lhs.realize();
+                let (rhs_data, rhs_shape) = rhs.realize();
                 assert!(
-                    lhs.shape.len() == 2 && rhs.shape.len() == 2,
+                    lhs_shape.len() == 2 && rhs_shape.len() == 2,
                     "only supporting 2d tensors for now"
                 );
-                assert_eq!(lhs.shape[1], rhs.shape[0]);
+                assert_eq!(lhs_shape[1], rhs_shape[0]);
 
-                lhs.realize();
-                rhs.realize();
-                let lhs_data = lhs.data.clone().unwrap();
-                let rhs_data = rhs.data.clone().unwrap();
-
-                let mut result = vec![0.0; lhs.shape[0] * rhs.shape[1]];
+                let mut result = vec![0.0; lhs_shape[0] * rhs_shape[1]];
                 for (i, elem) in lhs_data.iter().enumerate() {
-                    for j in 0..rhs.shape[1] {
-                        result[(i / rhs.shape[0]) * rhs.shape[1] + j] +=
-                            elem * rhs_data[i % rhs.shape[0] * rhs.shape[1] + j];
+                    for j in 0..rhs_shape[1] {
+                        result[(i / rhs_shape[0]) * rhs_shape[1] + j] +=
+                            elem * rhs_data[i % rhs_shape[0] * rhs_shape[1] + j];
                     }
                 }
 
-                (result, vec![lhs.shape[0], rhs.shape[1]])
+                (result, vec![lhs_shape[0], rhs_shape[1]])
             }
             UnrealizedOp::Load(data, shape) => (data.clone(), shape.clone()),
         }
@@ -424,15 +383,15 @@ fn broadcastable(shape1: &[usize], shape2: &[usize]) -> bool {
 type BroadcastOp = fn(lhs: f64, rhs: f64) -> f64;
 
 // https://pytorch.org/docs/stable/notes/broadcasting.html
-fn broadcast_op(lhs: &Tensor, rhs: &Tensor, op: BroadcastOp) -> (Vec<f64>, Vec<usize>) {
-    let (lhs_data, mut lhs_shape) = (
-        lhs.data.clone().expect("no data. tensor not loaded?"),
-        lhs.shape.clone(),
-    );
-    let (rhs_data, mut rhs_shape) = (
-        rhs.data.clone().expect("no data. tensor not loaded?"),
-        rhs.shape.clone(),
-    );
+fn broadcast_op(
+    lhs: (Vec<f64>, Vec<usize>),
+    rhs: (Vec<f64>, Vec<usize>),
+    op: BroadcastOp,
+) -> (Vec<f64>, Vec<usize>) {
+    let lhs_data = lhs.0;
+    let mut lhs_shape = lhs.1;
+    let rhs_data = rhs.0;
+    let mut rhs_shape = rhs.1;
     assert!(
         broadcastable(&lhs_shape, &rhs_shape),
         "{:?} and {:?} aren't broadcastable",
