@@ -30,7 +30,9 @@ impl Tensor {
     fn from_op(unrealized_op: UnrealizedOp) -> Tensor {
         let shape = match unrealized_op {
             UnrealizedOp::Add(ref lhs, ref rhs) => broadcast_shape(&lhs.shape, &rhs.shape),
+            UnrealizedOp::Sub(ref lhs, ref rhs) => broadcast_shape(&lhs.shape, &rhs.shape),
             UnrealizedOp::Mul(ref lhs, ref rhs) => broadcast_shape(&lhs.shape, &rhs.shape),
+            UnrealizedOp::Div(ref lhs, ref rhs) => broadcast_shape(&lhs.shape, &rhs.shape),
             UnrealizedOp::Load(_, ref shape) => shape.to_vec(),
         };
         Tensor {
@@ -64,13 +66,16 @@ impl Tensor {
     }
 
     pub fn to_tch(&self) -> tch::Tensor {
-        // TODO: this should realize, avoids a lot of typing that way
-        tch::Tensor::from_slice(&self.data.clone().unwrap())
-            .reshape(self.shape.iter().map(|&d| d as i64).collect::<Vec<i64>>())
+        let mut x = self.clone();
+        x.realize();
+        tch::Tensor::from_slice(&x.data.unwrap())
+            .reshape(x.shape.iter().map(|&d| d as i64).collect::<Vec<i64>>())
     }
 
-    pub fn realize(&self) -> Tensor {
-        self.unrealized_op.realize()
+    pub fn realize(&mut self) {
+        let (data, shape) = self.unrealized_op.realize();
+        self.data = Some(data);
+        self.shape = shape;
     }
 }
 
@@ -98,6 +103,35 @@ impl ops::Add<Tensor> for Tensor {
     type Output = Tensor;
     fn add(self, rhs: Tensor) -> Self::Output {
         Tensor::from_op(UnrealizedOp::Add(Box::new(self), Box::new(rhs)))
+    }
+}
+
+impl ops::Sub<f64> for Tensor {
+    type Output = Tensor;
+
+    fn sub(self, rhs: f64) -> Self::Output {
+        Tensor::from_op(UnrealizedOp::Sub(
+            Box::new(self),
+            Box::new(Tensor::from_scalar(rhs)),
+        ))
+    }
+}
+
+impl ops::Sub<Tensor> for f64 {
+    type Output = Tensor;
+    fn sub(self, rhs: Tensor) -> Self::Output {
+        Tensor::from_op(UnrealizedOp::Sub(
+            Box::new(Tensor::from_scalar(self)),
+            Box::new(rhs),
+        ))
+    }
+}
+
+impl ops::Sub<Tensor> for Tensor {
+    type Output = Tensor;
+
+    fn sub(self, rhs: Tensor) -> Self::Output {
+        Tensor::from_op(UnrealizedOp::Sub(Box::new(self), Box::new(rhs)))
     }
 }
 
@@ -130,9 +164,38 @@ impl ops::Mul<Tensor> for Tensor {
     }
 }
 
-fn broadcast_shape(lhs_shape: &Vec<usize>, rhs_shape: &Vec<usize>) -> Vec<usize> {
-    let mut lhs_shape = lhs_shape.clone();
-    let mut rhs_shape = rhs_shape.clone();
+impl ops::Div<f64> for Tensor {
+    type Output = Tensor;
+
+    fn div(self, rhs: f64) -> Self::Output {
+        Tensor::from_op(UnrealizedOp::Div(
+            Box::new(self),
+            Box::new(Tensor::from_scalar(rhs)),
+        ))
+    }
+}
+
+impl ops::Div<Tensor> for f64 {
+    type Output = Tensor;
+    fn div(self, rhs: Tensor) -> Self::Output {
+        Tensor::from_op(UnrealizedOp::Div(
+            Box::new(Tensor::from_scalar(self)),
+            Box::new(rhs),
+        ))
+    }
+}
+
+impl ops::Div<Tensor> for Tensor {
+    type Output = Tensor;
+
+    fn div(self, rhs: Tensor) -> Self::Output {
+        Tensor::from_op(UnrealizedOp::Div(Box::new(self), Box::new(rhs)))
+    }
+}
+
+fn broadcast_shape(lhs_shape: &[usize], rhs_shape: &[usize]) -> Vec<usize> {
+    let mut lhs_shape = lhs_shape.to_owned();
+    let mut rhs_shape = rhs_shape.to_owned();
     let broadcastable = lhs_shape
         .iter()
         .rev()
@@ -171,7 +234,8 @@ mod tests {
     fn addition_scalar() {
         let a = Tensor::from_scalar(2.0);
         let b = Tensor::from_scalar(3.0);
-        let result = (a + b).realize();
+        let mut result = a + b;
+        result.realize();
 
         assert_eq!(result.data.unwrap(), vec![5.0]);
     }
@@ -180,7 +244,8 @@ mod tests {
     fn addition_vector() {
         let a = Tensor::from_vec(vec![2.0, 3.0], vec![2]);
         let b = Tensor::from_vec(vec![8.0, 7.0], vec![2]);
-        let result = (a + b).realize();
+        let mut result = a + b;
+        result.realize();
 
         assert_eq!(result.data.unwrap(), vec![10.0, 10.0]);
     }
@@ -188,7 +253,8 @@ mod tests {
     #[test]
     fn addition_f64() {
         let a = Tensor::from_vec(vec![2.0, 3.0], vec![2]);
-        let result = (a + 5.0).realize();
+        let mut result = a + 5.0;
+        result.realize();
 
         assert_eq!(result.data.unwrap(), vec![7.0, 8.0]);
     }
@@ -196,19 +262,21 @@ mod tests {
     #[test]
     fn addition_f64_left_side() {
         let a = Tensor::from_vec(vec![2.0, 3.0], vec![2]);
-        let result = (5.0 + a).realize();
+        let mut result = 5.0 + a;
+        result.realize();
 
         assert_eq!(result.data.unwrap(), vec![7.0, 8.0]);
     }
 
     #[test]
-    fn mul() {
+    fn div() {
         let input = Tensor::rand(vec![10, 10, 10]);
-        let tch_input = input.realize().to_tch();
-        let tch_input2 = input.realize().to_tch();
+        let tch_input = input.to_tch();
+        let tch_input2 = input.to_tch();
 
-        let output = (input.clone() * input).realize();
-        let tch_result = tch_input * tch_input2;
+        let mut output = input.clone() / input;
+        output.realize();
+        let tch_result = tch_input / tch_input2;
         let tch_output = util::tch_data(&tch_result);
         let tch_shape = util::tch_shape(&tch_result);
 
@@ -217,27 +285,18 @@ mod tests {
     }
 
     #[test]
-    fn mul_scalar() {
+    fn div_scalar() {
         let input = Tensor::rand(vec![10, 10, 10]);
-        let tch_input = input.realize().to_tch();
+        let tch_input = input.to_tch();
 
-        let output = (input * 2.0).realize();
-        let tch_result = tch_input * 2.0;
+        let mut output = input / 2.0;
+        output.realize();
+
+        let tch_result = tch_input / 2.0;
         let tch_output = util::tch_data(&tch_result);
         let tch_shape = util::tch_shape(&tch_result);
 
         assert_eq!(output.data.unwrap(), tch_output);
         assert_eq!(output.shape, tch_shape);
-    }
-
-    #[test]
-    fn basic() {
-        let a = Tensor::from_scalar(1.0);
-        let b = Tensor::from_scalar(2.0);
-
-        let c = (a + b).realize();
-
-        assert_eq!(c.data.unwrap(), vec![3.0]);
-        assert_eq!(c.shape, vec![1]);
     }
 }
