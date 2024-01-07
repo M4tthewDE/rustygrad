@@ -27,7 +27,12 @@ impl Tensor {
         }
     }
 
-    fn from_op(unrealized_op: UnrealizedOp, shape: Vec<usize>) -> Tensor {
+    fn from_op(unrealized_op: UnrealizedOp) -> Tensor {
+        let shape = match unrealized_op {
+            UnrealizedOp::Add(ref lhs, ref rhs) => broadcast_shape(&lhs.shape, &rhs.shape),
+            UnrealizedOp::Mul(ref lhs, ref rhs) => broadcast_shape(&lhs.shape, &rhs.shape),
+            UnrealizedOp::Load(_, ref shape) => shape.to_vec(),
+        };
         Tensor {
             unrealized_op,
             data: None,
@@ -36,16 +41,16 @@ impl Tensor {
     }
 
     pub fn from_vec(data: Vec<f64>, shape: Vec<usize>) -> Tensor {
-        Tensor::from_op(UnrealizedOp::Load(data, shape.clone()), shape)
+        Tensor::from_op(UnrealizedOp::Load(data, shape))
     }
 
     pub fn from_vec_single_dim(data: Vec<f64>) -> Tensor {
         let data_len = data.len();
-        Tensor::from_op(UnrealizedOp::Load(data, vec![data_len]), vec![data_len])
+        Tensor::from_op(UnrealizedOp::Load(data, vec![data_len]))
     }
 
     pub fn from_scalar(data: f64) -> Tensor {
-        Tensor::from_op(UnrealizedOp::Load(vec![data], vec![1]), vec![1])
+        Tensor::from_op(UnrealizedOp::Load(vec![data], vec![1]))
     }
 
     pub fn rand(shape: Vec<usize>) -> Tensor {
@@ -55,7 +60,7 @@ impl Tensor {
             .take(shape.iter().product::<usize>())
             .collect();
 
-        Tensor::from_op(UnrealizedOp::Load(data, shape.clone()), shape)
+        Tensor::from_op(UnrealizedOp::Load(data, shape))
     }
 
     pub fn to_tch(&self) -> tch::Tensor {
@@ -72,30 +77,27 @@ impl Tensor {
 impl ops::Add<f64> for Tensor {
     type Output = Tensor;
     fn add(self, rhs: f64) -> Self::Output {
-        Tensor::from_op(
-            UnrealizedOp::Add(Box::new(self.clone()), Box::new(Tensor::from_scalar(rhs))),
-            self.shape,
-        )
+        Tensor::from_op(UnrealizedOp::Add(
+            Box::new(self),
+            Box::new(Tensor::from_scalar(rhs)),
+        ))
     }
 }
 
 impl ops::Add<Tensor> for f64 {
     type Output = Tensor;
     fn add(self, rhs: Tensor) -> Self::Output {
-        Tensor::from_op(
-            UnrealizedOp::Add(Box::new(Tensor::from_scalar(self)), Box::new(rhs.clone())),
-            rhs.shape,
-        )
+        Tensor::from_op(UnrealizedOp::Add(
+            Box::new(Tensor::from_scalar(self)),
+            Box::new(rhs),
+        ))
     }
 }
 
 impl ops::Add<Tensor> for Tensor {
     type Output = Tensor;
     fn add(self, rhs: Tensor) -> Self::Output {
-        Tensor::from_op(
-            UnrealizedOp::Add(Box::new(self.clone()), Box::new(rhs.clone())),
-            broadcast_shape(self.shape, rhs.shape),
-        )
+        Tensor::from_op(UnrealizedOp::Add(Box::new(self), Box::new(rhs)))
     }
 }
 
@@ -103,20 +105,20 @@ impl ops::Mul<f64> for Tensor {
     type Output = Tensor;
 
     fn mul(self, rhs: f64) -> Self::Output {
-        Tensor::from_op(
-            UnrealizedOp::Mul(Box::new(self.clone()), Box::new(Tensor::from_scalar(rhs))),
-            self.shape,
-        )
+        Tensor::from_op(UnrealizedOp::Mul(
+            Box::new(self),
+            Box::new(Tensor::from_scalar(rhs)),
+        ))
     }
 }
 
 impl ops::Mul<Tensor> for f64 {
     type Output = Tensor;
     fn mul(self, rhs: Tensor) -> Self::Output {
-        Tensor::from_op(
-            UnrealizedOp::Mul(Box::new(Tensor::from_scalar(self)), Box::new(rhs.clone())),
-            rhs.shape,
-        )
+        Tensor::from_op(UnrealizedOp::Mul(
+            Box::new(Tensor::from_scalar(self)),
+            Box::new(rhs),
+        ))
     }
 }
 
@@ -124,14 +126,13 @@ impl ops::Mul<Tensor> for Tensor {
     type Output = Tensor;
 
     fn mul(self, rhs: Tensor) -> Self::Output {
-        Tensor::from_op(
-            UnrealizedOp::Mul(Box::new(self.clone()), Box::new(rhs.clone())),
-            broadcast_shape(self.shape, rhs.shape),
-        )
+        Tensor::from_op(UnrealizedOp::Mul(Box::new(self), Box::new(rhs)))
     }
 }
 
-fn broadcast_shape(mut lhs_shape: Vec<usize>, mut rhs_shape: Vec<usize>) -> Vec<usize> {
+fn broadcast_shape(lhs_shape: &Vec<usize>, rhs_shape: &Vec<usize>) -> Vec<usize> {
+    let mut lhs_shape = lhs_shape.clone();
+    let mut rhs_shape = rhs_shape.clone();
     let broadcastable = lhs_shape
         .iter()
         .rev()
@@ -155,8 +156,8 @@ fn broadcast_shape(mut lhs_shape: Vec<usize>, mut rhs_shape: Vec<usize>) -> Vec<
         lhs_shape.insert(0, 1);
     }
 
-    let output_shape: Vec<usize> = zip(&lhs_shape, &rhs_shape)
-        .map(|(d1, d2)| cmp::max(*d1, *d2))
+    let output_shape: Vec<usize> = zip(lhs_shape, rhs_shape)
+        .map(|(d1, d2)| cmp::max(d1, d2))
         .collect();
 
     output_shape
