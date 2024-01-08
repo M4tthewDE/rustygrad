@@ -1,12 +1,12 @@
-// TODO: should there be Option in here ever?
-// default values could be inserted instead in tensor.rs
-
 use std::{
     fmt::{Debug, Display},
     rc::Rc,
 };
 
 use uuid::Uuid;
+
+// TODO: should there be Option in here ever?
+// default values could be inserted in tensor.rs instead
 
 #[derive(Clone)]
 pub enum UnrealizedOp {
