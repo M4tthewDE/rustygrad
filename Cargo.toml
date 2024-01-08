@@ -19,5 +19,4 @@ tempfile = "3.8.1"
 tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
 tch = { version = "0.14.0", features = ["download-libtorch"] }
-uuid = { version ="1.6.1", features=["v4"] }
 lazy_static = "1.4.0"
