@@ -1,5 +1,6 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, fs, rc::Rc};
 
+use petgraph::{dot::Dot, stable_graph::NodeIndex, Graph};
 use tracing::{debug, trace};
 
 use crate::{op::UnrealizedOp, tensor::Tensor};
@@ -8,11 +9,20 @@ pub fn is_loop(t: &Tensor) -> bool {
     trace!("Checking tensor for loops...");
 
     let mut seen_ops: HashSet<usize> = HashSet::new();
+    let mut g = Graph::<Rc<UnrealizedOp>, ()>::new();
+    let node_index = g.add_node(Rc::new(t.unrealized_op.clone()));
+    let looping = is_cyclical(&mut seen_ops, &t.unrealized_op, &mut g, node_index);
 
-    is_cyclical(&mut seen_ops, &t.unrealized_op)
+    fs::write("graph.dot", format!("{:?}", Dot::new(&g))).unwrap();
+    looping
 }
 
-fn is_cyclical(seen_ops: &mut HashSet<usize>, op: &UnrealizedOp) -> bool {
+fn is_cyclical(
+    seen_ops: &mut HashSet<usize>,
+    op: &UnrealizedOp,
+    g: &mut Graph<Rc<UnrealizedOp>, ()>,
+    node_index: NodeIndex,
+) -> bool {
     let (id, children) = match op {
         UnrealizedOp::Add(lhs, rhs, id) => (*id, vec![lhs, rhs]),
         UnrealizedOp::Sub(lhs, rhs, id) => (*id, vec![lhs, rhs]),
@@ -42,7 +52,9 @@ fn is_cyclical(seen_ops: &mut HashSet<usize>, op: &UnrealizedOp) -> bool {
     seen_ops.insert(id);
 
     for child in children {
-        if is_cyclical(seen_ops, child) {
+        let child_index = g.add_node(child.clone().to_owned());
+        g.add_edge(node_index, child_index, ());
+        if is_cyclical(seen_ops, child, g, child_index) {
             debug!("{:?}, {}", child, id);
             return true;
         }
