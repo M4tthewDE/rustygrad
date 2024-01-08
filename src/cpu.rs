@@ -1,13 +1,24 @@
-use std::{cmp, f64::consts::E, iter::zip};
+use lazy_static::lazy_static;
+use std::{
+    cmp,
+    f64::consts::E,
+    iter::zip,
+    sync::atomic::{AtomicUsize, Ordering},
+};
 
 use itertools::{EitherOrBoth, Itertools};
 use tracing::trace;
 
 use crate::{op::UnrealizedOp, util};
 
+lazy_static! {
+    static ref GLOBAL_COUNTER: AtomicUsize = AtomicUsize::new(0);
+}
+
 impl UnrealizedOp {
     pub fn realize(&self) -> (Vec<f64>, Vec<usize>) {
-        trace!("Realizing {:?}", self);
+        let count = GLOBAL_COUNTER.fetch_add(1, Ordering::Relaxed);
+        trace!("Realizing {:?} {}", self, count);
         match self {
             UnrealizedOp::Add(lhs, rhs, _) => {
                 broadcast_op(lhs.realize(), rhs.realize(), |x1, x2| x1 + x2)
