@@ -2,6 +2,7 @@
 pub mod batch_norm;
 pub mod cpu;
 pub mod efficientnet;
+mod loops;
 pub mod op;
 pub mod tensor;
 pub mod util;

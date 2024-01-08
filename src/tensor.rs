@@ -9,7 +9,7 @@ use rand::{distributions::Uniform, prelude::Distribution};
 use tracing::trace;
 use uuid::Uuid;
 
-use crate::cpu::SEEN_UUIDS;
+use crate::loops;
 use crate::op::UnrealizedOp;
 
 #[derive(Clone)]
@@ -368,11 +368,7 @@ impl Tensor {
     }
 
     pub fn realize(&mut self) {
-        // this allows realizing the same tensor multiple times!
-        {
-            let mut seen_uuids = SEEN_UUIDS.lock().unwrap();
-            seen_uuids.clear();
-        }
+        assert!(!loops::is_loop(self));
         let (data, shape) = self.unrealized_op.realize();
         self.data = Some(data);
         self.shape = shape;
@@ -912,5 +908,25 @@ mod tests {
 
         util::assert_aprox_eq_vec(output.data.unwrap(), tch_output, 1e-6);
         assert_eq!(output.shape, tch_shape);
+    }
+
+    #[test]
+    fn looping() {
+        tracing_subscriber::fmt::init();
+        let mut x = Tensor::rand(vec![10, 10]);
+        for _ in 0..10 {
+            x = call(x);
+        }
+        x.realize();
+        panic!();
+    }
+
+    fn call(input: Tensor) -> Tensor {
+        let mut x = input.clone();
+        let old_x = x.clone();
+        let x_sqrt = x.sqrt();
+        x = old_x * x_sqrt.sigmoid();
+        x = x + input;
+        x
     }
 }

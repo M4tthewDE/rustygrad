@@ -1,61 +1,42 @@
-use lazy_static::lazy_static;
-use std::{cmp, collections::HashSet, f64::consts::E, iter::zip, sync::Mutex};
-use uuid::Uuid;
+use std::{cmp, f64::consts::E, iter::zip};
 
 use itertools::{EitherOrBoth, Itertools};
 use tracing::trace;
 
 use crate::{op::UnrealizedOp, util};
 
-lazy_static! {
-    pub static ref SEEN_UUIDS: Mutex<HashSet<Uuid>> = Mutex::new(HashSet::new());
-}
-
-fn see_uuid(uuid: &Uuid) {
-    let mut seen_uuids = SEEN_UUIDS.lock().unwrap();
-    assert!(seen_uuids.insert(*uuid), "LOOP DETECTED {}", uuid);
-}
-
 impl UnrealizedOp {
     pub fn realize(&self) -> (Vec<f64>, Vec<usize>) {
         trace!("Realizing {:?}", self);
         match self {
-            UnrealizedOp::Add(lhs, rhs, uuid) => {
-                see_uuid(uuid);
+            UnrealizedOp::Add(lhs, rhs, _) => {
                 broadcast_op(lhs.realize(), rhs.realize(), |x1, x2| x1 + x2)
             }
-            UnrealizedOp::Sub(lhs, rhs, uuid) => {
-                see_uuid(uuid);
+            UnrealizedOp::Sub(lhs, rhs, _) => {
                 broadcast_op(lhs.realize(), rhs.realize(), |x1, x2| x1 - x2)
             }
-            UnrealizedOp::Mul(lhs, rhs, uuid) => {
-                see_uuid(uuid);
+            UnrealizedOp::Mul(lhs, rhs, _) => {
                 broadcast_op(lhs.realize(), rhs.realize(), |x1, x2| x1 * x2)
             }
-            UnrealizedOp::Div(lhs, rhs, uuid) => {
-                see_uuid(uuid);
+            UnrealizedOp::Div(lhs, rhs, _) => {
                 broadcast_op(lhs.realize(), rhs.realize(), |x1, x2| x1 / x2)
             }
-            UnrealizedOp::Sqrt(t, uuid) => {
-                see_uuid(uuid);
+            UnrealizedOp::Sqrt(t, _) => {
                 let (data, shape) = t.realize();
                 (data.iter().map(|x| x.sqrt()).collect(), shape)
             }
-            UnrealizedOp::Log(t, uuid) => {
-                see_uuid(uuid);
+            UnrealizedOp::Log(t, _) => {
                 let (data, shape) = t.realize();
                 (data.iter().map(|x| x.log2()).collect(), shape)
             }
-            UnrealizedOp::Sigmoid(t, uuid) => {
-                see_uuid(uuid);
+            UnrealizedOp::Sigmoid(t, _) => {
                 let (data, shape) = t.realize();
                 (
                     data.iter().map(|x| (1.0 / (1.0 + E.powf(-x)))).collect(),
                     shape,
                 )
             }
-            UnrealizedOp::Relu(t, uuid) => {
-                see_uuid(uuid);
+            UnrealizedOp::Relu(t, _) => {
                 let (data, shape) = t.realize();
                 (
                     data.iter()
@@ -64,8 +45,7 @@ impl UnrealizedOp {
                     shape,
                 )
             }
-            UnrealizedOp::Max(t, uuid) => {
-                see_uuid(uuid);
+            UnrealizedOp::Max(t, _) => {
                 let (data, _) = t.realize();
                 let val = data
                     .into_iter()
@@ -73,8 +53,7 @@ impl UnrealizedOp {
                     .expect("no min value found");
                 (vec![val], vec![])
             }
-            UnrealizedOp::Min(t, uuid) => {
-                see_uuid(uuid);
+            UnrealizedOp::Min(t, _) => {
                 let (data, _) = t.realize();
                 let val = data
                     .into_iter()
@@ -82,8 +61,7 @@ impl UnrealizedOp {
                     .expect("no min value found");
                 (vec![val], vec![])
             }
-            UnrealizedOp::Sum(t, dims, keepdim, uuid) => {
-                see_uuid(uuid);
+            UnrealizedOp::Sum(t, dims, keepdim, _) => {
                 let (data, shape) = t.realize();
                 let dims = match dims {
                     Some(dims) => dims,
@@ -134,8 +112,7 @@ impl UnrealizedOp {
 
                 (result, new_shape)
             }
-            UnrealizedOp::Pool2D(t, kernel, stride, init_val, pool_op, uuid) => {
-                see_uuid(uuid);
+            UnrealizedOp::Pool2D(t, kernel, stride, init_val, pool_op, _) => {
                 let (data, shape) = t.realize();
                 // FIXME: remove this constraint, just reshape or something smarter
                 assert_eq!(shape.len(), 4, "only supporting 4d tensors");
@@ -174,8 +151,7 @@ impl UnrealizedOp {
                     vec![batch, channels, output_height, output_width],
                 )
             }
-            UnrealizedOp::Conv2D(t, kernel, strides, groups, uuid) => {
-                see_uuid(uuid);
+            UnrealizedOp::Conv2D(t, kernel, strides, groups, _) => {
                 let (data, shape) = t.realize();
                 let (kernel_data, kernel_shape) = kernel.realize();
                 assert_eq!(shape.len(), 4, "only supporting 4d tensors");
@@ -242,8 +218,7 @@ impl UnrealizedOp {
 
                 (output_data, vec![n, c_out, output_height, output_width])
             }
-            UnrealizedOp::Pad2D(t, value, padding, uuid) => {
-                see_uuid(uuid);
+            UnrealizedOp::Pad2D(t, value, padding, _) => {
                 let (data, shape) = t.realize();
                 if shape.len() < 2 {
                     panic!("Tensor must have at least 2 dimensions for 2D padding.");
@@ -286,14 +261,12 @@ impl UnrealizedOp {
 
                 (new_data, new_shape)
             }
-            UnrealizedOp::Reshape(t, shape, uuid) => {
-                see_uuid(uuid);
+            UnrealizedOp::Reshape(t, shape, _) => {
                 let (data, _) = t.realize();
                 (data, shape.to_owned())
             }
-            UnrealizedOp::Permute(t, dims, uuid) => {
+            UnrealizedOp::Permute(t, dims, _) => {
                 dbg!(&dims);
-                see_uuid(uuid);
                 let (data, shape) = t.realize();
                 let new_shape: Vec<usize> = dims.iter().map(|&d| shape[d]).collect();
                 let mut new_data = vec![0.0; data.len()];
@@ -328,8 +301,7 @@ impl UnrealizedOp {
 
                 (new_data, new_shape)
             }
-            UnrealizedOp::Expand(t, new_shape, uuid) => {
-                see_uuid(uuid);
+            UnrealizedOp::Expand(t, new_shape, _) => {
                 let (data, shape) = t.realize();
                 assert_eq!(
                     shape.len(),
@@ -370,8 +342,7 @@ impl UnrealizedOp {
 
                 (new_data, new_shape.to_owned())
             }
-            UnrealizedOp::MatMul(lhs, rhs, uuid) => {
-                see_uuid(uuid);
+            UnrealizedOp::MatMul(lhs, rhs, _) => {
                 let (lhs_data, lhs_shape) = lhs.realize();
                 let (rhs_data, rhs_shape) = rhs.realize();
                 assert!(
@@ -390,10 +361,7 @@ impl UnrealizedOp {
 
                 (result, vec![lhs_shape[0], rhs_shape[1]])
             }
-            UnrealizedOp::Load(data, shape, uuid) => {
-                see_uuid(uuid);
-                (data.clone(), shape.clone())
-            }
+            UnrealizedOp::Load(data, shape, _) => (data.clone(), shape.clone()),
         }
     }
 }
