@@ -372,6 +372,8 @@ impl Default for Efficientnet {
 
         info!("loaded model in {:?}", start.elapsed());
 
+        blocks = vec![blocks[0].clone()];
+
         Self {
             global_params,
             blocks_args,

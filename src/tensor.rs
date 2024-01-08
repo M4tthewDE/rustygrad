@@ -1,16 +1,22 @@
 use std::fmt::Debug;
 use std::iter::zip;
 use std::rc::Rc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{cmp, ops};
 
 use image::DynamicImage;
 use itertools::{EitherOrBoth, Itertools};
+use lazy_static::lazy_static;
 use rand::{distributions::Uniform, prelude::Distribution};
-use tracing::trace;
+use tracing::{debug, trace};
 use uuid::Uuid;
 
-use crate::loops;
 use crate::op::UnrealizedOp;
+use crate::loops;
+
+lazy_static! {
+    static ref GLOBAL_COUNTER: AtomicUsize = AtomicUsize::new(0);
+}
 
 #[derive(Clone)]
 pub struct Tensor {
@@ -26,21 +32,9 @@ impl Debug for Tensor {
 }
 
 impl Tensor {
-    pub fn new(unrealized_op: UnrealizedOp, data: Vec<f64>, shape: Vec<usize>) -> Tensor {
-        assert_eq!(
-            data.len(),
-            shape.iter().product::<usize>(),
-            "invalid shape for data length"
-        );
-        Tensor {
-            unrealized_op,
-            data: Some(data),
-            shape,
-        }
-    }
-
     fn from_op(unrealized_op: UnrealizedOp, shape: &[usize]) -> Tensor {
-        trace!("Creating {:?}", unrealized_op);
+        let count = GLOBAL_COUNTER.fetch_add(1, Ordering::Relaxed);
+        trace!("Creating {:?} {}", unrealized_op, count);
         Tensor {
             unrealized_op,
             data: None,
@@ -369,6 +363,8 @@ impl Tensor {
 
     pub fn realize(&mut self) {
         assert!(!loops::is_loop(self));
+        let count = GLOBAL_COUNTER.fetch_add(0, Ordering::Relaxed);
+        debug!("{}", count);
         let (data, shape) = self.unrealized_op.realize();
         self.data = Some(data);
         self.shape = shape;
@@ -528,8 +524,7 @@ impl ops::Div<Tensor> for f64 {
                 Rc::new(UnrealizedOp::Load(vec![self], vec![1], Uuid::new_v4())),
                 Rc::new(rhs.unrealized_op),
                 Uuid::new_v4(),
-            ),
-            &broadcast_shape(&[1], &rhs.shape),
+            ), &broadcast_shape(&[1], &rhs.shape),
         )
     }
 }
@@ -914,19 +909,5 @@ mod tests {
     fn looping() {
         tracing_subscriber::fmt::init();
         let mut x = Tensor::rand(vec![10, 10]);
-        for _ in 0..10 {
-            x = call(x);
-        }
-        x.realize();
-        panic!();
-    }
-
-    fn call(input: Tensor) -> Tensor {
-        let mut x = input.clone();
-        let old_x = x.clone();
-        let x_sqrt = x.sqrt();
-        x = old_x * x_sqrt.sigmoid();
-        x = x + input;
-        x
     }
 }
