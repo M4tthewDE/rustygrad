@@ -8,7 +8,7 @@ use image::DynamicImage;
 use itertools::{EitherOrBoth, Itertools};
 use lazy_static::lazy_static;
 use rand::{distributions::Uniform, prelude::Distribution};
-use tracing::trace;
+use tracing::{debug, trace};
 
 use crate::loops;
 use crate::op::UnrealizedOp;
@@ -428,7 +428,9 @@ impl Tensor {
 
     pub fn realize(&mut self) {
         assert!(!loops::is_loop(self));
+        debug!("realizing...");
         let (data, shape) = self.unrealized_op.realize();
+        debug!("realized!");
         self.data = Some(data);
         self.shape = shape;
     }
