@@ -372,8 +372,6 @@ impl Default for Efficientnet {
 
         info!("loaded model in {:?}", start.elapsed());
 
-        blocks = vec![blocks[0].clone()];
-
         Self {
             global_params,
             blocks_args,
@@ -465,10 +463,7 @@ mod tests {
     const SCALE: [f64; 3] = [0.229, 0.224, 0.225];
 
     #[test]
-    #[ignore]
     fn efficientnet() {
-        tracing_subscriber::fmt::init();
-
         let mut model = Efficientnet::default();
         let mut image = Reader::open("static/chicken.jpg".to_string())
             .unwrap()
@@ -502,6 +497,8 @@ mod tests {
             .into_iter()
             .max_by(|a, b| a.partial_cmp(b).unwrap())
             .expect("no min value found");
-        dbg!(argmax, max);
+
+        assert_eq!(argmax, 8);
+        assert_eq!(max, 8.869465815599556);
     }
 }

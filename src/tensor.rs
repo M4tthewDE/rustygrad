@@ -493,7 +493,6 @@ mod tests {
 
     #[test]
     fn addition_scalar() {
-        tracing_subscriber::fmt::init();
         let a = Tensor::from_scalar(2.0);
         let b = Tensor::from_scalar(3.0);
         let mut result = a + b;

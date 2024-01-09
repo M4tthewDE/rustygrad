@@ -1,13 +1,20 @@
 use lazy_static::lazy_static;
 use std::{
+    collections::HashMap,
     fmt::{Debug, Display},
     hash::Hash,
     rc::Rc,
-    sync::atomic::{AtomicUsize, Ordering},
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Mutex,
+    },
 };
+
+type OpCache = Mutex<HashMap<usize, (Vec<f64>, Vec<usize>)>>;
 
 lazy_static! {
     static ref OP_COUNTER: AtomicUsize = AtomicUsize::new(0);
+    static ref OP_CACHE: OpCache = Mutex::new(HashMap::new());
 }
 
 #[derive(Clone)]
@@ -24,7 +31,17 @@ impl UnrealizedOp {
     }
 
     pub fn realize(&self) -> (Vec<f64>, Vec<usize>) {
-        self.op.realize()
+        {
+            let cache = OP_CACHE.lock().unwrap();
+            if let Some(result) = cache.get(&self.id) {
+                return result.clone();
+            }
+        }
+
+        let result = self.op.realize();
+        let mut cache = OP_CACHE.lock().unwrap();
+        cache.insert(self.id, result.clone());
+        result
     }
 }
 
