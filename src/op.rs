@@ -1,107 +1,117 @@
+use lazy_static::lazy_static;
 use std::{
     fmt::{Debug, Display},
     hash::Hash,
     rc::Rc,
+    sync::atomic::{AtomicUsize, Ordering},
 };
-pub type PoolOp = fn(lhs: f64, rhs: f64) -> f64;
 
-// TODO: should there be Option in here ever?
-// default values could be inserted in tensor.rs instead
+lazy_static! {
+    static ref OP_COUNTER: AtomicUsize = AtomicUsize::new(0);
+}
+
 #[derive(Clone)]
-pub enum UnrealizedOp {
-    Add(Rc<UnrealizedOp>, Rc<UnrealizedOp>, usize),
-    Sub(Rc<UnrealizedOp>, Rc<UnrealizedOp>, usize),
-    Mul(Rc<UnrealizedOp>, Rc<UnrealizedOp>, usize),
-    Div(Rc<UnrealizedOp>, Rc<UnrealizedOp>, usize),
-    Max(Rc<UnrealizedOp>, usize),
-    Min(Rc<UnrealizedOp>, usize),
-    Sqrt(Rc<UnrealizedOp>, usize),
-    Log(Rc<UnrealizedOp>, usize),
-    Load(Vec<f64>, Vec<usize>, usize),
-    Sigmoid(Rc<UnrealizedOp>, usize),
-    Relu(Rc<UnrealizedOp>, usize),
-    Sum(Rc<UnrealizedOp>, Option<Vec<usize>>, bool, usize),
-    Pool2D(Rc<UnrealizedOp>, (usize, usize), usize, f64, PoolOp, usize),
-    Conv2D(
-        Rc<UnrealizedOp>,
-        Rc<UnrealizedOp>,
-        Option<(usize, usize)>,
-        Option<usize>,
-        usize,
-    ),
-    Pad2D(Rc<UnrealizedOp>, f64, [usize; 4], usize),
-    Reshape(Rc<UnrealizedOp>, Vec<usize>, usize),
-    Permute(Rc<UnrealizedOp>, Vec<usize>, usize),
-    Expand(Rc<UnrealizedOp>, Vec<usize>, usize),
-    MatMul(Rc<UnrealizedOp>, Rc<UnrealizedOp>, usize),
+pub struct UnrealizedOp {
+    pub id: usize,
+    pub op: Op,
 }
 
 impl UnrealizedOp {
-    pub fn get_id(&self) -> usize {
-        match self {
-            UnrealizedOp::Add(_, _, id) => *id,
-            UnrealizedOp::Sub(_, _, id) => *id,
-            UnrealizedOp::Mul(_, _, id) => *id,
-            UnrealizedOp::Div(_, _, id) => *id,
-            UnrealizedOp::Max(_, id) => *id,
-            UnrealizedOp::Min(_, id) => *id,
-            UnrealizedOp::Sqrt(_, id) => *id,
-            UnrealizedOp::Log(_, id) => *id,
-            UnrealizedOp::Load(_, _, id) => *id,
-            UnrealizedOp::Sigmoid(_, id) => *id,
-            UnrealizedOp::Relu(_, id) => *id,
-            UnrealizedOp::Sum(_, _, _, id) => *id,
-            UnrealizedOp::Pool2D(_, _, _, _, _, id) => *id,
-            UnrealizedOp::Conv2D(_, _, _, _, id) => *id,
-            UnrealizedOp::Pad2D(_, _, _, id) => *id,
-            UnrealizedOp::Reshape(_, _, id) => *id,
-            UnrealizedOp::Permute(_, _, id) => *id,
-            UnrealizedOp::Expand(_, _, id) => *id,
-            UnrealizedOp::MatMul(_, _, id) => *id,
-        }
+    pub fn new(op: Op) -> UnrealizedOp {
+        let id = OP_COUNTER.fetch_add(1, Ordering::Relaxed);
+
+        UnrealizedOp { id, op }
+    }
+
+    pub fn realize(&self) -> (Vec<f64>, Vec<usize>) {
+        self.op.realize()
+    }
+}
+
+impl Display for UnrealizedOp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {}", self.id, self.op)
+    }
+}
+
+impl Debug for UnrealizedOp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {}", self.id, self.op)
     }
 }
 
 impl Hash for UnrealizedOp {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.get_id().hash(state);
+        self.id.hash(state);
     }
 }
 impl Eq for UnrealizedOp {}
 
 impl PartialEq for UnrealizedOp {
     fn eq(&self, other: &Self) -> bool {
-        self.get_id() == other.get_id()
+        self.id == other.id
     }
 }
 
-impl Debug for UnrealizedOp {
+pub type PoolOp = fn(lhs: f64, rhs: f64) -> f64;
+
+// TODO: should there be Option in here ever?
+// default values could be inserted in tensor.rs instead
+#[derive(Clone)]
+pub enum Op {
+    Add(Rc<UnrealizedOp>, Rc<UnrealizedOp>),
+    Sub(Rc<UnrealizedOp>, Rc<UnrealizedOp>),
+    Mul(Rc<UnrealizedOp>, Rc<UnrealizedOp>),
+    Div(Rc<UnrealizedOp>, Rc<UnrealizedOp>),
+    Max(Rc<UnrealizedOp>),
+    Min(Rc<UnrealizedOp>),
+    Sqrt(Rc<UnrealizedOp>),
+    Log(Rc<UnrealizedOp>),
+    Load(Vec<f64>, Vec<usize>),
+    Sigmoid(Rc<UnrealizedOp>),
+    Relu(Rc<UnrealizedOp>),
+    Sum(Rc<UnrealizedOp>, Option<Vec<usize>>, bool),
+    Pool2D(Rc<UnrealizedOp>, (usize, usize), usize, f64, PoolOp),
+    Conv2D(
+        Rc<UnrealizedOp>,
+        Rc<UnrealizedOp>,
+        Option<(usize, usize)>,
+        Option<usize>,
+    ),
+    Pad2D(Rc<UnrealizedOp>, f64, [usize; 4]),
+    Reshape(Rc<UnrealizedOp>, Vec<usize>),
+    Permute(Rc<UnrealizedOp>, Vec<usize>),
+    Expand(Rc<UnrealizedOp>, Vec<usize>),
+    MatMul(Rc<UnrealizedOp>, Rc<UnrealizedOp>),
+}
+
+impl Debug for Op {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            UnrealizedOp::Add(_, _, id) => write!(f, "Add {id}"),
-            UnrealizedOp::Sub(_, _, id) => write!(f, "Sub {id}"),
-            UnrealizedOp::Mul(_, _, id) => write!(f, "Mul {id}"),
-            UnrealizedOp::Div(_, _, id) => write!(f, "Div {id}"),
-            UnrealizedOp::Max(_, id) => write!(f, "Max {id}"),
-            UnrealizedOp::Min(_, id) => write!(f, "Min {id}"),
-            UnrealizedOp::Sqrt(_, id) => write!(f, "Sqrt {id}"),
-            UnrealizedOp::Log(_, id) => write!(f, "Log {id}"),
-            UnrealizedOp::Load(_, _, id) => write!(f, "Load {id}"),
-            UnrealizedOp::Sigmoid(_, id) => write!(f, "Sigmoid {id}"),
-            UnrealizedOp::Relu(_, id) => write!(f, "Relu {id}"),
-            UnrealizedOp::Sum(_, _, _, id) => write!(f, "Sum {id}"),
-            UnrealizedOp::Pool2D(_, _, _, _, _, id) => write!(f, "Pool2D {id}"),
-            UnrealizedOp::Conv2D(_, _, _, _, id) => write!(f, "Conv2D {id}"),
-            UnrealizedOp::Pad2D(_, _, _, id) => write!(f, "Pad2D {id}"),
-            UnrealizedOp::Reshape(_, _, id) => write!(f, "Reshape {id}"),
-            UnrealizedOp::Permute(_, _, id) => write!(f, "Permute {id}"),
-            UnrealizedOp::Expand(_, _, id) => write!(f, "Expand {id}"),
-            UnrealizedOp::MatMul(_, _, id) => write!(f, "MatMul {id}"),
+            Op::Add(_, _) => write!(f, "Add"),
+            Op::Sub(_, _) => write!(f, "Sub"),
+            Op::Mul(_, _) => write!(f, "Mul"),
+            Op::Div(_, _) => write!(f, "Div"),
+            Op::Max(_) => write!(f, "Max"),
+            Op::Min(_) => write!(f, "Min"),
+            Op::Sqrt(_) => write!(f, "Sqrt"),
+            Op::Log(_) => write!(f, "Log"),
+            Op::Load(_, _) => write!(f, "Load"),
+            Op::Sigmoid(_) => write!(f, "Sigmoid"),
+            Op::Relu(_) => write!(f, "Relu"),
+            Op::Sum(_, _, _) => write!(f, "Sum"),
+            Op::Pool2D(_, _, _, _, _) => write!(f, "Pool2D"),
+            Op::Conv2D(_, _, _, _) => write!(f, "Conv2D"),
+            Op::Pad2D(_, _, _) => write!(f, "Pad2D"),
+            Op::Reshape(_, _) => write!(f, "Reshape"),
+            Op::Permute(_, _) => write!(f, "Permute"),
+            Op::Expand(_, _) => write!(f, "Expand"),
+            Op::MatMul(_, _) => write!(f, "MatMul"),
         }
     }
 }
 
-impl Display for UnrealizedOp {
+impl Display for Op {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self)
     }
