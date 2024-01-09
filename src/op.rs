@@ -1,5 +1,6 @@
 use std::{
     fmt::{Debug, Display},
+    hash::Hash,
     rc::Rc,
 };
 
@@ -33,6 +34,83 @@ pub enum UnrealizedOp {
     Permute(Rc<UnrealizedOp>, Vec<usize>, usize),
     Expand(Rc<UnrealizedOp>, Vec<usize>, usize),
     MatMul(Rc<UnrealizedOp>, Rc<UnrealizedOp>, usize),
+}
+
+impl Hash for UnrealizedOp {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        let id = match self {
+            UnrealizedOp::Add(_, _, id) => id,
+            UnrealizedOp::Sub(_, _, id) => id,
+            UnrealizedOp::Mul(_, _, id) => id,
+            UnrealizedOp::Div(_, _, id) => id,
+            UnrealizedOp::Max(_, id) => id,
+            UnrealizedOp::Min(_, id) => id,
+            UnrealizedOp::Sqrt(_, id) => id,
+            UnrealizedOp::Log(_, id) => id,
+            UnrealizedOp::Load(_, _, id) => id,
+            UnrealizedOp::Sigmoid(_, id) => id,
+            UnrealizedOp::Relu(_, id) => id,
+            UnrealizedOp::Sum(_, _, _, id) => id,
+            UnrealizedOp::Pool2D(_, _, _, _, _, id) => id,
+            UnrealizedOp::Conv2D(_, _, _, _, id) => id,
+            UnrealizedOp::Pad2D(_, _, _, id) => id,
+            UnrealizedOp::Reshape(_, _, id) => id,
+            UnrealizedOp::Permute(_, _, id) => id,
+            UnrealizedOp::Expand(_, _, id) => id,
+            UnrealizedOp::MatMul(_, _, id) => id,
+        };
+        id.hash(state);
+    }
+}
+impl Eq for UnrealizedOp {}
+
+impl PartialEq for UnrealizedOp {
+    fn eq(&self, other: &Self) -> bool {
+        let id = match self {
+            UnrealizedOp::Add(_, _, id) => id,
+            UnrealizedOp::Sub(_, _, id) => id,
+            UnrealizedOp::Mul(_, _, id) => id,
+            UnrealizedOp::Div(_, _, id) => id,
+            UnrealizedOp::Max(_, id) => id,
+            UnrealizedOp::Min(_, id) => id,
+            UnrealizedOp::Sqrt(_, id) => id,
+            UnrealizedOp::Log(_, id) => id,
+            UnrealizedOp::Load(_, _, id) => id,
+            UnrealizedOp::Sigmoid(_, id) => id,
+            UnrealizedOp::Relu(_, id) => id,
+            UnrealizedOp::Sum(_, _, _, id) => id,
+            UnrealizedOp::Pool2D(_, _, _, _, _, id) => id,
+            UnrealizedOp::Conv2D(_, _, _, _, id) => id,
+            UnrealizedOp::Pad2D(_, _, _, id) => id,
+            UnrealizedOp::Reshape(_, _, id) => id,
+            UnrealizedOp::Permute(_, _, id) => id,
+            UnrealizedOp::Expand(_, _, id) => id,
+            UnrealizedOp::MatMul(_, _, id) => id,
+        };
+        let other_id = match other {
+            UnrealizedOp::Add(_, _, id) => id,
+            UnrealizedOp::Sub(_, _, id) => id,
+            UnrealizedOp::Mul(_, _, id) => id,
+            UnrealizedOp::Div(_, _, id) => id,
+            UnrealizedOp::Max(_, id) => id,
+            UnrealizedOp::Min(_, id) => id,
+            UnrealizedOp::Sqrt(_, id) => id,
+            UnrealizedOp::Log(_, id) => id,
+            UnrealizedOp::Load(_, _, id) => id,
+            UnrealizedOp::Sigmoid(_, id) => id,
+            UnrealizedOp::Relu(_, id) => id,
+            UnrealizedOp::Sum(_, _, _, id) => id,
+            UnrealizedOp::Pool2D(_, _, _, _, _, id) => id,
+            UnrealizedOp::Conv2D(_, _, _, _, id) => id,
+            UnrealizedOp::Pad2D(_, _, _, id) => id,
+            UnrealizedOp::Reshape(_, _, id) => id,
+            UnrealizedOp::Permute(_, _, id) => id,
+            UnrealizedOp::Expand(_, _, id) => id,
+            UnrealizedOp::MatMul(_, _, id) => id,
+        };
+
+        id == other_id
+    }
 }
 
 impl Debug for UnrealizedOp {
