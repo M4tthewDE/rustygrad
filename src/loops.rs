@@ -1,6 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
-    fs,
+    env, fs,
     rc::Rc,
 };
 
@@ -26,7 +26,11 @@ pub fn is_loop(t: &Tensor) -> bool {
         &mut node_indeces,
     );
 
-    fs::write("graph.dot", format!("{:?}", Dot::new(&g))).unwrap();
+    debug!("done loop checking");
+    if env::var("GRAPH").is_ok() {
+        debug!("writing graph...");
+        fs::write("graph.dot", format!("{:?}", Dot::new(&g))).unwrap();
+    }
     looping
 }
 
@@ -60,11 +64,13 @@ fn is_cyclical(
         UnrealizedOp::MatMul(lhs, rhs, id) => (*id, vec![lhs, rhs]),
     };
 
-    if seen_ops.contains(&op) && parent_ops.contains(&op) {
+    debug!("{}", id);
+
+    if seen_ops.contains(op) && parent_ops.contains(op) {
         return true;
     }
 
-    if seen_ops.contains(&op) {
+    if seen_ops.contains(op) {
         return false;
     }
 
@@ -86,7 +92,7 @@ fn is_cyclical(
         }
     }
 
-    parent_ops.remove(&op);
+    parent_ops.remove(op);
 
     false
 }

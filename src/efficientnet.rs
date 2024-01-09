@@ -502,6 +502,5 @@ mod tests {
             .max_by(|a, b| a.partial_cmp(b).unwrap())
             .expect("no min value found");
         dbg!(argmax, max);
-        unimplemented!();
     }
 }
