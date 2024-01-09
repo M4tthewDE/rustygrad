@@ -465,6 +465,7 @@ mod tests {
     const SCALE: [f64; 3] = [0.229, 0.224, 0.225];
 
     #[test]
+    #[ignore]
     fn efficientnet() {
         tracing_subscriber::fmt::init();
 

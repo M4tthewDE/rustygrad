@@ -9,45 +9,37 @@ use std::{
 use itertools::{EitherOrBoth, Itertools};
 use tracing::trace;
 
-use crate::{op::UnrealizedOp, util};
+use crate::{op::Op, util};
 
 lazy_static! {
     static ref GLOBAL_COUNTER: AtomicUsize = AtomicUsize::new(0);
 }
 
-impl UnrealizedOp {
+impl Op {
     pub fn realize(&self) -> (Vec<f64>, Vec<usize>) {
         let count = GLOBAL_COUNTER.fetch_add(1, Ordering::Relaxed);
         trace!("Realizing {:?} {}", self, count);
         match self {
-            UnrealizedOp::Add(lhs, rhs, _) => {
-                broadcast_op(lhs.realize(), rhs.realize(), |x1, x2| x1 + x2)
-            }
-            UnrealizedOp::Sub(lhs, rhs, _) => {
-                broadcast_op(lhs.realize(), rhs.realize(), |x1, x2| x1 - x2)
-            }
-            UnrealizedOp::Mul(lhs, rhs, _) => {
-                broadcast_op(lhs.realize(), rhs.realize(), |x1, x2| x1 * x2)
-            }
-            UnrealizedOp::Div(lhs, rhs, _) => {
-                broadcast_op(lhs.realize(), rhs.realize(), |x1, x2| x1 / x2)
-            }
-            UnrealizedOp::Sqrt(t, _) => {
+            Op::Add(lhs, rhs) => broadcast_op(lhs.realize(), rhs.realize(), |x1, x2| x1 + x2),
+            Op::Sub(lhs, rhs) => broadcast_op(lhs.realize(), rhs.realize(), |x1, x2| x1 - x2),
+            Op::Mul(lhs, rhs) => broadcast_op(lhs.realize(), rhs.realize(), |x1, x2| x1 * x2),
+            Op::Div(lhs, rhs) => broadcast_op(lhs.realize(), rhs.realize(), |x1, x2| x1 / x2),
+            Op::Sqrt(t) => {
                 let (data, shape) = t.realize();
                 (data.iter().map(|x| x.sqrt()).collect(), shape)
             }
-            UnrealizedOp::Log(t, _) => {
+            Op::Log(t) => {
                 let (data, shape) = t.realize();
                 (data.iter().map(|x| x.log2()).collect(), shape)
             }
-            UnrealizedOp::Sigmoid(t, _) => {
+            Op::Sigmoid(t) => {
                 let (data, shape) = t.realize();
                 (
                     data.iter().map(|x| (1.0 / (1.0 + E.powf(-x)))).collect(),
                     shape,
                 )
             }
-            UnrealizedOp::Relu(t, _) => {
+            Op::Relu(t) => {
                 let (data, shape) = t.realize();
                 (
                     data.iter()
@@ -56,7 +48,7 @@ impl UnrealizedOp {
                     shape,
                 )
             }
-            UnrealizedOp::Max(t, _) => {
+            Op::Max(t) => {
                 let (data, _) = t.realize();
                 let val = data
                     .into_iter()
@@ -64,7 +56,7 @@ impl UnrealizedOp {
                     .expect("no min value found");
                 (vec![val], vec![])
             }
-            UnrealizedOp::Min(t, _) => {
+            Op::Min(t) => {
                 let (data, _) = t.realize();
                 let val = data
                     .into_iter()
@@ -72,7 +64,7 @@ impl UnrealizedOp {
                     .expect("no min value found");
                 (vec![val], vec![])
             }
-            UnrealizedOp::Sum(t, dims, keepdim, _) => {
+            Op::Sum(t, dims, keepdim) => {
                 let (data, shape) = t.realize();
                 let dims = match dims {
                     Some(dims) => dims,
@@ -123,7 +115,7 @@ impl UnrealizedOp {
 
                 (result, new_shape)
             }
-            UnrealizedOp::Pool2D(t, kernel, stride, init_val, pool_op, _) => {
+            Op::Pool2D(t, kernel, stride, init_val, pool_op) => {
                 let (data, shape) = t.realize();
                 // FIXME: remove this constraint, just reshape or something smarter
                 assert_eq!(shape.len(), 4, "only supporting 4d tensors");
@@ -162,7 +154,7 @@ impl UnrealizedOp {
                     vec![batch, channels, output_height, output_width],
                 )
             }
-            UnrealizedOp::Conv2D(t, kernel, strides, groups, _) => {
+            Op::Conv2D(t, kernel, strides, groups) => {
                 let (data, shape) = t.realize();
                 let (kernel_data, kernel_shape) = kernel.realize();
                 assert_eq!(shape.len(), 4, "only supporting 4d tensors");
@@ -229,7 +221,7 @@ impl UnrealizedOp {
 
                 (output_data, vec![n, c_out, output_height, output_width])
             }
-            UnrealizedOp::Pad2D(t, value, padding, _) => {
+            Op::Pad2D(t, value, padding) => {
                 let (data, shape) = t.realize();
                 if shape.len() < 2 {
                     panic!("Tensor must have at least 2 dimensions for 2D padding.");
@@ -272,11 +264,11 @@ impl UnrealizedOp {
 
                 (new_data, new_shape)
             }
-            UnrealizedOp::Reshape(t, shape, _) => {
+            Op::Reshape(t, shape) => {
                 let (data, _) = t.realize();
                 (data, shape.to_owned())
             }
-            UnrealizedOp::Permute(t, dims, _) => {
+            Op::Permute(t, dims) => {
                 let (data, shape) = t.realize();
                 let new_shape: Vec<usize> = dims.iter().map(|&d| shape[d]).collect();
                 let mut new_data = vec![0.0; data.len()];
@@ -311,7 +303,7 @@ impl UnrealizedOp {
 
                 (new_data, new_shape)
             }
-            UnrealizedOp::Expand(t, new_shape, _) => {
+            Op::Expand(t, new_shape) => {
                 let (data, shape) = t.realize();
                 assert_eq!(
                     shape.len(),
@@ -352,7 +344,7 @@ impl UnrealizedOp {
 
                 (new_data, new_shape.to_owned())
             }
-            UnrealizedOp::MatMul(lhs, rhs, _) => {
+            Op::MatMul(lhs, rhs) => {
                 let (lhs_data, lhs_shape) = lhs.realize();
                 let (rhs_data, rhs_shape) = rhs.realize();
                 assert!(
@@ -371,7 +363,7 @@ impl UnrealizedOp {
 
                 (result, vec![lhs_shape[0], rhs_shape[1]])
             }
-            UnrealizedOp::Load(data, shape, _) => (data.clone(), shape.clone()),
+            Op::Load(data, shape) => (data.clone(), shape.clone()),
         }
     }
 }

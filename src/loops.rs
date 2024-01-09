@@ -7,7 +7,10 @@ use std::{
 use petgraph::{dot::Dot, stable_graph::NodeIndex, Graph};
 use tracing::{debug, trace};
 
-use crate::{op::UnrealizedOp, tensor::Tensor};
+use crate::{
+    op::{Op, UnrealizedOp},
+    tensor::Tensor,
+};
 
 pub fn is_loop(t: &Tensor) -> bool {
     trace!("Checking tensor for loops...");
@@ -37,45 +40,43 @@ pub fn is_loop(t: &Tensor) -> bool {
 fn is_cyclical(
     seen_ops: &mut HashSet<UnrealizedOp>,
     parent_ops: &mut HashSet<UnrealizedOp>,
-    op: &UnrealizedOp,
+    unrealized_op: &UnrealizedOp,
     g: &mut Graph<Rc<UnrealizedOp>, ()>,
     node_index: NodeIndex,
     node_indeces: &mut HashMap<UnrealizedOp, NodeIndex>,
 ) -> bool {
-    let (id, children) = match op {
-        UnrealizedOp::Add(lhs, rhs, id) => (*id, vec![lhs, rhs]),
-        UnrealizedOp::Sub(lhs, rhs, id) => (*id, vec![lhs, rhs]),
-        UnrealizedOp::Mul(lhs, rhs, id) => (*id, vec![lhs, rhs]),
-        UnrealizedOp::Div(lhs, rhs, id) => (*id, vec![lhs, rhs]),
-        UnrealizedOp::Max(t, id) => (*id, vec![t]),
-        UnrealizedOp::Min(t, id) => (*id, vec![t]),
-        UnrealizedOp::Sqrt(t, id) => (*id, vec![t]),
-        UnrealizedOp::Log(t, id) => (*id, vec![t]),
-        UnrealizedOp::Load(_, _, id) => (*id, vec![]),
-        UnrealizedOp::Sigmoid(t, id) => (*id, vec![t]),
-        UnrealizedOp::Relu(t, id) => (*id, vec![t]),
-        UnrealizedOp::Sum(t, _, _, id) => (*id, vec![t]),
-        UnrealizedOp::Pool2D(t, _, _, _, _, id) => (*id, vec![t]),
-        UnrealizedOp::Conv2D(t, kernel, _, _, id) => (*id, vec![t, kernel]),
-        UnrealizedOp::Pad2D(t, _, _, id) => (*id, vec![t]),
-        UnrealizedOp::Reshape(t, _, id) => (*id, vec![t]),
-        UnrealizedOp::Permute(t, _, id) => (*id, vec![t]),
-        UnrealizedOp::Expand(t, _, id) => (*id, vec![t]),
-        UnrealizedOp::MatMul(lhs, rhs, id) => (*id, vec![lhs, rhs]),
+    let children = match &unrealized_op.op {
+        Op::Add(lhs, rhs) => vec![lhs, rhs],
+        Op::Sub(lhs, rhs) => vec![lhs, rhs],
+        Op::Mul(lhs, rhs) => vec![lhs, rhs],
+        Op::Div(lhs, rhs) => vec![lhs, rhs],
+        Op::Max(t) => vec![t],
+        Op::Min(t) => vec![t],
+        Op::Sqrt(t) => vec![t],
+        Op::Log(t) => vec![t],
+        Op::Load(_, _) => vec![],
+        Op::Sigmoid(t) => vec![t],
+        Op::Relu(t) => vec![t],
+        Op::Sum(t, _, _) => vec![t],
+        Op::Pool2D(t, _, _, _, _) => vec![t],
+        Op::Conv2D(t, kernel, _, _) => vec![t, kernel],
+        Op::Pad2D(t, _, _) => vec![t],
+        Op::Reshape(t, _) => vec![t],
+        Op::Permute(t, _) => vec![t],
+        Op::Expand(t, _) => vec![t],
+        Op::MatMul(lhs, rhs) => vec![lhs, rhs],
     };
 
-    debug!("{}", id);
-
-    if seen_ops.contains(op) && parent_ops.contains(op) {
+    if seen_ops.contains(unrealized_op) && parent_ops.contains(unrealized_op) {
         return true;
     }
 
-    if seen_ops.contains(op) {
+    if seen_ops.contains(unrealized_op) {
         return false;
     }
 
-    seen_ops.insert(op.clone());
-    parent_ops.insert(op.clone());
+    seen_ops.insert(unrealized_op.clone());
+    parent_ops.insert(unrealized_op.clone());
 
     for child in children {
         if let Some(i) = node_indeces.get(child) {
@@ -84,15 +85,15 @@ fn is_cyclical(
         }
 
         let child_index = g.add_node(child.clone().to_owned());
-        node_indeces.insert(op.clone(), child_index);
+        node_indeces.insert(unrealized_op.clone(), child_index);
         g.add_edge(node_index, child_index, ());
         if is_cyclical(seen_ops, parent_ops, child, g, child_index, node_indeces) {
-            debug!("{:?}, {}", child, id);
+            debug!("{:?}, {}", child, unrealized_op.id);
             return true;
         }
     }
 
-    parent_ops.remove(op);
+    parent_ops.remove(unrealized_op);
 
     false
 }
