@@ -277,7 +277,6 @@ impl UnrealizedOp {
                 (data, shape.to_owned())
             }
             UnrealizedOp::Permute(t, dims, _) => {
-                dbg!(&dims);
                 let (data, shape) = t.realize();
                 let new_shape: Vec<usize> = dims.iter().map(|&d| shape[d]).collect();
                 let mut new_data = vec![0.0; data.len()];
