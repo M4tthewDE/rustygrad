@@ -72,8 +72,6 @@ impl PartialEq for UnrealizedOp {
 
 pub type PoolOp = fn(lhs: f64, rhs: f64) -> f64;
 
-// TODO: should there be Option in here ever?
-// default values could be inserted in tensor.rs instead
 #[derive(Clone)]
 pub enum Op {
     Add(Rc<UnrealizedOp>, Rc<UnrealizedOp>),
@@ -89,12 +87,7 @@ pub enum Op {
     Relu(Rc<UnrealizedOp>),
     Sum(Rc<UnrealizedOp>, Vec<usize>, bool),
     Pool2D(Rc<UnrealizedOp>, (usize, usize), usize, f64, PoolOp),
-    Conv2D(
-        Rc<UnrealizedOp>,
-        Rc<UnrealizedOp>,
-        Option<(usize, usize)>,
-        Option<usize>,
-    ),
+    Conv2D(Rc<UnrealizedOp>, Rc<UnrealizedOp>, (usize, usize), usize),
     Pad2D(Rc<UnrealizedOp>, f64, [usize; 4]),
     Reshape(Rc<UnrealizedOp>, Vec<usize>),
     Permute(Rc<UnrealizedOp>, Vec<usize>),

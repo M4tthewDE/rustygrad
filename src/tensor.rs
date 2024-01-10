@@ -204,8 +204,8 @@ impl Tensor {
             Op::Conv2D(
                 Rc::new(x.unrealized_op),
                 Rc::new(kernel.unrealized_op),
-                strides,
-                groups,
+                strides.unwrap_or((1, 1)),
+                groups.unwrap_or(1),
             ),
             &[
                 x.shape[0],

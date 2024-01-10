@@ -156,7 +156,6 @@ impl Op {
                 assert_eq!(shape.len(), 4, "only supporting 4d tensors");
                 assert_eq!(kernel_shape.len(), 4, "only supporting 4d kernels");
 
-                let groups = groups.unwrap_or(1);
                 assert_eq!(
                     shape[1] % groups,
                     0,
@@ -167,8 +166,6 @@ impl Op {
                     0,
                     "output channels must be divisible by groups"
                 );
-
-                let strides = strides.unwrap_or((1, 1));
 
                 let (n, c_in, height, width) = (shape[0], shape[1], shape[2], shape[3]);
                 let (c_out, kernel_height, kernel_width) =
@@ -182,7 +179,7 @@ impl Op {
 
                 let mut output_data = Vec::new();
                 for n_index in 0..n {
-                    for g in 0..groups {
+                    for g in 0..*groups {
                         for c_out_index in (g * c_out_per_group)..((g + 1) * c_out_per_group) {
                             for i in 0..output_height {
                                 for j in 0..output_width {
