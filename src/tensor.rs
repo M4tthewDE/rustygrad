@@ -6,6 +6,7 @@ use std::{cmp, env, ops};
 use image::DynamicImage;
 use itertools::{EitherOrBoth, Itertools};
 use rand::{distributions::Uniform, prelude::Distribution};
+use tracing::debug;
 
 use crate::graph;
 use crate::op::{Op, UnrealizedOp};
@@ -298,6 +299,7 @@ impl Tensor {
             graph::build_graph(self);
         }
 
+        debug!("realizing tensor");
         let (data, shape) = self.unrealized_op.realize();
         self.data = Some(data);
         self.shape = shape;

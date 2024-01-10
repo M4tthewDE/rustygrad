@@ -13,7 +13,7 @@ use crate::{
 };
 
 pub fn build_graph(t: &Tensor) {
-    debug!("Building graph...");
+    debug!("building graph");
 
     let mut seen_ops: HashSet<UnrealizedOp> = HashSet::new();
     let mut node_indeces: HashMap<UnrealizedOp, NodeIndex> = HashMap::new();
@@ -27,7 +27,7 @@ pub fn build_graph(t: &Tensor) {
         &mut node_indeces,
     );
 
-    debug!("writing graph...");
+    debug!("writing graph");
     fs::write("graph.dot", format!("{:?}", Dot::new(&g))).unwrap();
 }
 
