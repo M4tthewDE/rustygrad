@@ -66,10 +66,6 @@ impl Op {
             }
             Op::Sum(t, dims, keepdim) => {
                 let (data, shape) = t.realize();
-                let dims = match dims {
-                    Some(dims) => dims,
-                    None => return (vec![data.iter().sum()], vec![]),
-                };
 
                 let mut reduced_shape = shape.clone();
                 for (i, dim) in dims.iter().enumerate() {

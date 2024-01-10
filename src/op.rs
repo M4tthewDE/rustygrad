@@ -87,7 +87,7 @@ pub enum Op {
     Load(Vec<f64>, Vec<usize>),
     Sigmoid(Rc<UnrealizedOp>),
     Relu(Rc<UnrealizedOp>),
-    Sum(Rc<UnrealizedOp>, Option<Vec<usize>>, bool),
+    Sum(Rc<UnrealizedOp>, Vec<usize>, bool),
     Pool2D(Rc<UnrealizedOp>, (usize, usize), usize, f64, PoolOp),
     Conv2D(
         Rc<UnrealizedOp>,

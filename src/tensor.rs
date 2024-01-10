@@ -124,29 +124,23 @@ impl Tensor {
         Tensor::from_op(Op::Relu(Rc::new(self.unrealized_op)), &self.shape)
     }
 
-    pub fn reduce_sum(self, dims: Option<&Vec<usize>>, keepdim: bool) -> Tensor {
-        let shape = if let Some(dims) = dims {
-            if keepdim {
-                self.shape
-                    .iter()
-                    .enumerate()
-                    .map(|(i, &d)| if dims.contains(&i) { 1 } else { d })
-                    .collect()
-            } else {
-                let mut reduced_shape = self.shape.clone();
-                for (i, dim) in dims.iter().enumerate() {
-                    reduced_shape.remove(*dim - i);
-                }
-
-                reduced_shape
-            }
-        } else {
+    pub fn reduce_sum(self, dims: Option<Vec<usize>>, keepdim: bool) -> Tensor {
+        let dims = dims.unwrap_or((0..self.shape.len()).collect());
+        let shape = if keepdim {
             self.shape
+                .iter()
+                .enumerate()
+                .map(|(i, &d)| if dims.contains(&i) { 1 } else { d })
+                .collect()
+        } else {
+            let mut reduced_shape = self.shape.clone();
+            for (i, dim) in dims.iter().enumerate() {
+                reduced_shape.remove(*dim - i);
+            }
+
+            reduced_shape
         };
-        Tensor::from_op(
-            Op::Sum(Rc::new(self.unrealized_op), dims.cloned(), keepdim),
-            &shape,
-        )
+        Tensor::from_op(Op::Sum(Rc::new(self.unrealized_op), dims, keepdim), &shape)
     }
 
     pub fn avg_pool_2d(self, kernel: (usize, usize), stride: Option<usize>) -> Tensor {
@@ -653,10 +647,23 @@ mod tests {
     }
 
     #[test]
+    fn reduce_sum_default_dims() {
+        let input = Tensor::rand(vec![2, 4, 3, 3]);
+        let tch_input = input.to_tch();
+        let mut sum = input.reduce_sum(None, false);
+        sum.realize();
+        let tch_sum = tch_input.sum(None);
+        let tch_shape = util::tch_shape(&tch_sum);
+        let tch_output = util::tch_data(&tch_sum);
+        assert_eq!(sum.shape, tch_shape);
+        util::assert_aprox_eq_vec(sum.data.unwrap(), tch_output, 1e-6);
+    }
+
+    #[test]
     fn reduce_sum() {
         let input = Tensor::rand(vec![2, 4, 3, 3]);
         let tch_input = input.to_tch();
-        let mut sum = input.reduce_sum(Some(&vec![0, 2, 3]), false);
+        let mut sum = input.reduce_sum(Some(vec![0, 2, 3]), false);
         sum.realize();
         let tch_sum = tch_input.sum_dim_intlist(vec![0, 2, 3], false, None);
         let tch_shape = util::tch_shape(&tch_sum);
