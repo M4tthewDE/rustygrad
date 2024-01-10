@@ -1,14 +1,13 @@
 use std::fmt::Debug;
 use std::iter::zip;
 use std::rc::Rc;
-use std::{cmp, ops};
+use std::{cmp, env, ops};
 
 use image::DynamicImage;
 use itertools::{EitherOrBoth, Itertools};
 use rand::{distributions::Uniform, prelude::Distribution};
-use tracing::debug;
 
-use crate::loops;
+use crate::graph;
 use crate::op::{Op, UnrealizedOp};
 
 #[derive(Clone)]
@@ -295,10 +294,11 @@ impl Tensor {
     }
 
     pub fn realize(&mut self) {
-        assert!(!loops::is_loop(self));
-        debug!("realizing...");
+        if env::var("GRAPH").is_ok() {
+            graph::build_graph(self);
+        }
+
         let (data, shape) = self.unrealized_op.realize();
-        debug!("realized!");
         self.data = Some(data);
         self.shape = shape;
     }

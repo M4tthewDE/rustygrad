@@ -1,26 +1,26 @@
 use std::{
     collections::{HashMap, HashSet},
-    env, fs,
+    fs,
     rc::Rc,
 };
 
 use petgraph::{dot::Dot, stable_graph::NodeIndex, Graph};
-use tracing::{debug, trace};
+use tracing::debug;
 
 use crate::{
     op::{Op, UnrealizedOp},
     tensor::Tensor,
 };
 
-pub fn is_loop(t: &Tensor) -> bool {
-    trace!("Checking tensor for loops...");
+pub fn build_graph(t: &Tensor) {
+    debug!("Building graph...");
 
     let mut seen_ops: HashSet<UnrealizedOp> = HashSet::new();
     let mut parent_ops: HashSet<UnrealizedOp> = HashSet::new();
     let mut node_indeces: HashMap<UnrealizedOp, NodeIndex> = HashMap::new();
     let mut g = Graph::<Rc<UnrealizedOp>, ()>::new();
     let node_index = g.add_node(Rc::new(t.unrealized_op.clone()));
-    let looping = is_cyclical(
+    graph_op(
         &mut seen_ops,
         &mut parent_ops,
         &t.unrealized_op,
@@ -29,22 +29,18 @@ pub fn is_loop(t: &Tensor) -> bool {
         &mut node_indeces,
     );
 
-    debug!("done loop checking");
-    if env::var("GRAPH").is_ok() {
-        debug!("writing graph...");
-        fs::write("graph.dot", format!("{:?}", Dot::new(&g))).unwrap();
-    }
-    looping
+    debug!("writing graph...");
+    fs::write("graph.dot", format!("{:?}", Dot::new(&g))).unwrap();
 }
 
-fn is_cyclical(
+fn graph_op(
     seen_ops: &mut HashSet<UnrealizedOp>,
     parent_ops: &mut HashSet<UnrealizedOp>,
     unrealized_op: &UnrealizedOp,
     g: &mut Graph<Rc<UnrealizedOp>, ()>,
     node_index: NodeIndex,
     node_indeces: &mut HashMap<UnrealizedOp, NodeIndex>,
-) -> bool {
+) {
     let children = match &unrealized_op.op {
         Op::Add(lhs, rhs) => vec![lhs, rhs],
         Op::Sub(lhs, rhs) => vec![lhs, rhs],
@@ -68,11 +64,11 @@ fn is_cyclical(
     };
 
     if seen_ops.contains(unrealized_op) && parent_ops.contains(unrealized_op) {
-        return true;
+        return;
     }
 
     if seen_ops.contains(unrealized_op) {
-        return false;
+        return;
     }
 
     seen_ops.insert(unrealized_op.clone());
@@ -87,13 +83,8 @@ fn is_cyclical(
         let child_index = g.add_node(child.clone().to_owned());
         node_indeces.insert(unrealized_op.clone(), child_index);
         g.add_edge(node_index, child_index, ());
-        if is_cyclical(seen_ops, parent_ops, child, g, child_index, node_indeces) {
-            debug!("{:?}, {}", child, unrealized_op.id);
-            return true;
-        }
+        graph_op(seen_ops, parent_ops, child, g, child_index, node_indeces);
     }
 
     parent_ops.remove(unrealized_op);
-
-    false
 }
