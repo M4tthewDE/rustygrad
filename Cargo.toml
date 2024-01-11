@@ -21,3 +21,4 @@ tracing-subscriber = "0.3.18"
 tch = { version = "0.14.0", features = ["download-libtorch"] }
 lazy_static = "1.4.0"
 petgraph = "0.6.4"
+stacker = "0.1.15"

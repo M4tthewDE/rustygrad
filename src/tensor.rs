@@ -303,12 +303,14 @@ impl Tensor {
 impl ops::Add<f64> for Tensor {
     type Output = Tensor;
     fn add(self, rhs: f64) -> Self::Output {
+        let (l, r, output_shape) = broadcast_shapes(&self.shape, &[1]);
+        let lhs = self.reshape(l).expand(output_shape.clone());
+        let rhs = Tensor::from_scalar(rhs)
+            .reshape(r)
+            .expand(output_shape.clone());
         Tensor::from_op(
-            Op::Add(
-                Rc::new(self.unrealized_op),
-                Rc::new(UnrealizedOp::new(Op::Load(vec![rhs], vec![1]))),
-            ),
-            &broadcast_shape(&self.shape, &[1]),
+            Op::Add(Rc::new(lhs.unrealized_op), Rc::new(rhs.unrealized_op)),
+            &output_shape,
         )
     }
 }
@@ -316,12 +318,14 @@ impl ops::Add<f64> for Tensor {
 impl ops::Add<Tensor> for f64 {
     type Output = Tensor;
     fn add(self, rhs: Tensor) -> Self::Output {
+        let (l, r, output_shape) = broadcast_shapes(&[1], &rhs.shape);
+        let lhs = Tensor::from_scalar(self)
+            .reshape(l)
+            .expand(output_shape.clone());
+        let rhs = rhs.reshape(r).expand(output_shape.clone());
         Tensor::from_op(
-            Op::Add(
-                Rc::new(UnrealizedOp::new(Op::Load(vec![self], vec![1]))),
-                Rc::new(rhs.unrealized_op),
-            ),
-            &broadcast_shape(&[1], &rhs.shape),
+            Op::Add(Rc::new(lhs.unrealized_op), Rc::new(rhs.unrealized_op)),
+            &output_shape,
         )
     }
 }
@@ -329,9 +333,13 @@ impl ops::Add<Tensor> for f64 {
 impl ops::Add<Tensor> for Tensor {
     type Output = Tensor;
     fn add(self, rhs: Tensor) -> Self::Output {
+        let (l, r, output_shape) = broadcast_shapes(&self.shape, &rhs.shape);
+        let lhs = self.reshape(l).expand(output_shape.clone());
+        let rhs = rhs.reshape(r).expand(output_shape.clone());
+
         Tensor::from_op(
-            Op::Add(Rc::new(self.unrealized_op), Rc::new(rhs.unrealized_op)),
-            &broadcast_shape(&self.shape, &rhs.shape),
+            Op::Add(Rc::new(lhs.unrealized_op), Rc::new(rhs.unrealized_op)),
+            &output_shape,
         )
     }
 }
@@ -340,12 +348,14 @@ impl ops::Sub<f64> for Tensor {
     type Output = Tensor;
 
     fn sub(self, rhs: f64) -> Self::Output {
+        let (l, r, output_shape) = broadcast_shapes(&self.shape, &[1]);
+        let lhs = self.reshape(l).expand(output_shape.clone());
+        let rhs = Tensor::from_scalar(rhs)
+            .reshape(r)
+            .expand(output_shape.clone());
         Tensor::from_op(
-            Op::Sub(
-                Rc::new(self.unrealized_op),
-                Rc::new(UnrealizedOp::new(Op::Load(vec![rhs], vec![1]))),
-            ),
-            &broadcast_shape(&self.shape, &[1]),
+            Op::Sub(Rc::new(lhs.unrealized_op), Rc::new(rhs.unrealized_op)),
+            &output_shape,
         )
     }
 }
@@ -353,12 +363,14 @@ impl ops::Sub<f64> for Tensor {
 impl ops::Sub<Tensor> for f64 {
     type Output = Tensor;
     fn sub(self, rhs: Tensor) -> Self::Output {
+        let (l, r, output_shape) = broadcast_shapes(&[1], &rhs.shape);
+        let lhs = Tensor::from_scalar(self)
+            .reshape(l)
+            .expand(output_shape.clone());
+        let rhs = rhs.reshape(r).expand(output_shape.clone());
         Tensor::from_op(
-            Op::Sub(
-                Rc::new(UnrealizedOp::new(Op::Load(vec![self], vec![1]))),
-                Rc::new(rhs.unrealized_op),
-            ),
-            &broadcast_shape(&[1], &rhs.shape),
+            Op::Sub(Rc::new(lhs.unrealized_op), Rc::new(rhs.unrealized_op)),
+            &output_shape,
         )
     }
 }
@@ -367,9 +379,13 @@ impl ops::Sub<Tensor> for Tensor {
     type Output = Tensor;
 
     fn sub(self, rhs: Tensor) -> Self::Output {
+        let (l, r, output_shape) = broadcast_shapes(&self.shape, &rhs.shape);
+        let lhs = self.reshape(l).expand(output_shape.clone());
+        let rhs = rhs.reshape(r).expand(output_shape.clone());
+
         Tensor::from_op(
-            Op::Sub(Rc::new(self.unrealized_op), Rc::new(rhs.unrealized_op)),
-            &broadcast_shape(&self.shape, &rhs.shape),
+            Op::Sub(Rc::new(lhs.unrealized_op), Rc::new(rhs.unrealized_op)),
+            &output_shape,
         )
     }
 }
@@ -378,12 +394,14 @@ impl ops::Mul<f64> for Tensor {
     type Output = Tensor;
 
     fn mul(self, rhs: f64) -> Self::Output {
+        let (l, r, output_shape) = broadcast_shapes(&self.shape, &[1]);
+        let lhs = self.reshape(l).expand(output_shape.clone());
+        let rhs = Tensor::from_scalar(rhs)
+            .reshape(r)
+            .expand(output_shape.clone());
         Tensor::from_op(
-            Op::Mul(
-                Rc::new(self.unrealized_op),
-                Rc::new(UnrealizedOp::new(Op::Load(vec![rhs], vec![1]))),
-            ),
-            &broadcast_shape(&self.shape, &[1]),
+            Op::Mul(Rc::new(lhs.unrealized_op), Rc::new(rhs.unrealized_op)),
+            &output_shape,
         )
     }
 }
@@ -391,12 +409,14 @@ impl ops::Mul<f64> for Tensor {
 impl ops::Mul<Tensor> for f64 {
     type Output = Tensor;
     fn mul(self, rhs: Tensor) -> Self::Output {
+        let (l, r, output_shape) = broadcast_shapes(&[1], &rhs.shape);
+        let lhs = Tensor::from_scalar(self)
+            .reshape(l)
+            .expand(output_shape.clone());
+        let rhs = rhs.reshape(r).expand(output_shape.clone());
         Tensor::from_op(
-            Op::Mul(
-                Rc::new(UnrealizedOp::new(Op::Load(vec![self], vec![1]))),
-                Rc::new(rhs.unrealized_op),
-            ),
-            &broadcast_shape(&[1], &rhs.shape),
+            Op::Mul(Rc::new(lhs.unrealized_op), Rc::new(rhs.unrealized_op)),
+            &output_shape,
         )
     }
 }
@@ -405,9 +425,13 @@ impl ops::Mul<Tensor> for Tensor {
     type Output = Tensor;
 
     fn mul(self, rhs: Tensor) -> Self::Output {
+        let (l, r, output_shape) = broadcast_shapes(&self.shape, &rhs.shape);
+        let lhs = self.reshape(l).expand(output_shape.clone());
+        let rhs = rhs.reshape(r).expand(output_shape.clone());
+
         Tensor::from_op(
-            Op::Mul(Rc::new(self.unrealized_op), Rc::new(rhs.unrealized_op)),
-            &broadcast_shape(&self.shape, &rhs.shape),
+            Op::Mul(Rc::new(lhs.unrealized_op), Rc::new(rhs.unrealized_op)),
+            &output_shape,
         )
     }
 }
@@ -416,12 +440,14 @@ impl ops::Div<f64> for Tensor {
     type Output = Tensor;
 
     fn div(self, rhs: f64) -> Self::Output {
+        let (l, r, output_shape) = broadcast_shapes(&self.shape, &[1]);
+        let lhs = self.reshape(l).expand(output_shape.clone());
+        let rhs = Tensor::from_scalar(rhs)
+            .reshape(r)
+            .expand(output_shape.clone());
         Tensor::from_op(
-            Op::Div(
-                Rc::new(self.unrealized_op),
-                Rc::new(UnrealizedOp::new(Op::Load(vec![rhs], vec![1]))),
-            ),
-            &broadcast_shape(&self.shape, &[1]),
+            Op::Div(Rc::new(lhs.unrealized_op), Rc::new(rhs.unrealized_op)),
+            &output_shape,
         )
     }
 }
@@ -429,12 +455,14 @@ impl ops::Div<f64> for Tensor {
 impl ops::Div<Tensor> for f64 {
     type Output = Tensor;
     fn div(self, rhs: Tensor) -> Self::Output {
+        let (l, r, output_shape) = broadcast_shapes(&[1], &rhs.shape);
+        let lhs = Tensor::from_scalar(self)
+            .reshape(l)
+            .expand(output_shape.clone());
+        let rhs = rhs.reshape(r).expand(output_shape.clone());
         Tensor::from_op(
-            Op::Div(
-                Rc::new(UnrealizedOp::new(Op::Load(vec![self], vec![1]))),
-                Rc::new(rhs.unrealized_op),
-            ),
-            &broadcast_shape(&[1], &rhs.shape),
+            Op::Div(Rc::new(lhs.unrealized_op), Rc::new(rhs.unrealized_op)),
+            &output_shape,
         )
     }
 }
@@ -443,14 +471,21 @@ impl ops::Div<Tensor> for Tensor {
     type Output = Tensor;
 
     fn div(self, rhs: Tensor) -> Self::Output {
+        let (l, r, output_shape) = broadcast_shapes(&self.shape, &rhs.shape);
+        let lhs = self.reshape(l).expand(output_shape.clone());
+        let rhs = rhs.reshape(r).expand(output_shape.clone());
+
         Tensor::from_op(
-            Op::Div(Rc::new(self.unrealized_op), Rc::new(rhs.unrealized_op)),
-            &broadcast_shape(&self.shape, &rhs.shape),
+            Op::Div(Rc::new(lhs.unrealized_op), Rc::new(rhs.unrealized_op)),
+            &output_shape,
         )
     }
 }
 
-fn broadcast_shape(lhs_shape: &[usize], rhs_shape: &[usize]) -> Vec<usize> {
+fn broadcast_shapes(
+    lhs_shape: &[usize],
+    rhs_shape: &[usize],
+) -> (Vec<usize>, Vec<usize>, Vec<usize>) {
     let mut lhs_shape = lhs_shape.to_owned();
     let mut rhs_shape = rhs_shape.to_owned();
     let broadcastable = lhs_shape
@@ -476,11 +511,11 @@ fn broadcast_shape(lhs_shape: &[usize], rhs_shape: &[usize]) -> Vec<usize> {
         lhs_shape.insert(0, 1);
     }
 
-    let output_shape: Vec<usize> = zip(lhs_shape, rhs_shape)
+    let output_shape: Vec<usize> = zip(lhs_shape.clone(), rhs_shape.clone())
         .map(|(d1, d2)| cmp::max(d1, d2))
         .collect();
 
-    output_shape
+    (lhs_shape, rhs_shape, output_shape)
 }
 
 #[cfg(test)]
@@ -523,6 +558,40 @@ mod tests {
         result.realize();
 
         assert_eq!(result.data.unwrap(), vec![7.0, 8.0]);
+    }
+
+    #[test]
+    fn addition_broadcasting() {
+        let a = Tensor::rand(vec![5, 2, 3]);
+        let a_tch = a.to_tch();
+        let b = Tensor::rand(vec![5, 2, 1]);
+        let b_tch = b.to_tch();
+
+        let mut result = a + b;
+        result.realize();
+        let tch_result = a_tch + b_tch;
+        let tch_output = util::tch_data(&tch_result);
+        let tch_shape = util::tch_shape(&tch_result);
+
+        assert_eq!(result.data.unwrap(), tch_output);
+        assert_eq!(result.shape, tch_shape);
+    }
+
+    #[test]
+    fn addition_broadcasting_add_dim() {
+        let a = Tensor::rand(vec![5, 2, 3]);
+        let a_tch = a.to_tch();
+        let b = Tensor::rand(vec![2, 3]);
+        let b_tch = b.to_tch();
+
+        let mut result = a + b;
+        result.realize();
+        let tch_result = a_tch + b_tch;
+        let tch_output = util::tch_data(&tch_result);
+        let tch_shape = util::tch_shape(&tch_result);
+
+        assert_eq!(result.data.unwrap(), tch_output);
+        assert_eq!(result.shape, tch_shape);
     }
 
     #[test]

@@ -37,11 +37,13 @@ impl UnrealizedOp {
                 return result.clone();
             }
         }
-
-        let result = self.op.realize();
-        let mut cache = OP_CACHE.lock().unwrap();
-        cache.insert(self.id, result.clone());
-        result
+        stacker::maybe_grow(32 * 1024, 1024 * 1024, || {
+            // guaranteed to have at least 32K of stack
+            let result = self.op.realize();
+            let mut cache = OP_CACHE.lock().unwrap();
+            cache.insert(self.id, result.clone());
+            result
+        })
     }
 }
 
