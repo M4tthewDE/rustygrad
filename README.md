@@ -10,4 +10,4 @@ Build using local pytorch
 
 Run efficientnet
 
-`LD_LIBRARY_PATH=/home/matti/Programming/rustygrad/.venv/lib/python3.11/site-packages/torch/lib perf record  ./target/release/examples/efficientnet static/chicken.jpg`
+`LD_LIBRARY_PATH=/path/to/python/venv/lib/python3.11/site-packages/torch/lib perf record  ./target/release/examples/efficientnet static/chicken.jpg`
