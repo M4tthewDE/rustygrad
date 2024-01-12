@@ -1,15 +1,13 @@
 // https://github.com/lukemelas/EfficientNet-PyTorch/blob/master/efficientnet_pytorch/model.py
 // https://github.com/tinygrad/tinygrad/blob/master/extra/models/efficientnet.py
 
+use crate::nn::batch_norm::BatchNorm2d;
+use crate::nn::batch_norm::BatchNorm2dBuilder;
 use std::time::Instant;
 
 use tracing::info;
 
-use crate::{
-    batch_norm::{BatchNorm2d, BatchNorm2dBuilder},
-    tensor::Tensor,
-    util,
-};
+use crate::{tensor::Tensor, util};
 
 pub static MODEL_URLS: [&str; 8] = [
     "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b0-355c32eb.pth", 
