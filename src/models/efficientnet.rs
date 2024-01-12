@@ -455,7 +455,7 @@ fn round_repeats(repeats: usize, depth_coefficient: f64) -> usize {
 mod tests {
     use image::{imageops::FilterType, io::Reader};
 
-    use crate::{efficientnet::Efficientnet, tensor::Tensor, util};
+    use crate::{models::efficientnet::Efficientnet, tensor::Tensor, util};
 
     const BIAS: [f64; 3] = [0.485, 0.456, 0.406];
     const SCALE: [f64; 3] = [0.229, 0.224, 0.225];

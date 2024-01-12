@@ -77,7 +77,7 @@ impl BatchNorm2dBuilder {
 #[cfg(test)]
 mod tests {
 
-    use crate::{batch_norm::BatchNorm2dBuilder, tensor::Tensor, util};
+    use crate::{nn::batch_norm::BatchNorm2dBuilder, tensor::Tensor, util};
 
     #[test]
     fn test_batchnorm2d_no_training() {
