@@ -346,38 +346,34 @@ impl Op {
         assert_eq!(
             shape.len(),
             new_shape.len(),
-            "Only supporting same size shapes for now"
+            "Only supporting same size shapes"
         );
         for (old, new) in shape.iter().zip(new_shape.clone()) {
             assert!(
                 *old == new || *old == 1,
-                "The old dimension must be either 1 or the same as the new dimension"
+                "Old dimension must be either 1 or identical to new dimension"
             );
         }
 
         let total_elements = new_shape.iter().product::<usize>();
         let mut new_data = Vec::with_capacity(total_elements);
 
-        for index in 0..total_elements {
-            let mut temp_index = index;
+        for i in 0..total_elements {
+            let mut i = i;
             let mut old_indices = Vec::with_capacity(shape.len());
 
             for (&size_new, &size_old) in new_shape.iter().zip(&shape).rev() {
-                old_indices.push(if size_old == 1 {
-                    0
-                } else {
-                    temp_index % size_old
-                });
-                temp_index /= size_new;
+                old_indices.push(if size_old == 1 { 0 } else { i % size_old });
+                i /= size_new;
             }
             old_indices.reverse();
 
-            let old_index = old_indices
-                .iter()
-                .zip(shape.iter())
-                .fold(0, |acc, (&i, &dim)| acc * dim + i);
-
-            new_data.push(data[old_index]);
+            new_data.push(
+                data[old_indices
+                    .iter()
+                    .zip(shape.iter())
+                    .fold(0, |acc, (&i, &dim)| acc * dim + i)],
+            );
         }
 
         (new_data, new_shape.to_owned())
