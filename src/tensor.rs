@@ -86,10 +86,10 @@ impl Tensor {
     }
 
     pub fn to_tch(&self) -> tch::Tensor {
-        let mut x = self.clone();
-        x.realize();
-        tch::Tensor::from_slice(&x.data.unwrap())
-            .reshape(x.shape.iter().map(|&d| d as i64).collect::<Vec<i64>>())
+        let x = self.clone();
+        let (data, shape) = x.realize();
+        tch::Tensor::from_slice(&data)
+            .reshape(shape.iter().map(|&d| d as i64).collect::<Vec<i64>>())
     }
 
     pub fn max(self) -> Tensor {
@@ -288,29 +288,25 @@ impl Tensor {
         }
     }
 
-    pub fn realize(&mut self) {
+    pub fn realize(self) -> (Vec<f64>, Vec<usize>) {
         if env::var("GRAPH").is_ok() {
-            graph::build_graph(self);
+            graph::build_graph(&self);
         }
 
         debug!("realizing tensor");
-        let (data, shape) = self.unrealized_op.realize();
-        self.data = Some(data);
-        self.shape = shape;
+        self.unrealized_op.realize()
     }
 }
 
 impl ops::Add<f64> for Tensor {
     type Output = Tensor;
     fn add(self, rhs: f64) -> Self::Output {
-        let (l, r, output_shape) = broadcast_shapes(&self.shape, &[1]);
-        let lhs = self.reshape(l).expand(output_shape.clone());
-        let rhs = Tensor::from_scalar(rhs)
-            .reshape(r)
-            .expand(output_shape.clone());
+        let (l, r, shape) = broadcast_shapes(&self.shape, &[1]);
+        let lhs = self.reshape(l).expand(shape.clone());
+        let rhs = Tensor::from_scalar(rhs).reshape(r).expand(shape.clone());
         Tensor::from_op(
             Op::Add(Rc::new(lhs.unrealized_op), Rc::new(rhs.unrealized_op)),
-            &output_shape,
+            &shape,
         )
     }
 }
@@ -318,14 +314,12 @@ impl ops::Add<f64> for Tensor {
 impl ops::Add<Tensor> for f64 {
     type Output = Tensor;
     fn add(self, rhs: Tensor) -> Self::Output {
-        let (l, r, output_shape) = broadcast_shapes(&[1], &rhs.shape);
-        let lhs = Tensor::from_scalar(self)
-            .reshape(l)
-            .expand(output_shape.clone());
-        let rhs = rhs.reshape(r).expand(output_shape.clone());
+        let (l, r, shape) = broadcast_shapes(&[1], &rhs.shape);
+        let lhs = Tensor::from_scalar(self).reshape(l).expand(shape.clone());
+        let rhs = rhs.reshape(r).expand(shape.clone());
         Tensor::from_op(
             Op::Add(Rc::new(lhs.unrealized_op), Rc::new(rhs.unrealized_op)),
-            &output_shape,
+            &shape,
         )
     }
 }
@@ -333,13 +327,13 @@ impl ops::Add<Tensor> for f64 {
 impl ops::Add<Tensor> for Tensor {
     type Output = Tensor;
     fn add(self, rhs: Tensor) -> Self::Output {
-        let (l, r, output_shape) = broadcast_shapes(&self.shape, &rhs.shape);
-        let lhs = self.reshape(l).expand(output_shape.clone());
-        let rhs = rhs.reshape(r).expand(output_shape.clone());
+        let (l, r, shape) = broadcast_shapes(&self.shape, &rhs.shape);
+        let lhs = self.reshape(l).expand(shape.clone());
+        let rhs = rhs.reshape(r).expand(shape.clone());
 
         Tensor::from_op(
             Op::Add(Rc::new(lhs.unrealized_op), Rc::new(rhs.unrealized_op)),
-            &output_shape,
+            &shape,
         )
     }
 }
@@ -348,14 +342,12 @@ impl ops::Sub<f64> for Tensor {
     type Output = Tensor;
 
     fn sub(self, rhs: f64) -> Self::Output {
-        let (l, r, output_shape) = broadcast_shapes(&self.shape, &[1]);
-        let lhs = self.reshape(l).expand(output_shape.clone());
-        let rhs = Tensor::from_scalar(rhs)
-            .reshape(r)
-            .expand(output_shape.clone());
+        let (l, r, shape) = broadcast_shapes(&self.shape, &[1]);
+        let lhs = self.reshape(l).expand(shape.clone());
+        let rhs = Tensor::from_scalar(rhs).reshape(r).expand(shape.clone());
         Tensor::from_op(
             Op::Sub(Rc::new(lhs.unrealized_op), Rc::new(rhs.unrealized_op)),
-            &output_shape,
+            &shape,
         )
     }
 }
@@ -363,14 +355,12 @@ impl ops::Sub<f64> for Tensor {
 impl ops::Sub<Tensor> for f64 {
     type Output = Tensor;
     fn sub(self, rhs: Tensor) -> Self::Output {
-        let (l, r, output_shape) = broadcast_shapes(&[1], &rhs.shape);
-        let lhs = Tensor::from_scalar(self)
-            .reshape(l)
-            .expand(output_shape.clone());
-        let rhs = rhs.reshape(r).expand(output_shape.clone());
+        let (l, r, shape) = broadcast_shapes(&[1], &rhs.shape);
+        let lhs = Tensor::from_scalar(self).reshape(l).expand(shape.clone());
+        let rhs = rhs.reshape(r).expand(shape.clone());
         Tensor::from_op(
             Op::Sub(Rc::new(lhs.unrealized_op), Rc::new(rhs.unrealized_op)),
-            &output_shape,
+            &shape,
         )
     }
 }
@@ -379,13 +369,13 @@ impl ops::Sub<Tensor> for Tensor {
     type Output = Tensor;
 
     fn sub(self, rhs: Tensor) -> Self::Output {
-        let (l, r, output_shape) = broadcast_shapes(&self.shape, &rhs.shape);
-        let lhs = self.reshape(l).expand(output_shape.clone());
-        let rhs = rhs.reshape(r).expand(output_shape.clone());
+        let (l, r, shape) = broadcast_shapes(&self.shape, &rhs.shape);
+        let lhs = self.reshape(l).expand(shape.clone());
+        let rhs = rhs.reshape(r).expand(shape.clone());
 
         Tensor::from_op(
             Op::Sub(Rc::new(lhs.unrealized_op), Rc::new(rhs.unrealized_op)),
-            &output_shape,
+            &shape,
         )
     }
 }
@@ -394,14 +384,12 @@ impl ops::Mul<f64> for Tensor {
     type Output = Tensor;
 
     fn mul(self, rhs: f64) -> Self::Output {
-        let (l, r, output_shape) = broadcast_shapes(&self.shape, &[1]);
-        let lhs = self.reshape(l).expand(output_shape.clone());
-        let rhs = Tensor::from_scalar(rhs)
-            .reshape(r)
-            .expand(output_shape.clone());
+        let (l, r, shape) = broadcast_shapes(&self.shape, &[1]);
+        let lhs = self.reshape(l).expand(shape.clone());
+        let rhs = Tensor::from_scalar(rhs).reshape(r).expand(shape.clone());
         Tensor::from_op(
             Op::Mul(Rc::new(lhs.unrealized_op), Rc::new(rhs.unrealized_op)),
-            &output_shape,
+            &shape,
         )
     }
 }
@@ -409,14 +397,12 @@ impl ops::Mul<f64> for Tensor {
 impl ops::Mul<Tensor> for f64 {
     type Output = Tensor;
     fn mul(self, rhs: Tensor) -> Self::Output {
-        let (l, r, output_shape) = broadcast_shapes(&[1], &rhs.shape);
-        let lhs = Tensor::from_scalar(self)
-            .reshape(l)
-            .expand(output_shape.clone());
-        let rhs = rhs.reshape(r).expand(output_shape.clone());
+        let (l, r, shape) = broadcast_shapes(&[1], &rhs.shape);
+        let lhs = Tensor::from_scalar(self).reshape(l).expand(shape.clone());
+        let rhs = rhs.reshape(r).expand(shape.clone());
         Tensor::from_op(
             Op::Mul(Rc::new(lhs.unrealized_op), Rc::new(rhs.unrealized_op)),
-            &output_shape,
+            &shape,
         )
     }
 }
@@ -425,13 +411,13 @@ impl ops::Mul<Tensor> for Tensor {
     type Output = Tensor;
 
     fn mul(self, rhs: Tensor) -> Self::Output {
-        let (l, r, output_shape) = broadcast_shapes(&self.shape, &rhs.shape);
-        let lhs = self.reshape(l).expand(output_shape.clone());
-        let rhs = rhs.reshape(r).expand(output_shape.clone());
+        let (l, r, shape) = broadcast_shapes(&self.shape, &rhs.shape);
+        let lhs = self.reshape(l).expand(shape.clone());
+        let rhs = rhs.reshape(r).expand(shape.clone());
 
         Tensor::from_op(
             Op::Mul(Rc::new(lhs.unrealized_op), Rc::new(rhs.unrealized_op)),
-            &output_shape,
+            &shape,
         )
     }
 }
@@ -440,14 +426,12 @@ impl ops::Div<f64> for Tensor {
     type Output = Tensor;
 
     fn div(self, rhs: f64) -> Self::Output {
-        let (l, r, output_shape) = broadcast_shapes(&self.shape, &[1]);
-        let lhs = self.reshape(l).expand(output_shape.clone());
-        let rhs = Tensor::from_scalar(rhs)
-            .reshape(r)
-            .expand(output_shape.clone());
+        let (l, r, shape) = broadcast_shapes(&self.shape, &[1]);
+        let lhs = self.reshape(l).expand(shape.clone());
+        let rhs = Tensor::from_scalar(rhs).reshape(r).expand(shape.clone());
         Tensor::from_op(
             Op::Div(Rc::new(lhs.unrealized_op), Rc::new(rhs.unrealized_op)),
-            &output_shape,
+            &shape,
         )
     }
 }
@@ -455,14 +439,12 @@ impl ops::Div<f64> for Tensor {
 impl ops::Div<Tensor> for f64 {
     type Output = Tensor;
     fn div(self, rhs: Tensor) -> Self::Output {
-        let (l, r, output_shape) = broadcast_shapes(&[1], &rhs.shape);
-        let lhs = Tensor::from_scalar(self)
-            .reshape(l)
-            .expand(output_shape.clone());
-        let rhs = rhs.reshape(r).expand(output_shape.clone());
+        let (l, r, shape) = broadcast_shapes(&[1], &rhs.shape);
+        let lhs = Tensor::from_scalar(self).reshape(l).expand(shape.clone());
+        let rhs = rhs.reshape(r).expand(shape.clone());
         Tensor::from_op(
             Op::Div(Rc::new(lhs.unrealized_op), Rc::new(rhs.unrealized_op)),
-            &output_shape,
+            &shape,
         )
     }
 }
@@ -471,13 +453,13 @@ impl ops::Div<Tensor> for Tensor {
     type Output = Tensor;
 
     fn div(self, rhs: Tensor) -> Self::Output {
-        let (l, r, output_shape) = broadcast_shapes(&self.shape, &rhs.shape);
-        let lhs = self.reshape(l).expand(output_shape.clone());
-        let rhs = rhs.reshape(r).expand(output_shape.clone());
+        let (l, r, shape) = broadcast_shapes(&self.shape, &rhs.shape);
+        let lhs = self.reshape(l).expand(shape.clone());
+        let rhs = rhs.reshape(r).expand(shape.clone());
 
         Tensor::from_op(
             Op::Div(Rc::new(lhs.unrealized_op), Rc::new(rhs.unrealized_op)),
-            &output_shape,
+            &shape,
         )
     }
 }
@@ -511,11 +493,11 @@ fn broadcast_shapes(
         lhs_shape.insert(0, 1);
     }
 
-    let output_shape: Vec<usize> = zip(lhs_shape.clone(), rhs_shape.clone())
+    let shape: Vec<usize> = zip(lhs_shape.clone(), rhs_shape.clone())
         .map(|(d1, d2)| cmp::max(d1, d2))
         .collect();
 
-    (lhs_shape, rhs_shape, output_shape)
+    (lhs_shape, rhs_shape, shape)
 }
 
 #[cfg(test)]
@@ -526,38 +508,42 @@ mod tests {
     fn addition_scalar() {
         let a = Tensor::from_scalar(2.0);
         let b = Tensor::from_scalar(3.0);
-        let mut result = a + b;
-        result.realize();
+        let result = a + b;
+        let (data, shape) = result.realize();
 
-        assert_eq!(result.data.unwrap(), vec![5.0]);
+        assert_eq!(data, vec![5.0]);
+        assert_eq!(shape, vec![1]);
     }
 
     #[test]
     fn addition_vector() {
         let a = Tensor::from_vec(vec![2.0, 3.0], vec![2]);
         let b = Tensor::from_vec(vec![8.0, 7.0], vec![2]);
-        let mut result = a + b;
-        result.realize();
+        let result = a + b;
+        let (data, shape) = result.realize();
 
-        assert_eq!(result.data.unwrap(), vec![10.0, 10.0]);
+        assert_eq!(data, vec![10.0, 10.0]);
+        assert_eq!(shape, vec![2]);
     }
 
     #[test]
     fn addition_f64() {
         let a = Tensor::from_vec(vec![2.0, 3.0], vec![2]);
-        let mut result = a + 5.0;
-        result.realize();
+        let result = a + 5.0;
+        let (data, shape) = result.realize();
 
-        assert_eq!(result.data.unwrap(), vec![7.0, 8.0]);
+        assert_eq!(data, vec![7.0, 8.0]);
+        assert_eq!(shape, vec![2]);
     }
 
     #[test]
     fn addition_f64_left_side() {
         let a = Tensor::from_vec(vec![2.0, 3.0], vec![2]);
-        let mut result = 5.0 + a;
-        result.realize();
+        let result = 5.0 + a;
+        let (data, shape) = result.realize();
 
-        assert_eq!(result.data.unwrap(), vec![7.0, 8.0]);
+        assert_eq!(data, vec![7.0, 8.0]);
+        assert_eq!(shape, vec![2]);
     }
 
     #[test]
@@ -567,14 +553,14 @@ mod tests {
         let b = Tensor::rand(vec![5, 2, 1]);
         let b_tch = b.to_tch();
 
-        let mut result = a + b;
-        result.realize();
+        let result = a + b;
+        let (data, shape) = result.realize();
         let tch_result = a_tch + b_tch;
         let tch_output = util::tch_data(&tch_result);
         let tch_shape = util::tch_shape(&tch_result);
 
-        assert_eq!(result.data.unwrap(), tch_output);
-        assert_eq!(result.shape, tch_shape);
+        assert_eq!(data, tch_output);
+        assert_eq!(shape, tch_shape);
     }
 
     #[test]
@@ -584,14 +570,14 @@ mod tests {
         let b = Tensor::rand(vec![2, 3]);
         let b_tch = b.to_tch();
 
-        let mut result = a + b;
-        result.realize();
+        let result = a + b;
+        let (data, shape) = result.realize();
         let tch_result = a_tch + b_tch;
         let tch_output = util::tch_data(&tch_result);
         let tch_shape = util::tch_shape(&tch_result);
 
-        assert_eq!(result.data.unwrap(), tch_output);
-        assert_eq!(result.shape, tch_shape);
+        assert_eq!(data, tch_output);
+        assert_eq!(shape, tch_shape);
     }
 
     #[test]
@@ -600,14 +586,14 @@ mod tests {
         let tch_input = input.to_tch();
         let tch_input2 = input.to_tch();
 
-        let mut output = input.clone() / input;
-        output.realize();
+        let output = input.clone() / input;
+        let (data, shape) = output.realize();
         let tch_result = tch_input / tch_input2;
         let tch_output = util::tch_data(&tch_result);
         let tch_shape = util::tch_shape(&tch_result);
 
-        assert_eq!(output.data.unwrap(), tch_output);
-        assert_eq!(output.shape, tch_shape);
+        assert_eq!(data, tch_output);
+        assert_eq!(shape, tch_shape);
     }
 
     #[test]
@@ -615,29 +601,29 @@ mod tests {
         let input = Tensor::rand(vec![10, 10, 10]);
         let tch_input = input.to_tch();
 
-        let mut output = input / 2.0;
-        output.realize();
+        let output = input / 2.0;
+        let (data, shape) = output.realize();
 
         let tch_result = tch_input / 2.0;
         let tch_output = util::tch_data(&tch_result);
         let tch_shape = util::tch_shape(&tch_result);
 
-        assert_eq!(output.data.unwrap(), tch_output);
-        assert_eq!(output.shape, tch_shape);
+        assert_eq!(data, tch_output);
+        assert_eq!(shape, tch_shape);
     }
     #[test]
     fn max() {
         let input = Tensor::rand(vec![10, 10, 10]);
         let tch_input = input.to_tch();
 
-        let mut output = input.max();
-        output.realize();
+        let output = input.max();
+        let (data, shape) = output.realize();
         let tch_result = tch_input.max();
         let tch_output = util::tch_data(&tch_result);
         let tch_shape = util::tch_shape(&tch_result);
 
-        assert_eq!(output.data.unwrap(), tch_output);
-        assert_eq!(output.shape, tch_shape);
+        assert_eq!(data, tch_output);
+        assert_eq!(shape, tch_shape);
     }
 
     #[test]
@@ -645,14 +631,14 @@ mod tests {
         let input = Tensor::rand(vec![10, 10, 10]);
         let tch_input = input.to_tch();
 
-        let mut output = input.min();
-        output.realize();
+        let output = input.min();
+        let (data, shape) = output.realize();
         let tch_result = tch_input.min();
         let tch_output = util::tch_data(&tch_result);
         let tch_shape = util::tch_shape(&tch_result);
 
-        assert_eq!(output.data.unwrap(), tch_output);
-        assert_eq!(output.shape, tch_shape);
+        assert_eq!(data, tch_output);
+        assert_eq!(shape, tch_shape);
     }
 
     #[test]
@@ -660,14 +646,14 @@ mod tests {
         let input = Tensor::rand(vec![10, 10]);
         let tch_input = input.to_tch();
 
-        let mut output = input.sqrt();
-        output.realize();
+        let output = input.sqrt();
+        let (data, shape) = output.realize();
         let tch_result = tch_input.sqrt();
         let tch_output = util::tch_data(&tch_result);
         let tch_shape = util::tch_shape(&tch_result);
 
-        util::assert_aprox_eq_vec(output.data.unwrap(), tch_output, 1e-6);
-        assert_eq!(output.shape, tch_shape);
+        util::assert_aprox_eq_vec(data, tch_output, 1e-6);
+        assert_eq!(shape, tch_shape);
     }
 
     #[test]
@@ -675,14 +661,14 @@ mod tests {
         let input = Tensor::rand(vec![10, 10]);
         let tch_input = input.to_tch();
 
-        let mut output = input.log();
-        output.realize();
+        let output = input.log();
+        let (data, shape) = output.realize();
         let tch_result = tch_input.log2();
         let tch_output = util::tch_data(&tch_result);
         let tch_shape = util::tch_shape(&tch_result);
 
-        util::assert_aprox_eq_vec(output.data.unwrap(), tch_output, 1e-6);
-        assert_eq!(output.shape, tch_shape);
+        util::assert_aprox_eq_vec(data, tch_output, 1e-6);
+        assert_eq!(shape, tch_shape);
     }
 
     #[test]
@@ -690,14 +676,14 @@ mod tests {
         let input = Tensor::rand(vec![10, 10]);
         let tch_input = input.to_tch();
 
-        let mut output = input.swish();
-        output.realize();
+        let output = input.swish();
+        let (data, shape) = output.realize();
         let tch_result = tch_input.silu();
         let tch_output = util::tch_data(&tch_result);
         let tch_shape = util::tch_shape(&tch_result);
 
-        util::assert_aprox_eq_vec(output.data.unwrap(), tch_output, 1e-6);
-        assert_eq!(output.shape, tch_shape);
+        util::assert_aprox_eq_vec(data, tch_output, 1e-6);
+        assert_eq!(shape, tch_shape);
     }
 
     #[test]
@@ -705,40 +691,40 @@ mod tests {
         let input = Tensor::rand(vec![10, 10]);
         let tch_input = input.to_tch();
 
-        let mut output = input.relu();
-        output.realize();
+        let output = input.relu();
+        let (data, shape) = output.realize();
         let tch_result = tch_input.relu();
         let tch_output = util::tch_data(&tch_result);
         let tch_shape = util::tch_shape(&tch_result);
 
-        util::assert_aprox_eq_vec(output.data.unwrap(), tch_output, 1e-6);
-        assert_eq!(output.shape, tch_shape);
+        util::assert_aprox_eq_vec(data, tch_output, 1e-6);
+        assert_eq!(shape, tch_shape);
     }
 
     #[test]
     fn reduce_sum_default_dims() {
         let input = Tensor::rand(vec![2, 4, 3, 3]);
         let tch_input = input.to_tch();
-        let mut sum = input.reduce_sum(None, false);
-        sum.realize();
+        let sum = input.reduce_sum(None, false);
+        let (data, shape) = sum.realize();
         let tch_sum = tch_input.sum(None);
         let tch_shape = util::tch_shape(&tch_sum);
         let tch_output = util::tch_data(&tch_sum);
-        assert_eq!(sum.shape, tch_shape);
-        util::assert_aprox_eq_vec(sum.data.unwrap(), tch_output, 1e-6);
+        assert_eq!(shape, tch_shape);
+        util::assert_aprox_eq_vec(data, tch_output, 1e-6);
     }
 
     #[test]
     fn reduce_sum() {
         let input = Tensor::rand(vec![2, 4, 3, 3]);
         let tch_input = input.to_tch();
-        let mut sum = input.reduce_sum(Some(vec![0, 2, 3]), false);
-        sum.realize();
+        let sum = input.reduce_sum(Some(vec![0, 2, 3]), false);
+        let (data, shape) = sum.realize();
         let tch_sum = tch_input.sum_dim_intlist(vec![0, 2, 3], false, None);
         let tch_shape = util::tch_shape(&tch_sum);
         let tch_output = util::tch_data(&tch_sum);
-        assert_eq!(sum.shape, tch_shape);
-        util::assert_aprox_eq_vec(sum.data.unwrap(), tch_output, 1e-6);
+        assert_eq!(shape, tch_shape);
+        util::assert_aprox_eq_vec(data, tch_output, 1e-6);
     }
 
     #[test]
@@ -746,24 +732,14 @@ mod tests {
         let input = Tensor::rand(vec![1, 1, 10, 10]);
         let tch_input = input.to_tch();
 
-        let mut output = input.avg_pool_2d((2, 2), None);
-        output.realize();
+        let output = input.avg_pool_2d((2, 2), None);
+        let (data, shape) = output.realize();
         let tch_result = tch_input.avg_pool2d(vec![2, 2], 1, 0, false, true, None);
         let tch_output = util::tch_data(&tch_result);
         let tch_shape = util::tch_shape(&tch_result);
 
-        assert_eq!(output.data.unwrap(), tch_output);
-        assert_eq!(output.shape, tch_shape);
-    }
-
-    #[test]
-    fn avg_pool_2d_loop() {
-        let input = Tensor::rand(vec![1, 1, 10, 10]);
-
-        let mut output = input.avg_pool_2d((2, 2), None);
-        output.realize();
-
-        assert_eq!(output.shape, vec![1, 1, 9, 9]);
+        assert_eq!(data, tch_output);
+        assert_eq!(shape, tch_shape);
     }
 
     #[test]
@@ -771,14 +747,14 @@ mod tests {
         let input = Tensor::rand(vec![1, 1, 10, 10]);
         let tch_input = input.to_tch();
 
-        let mut output = input.max_pool_2d((2, 2), None);
-        output.realize();
+        let output = input.max_pool_2d((2, 2), None);
+        let (data, shape) = output.realize();
         let tch_result = tch_input.max_pool2d(vec![2, 2], 1, 0, 1, false);
         let tch_output = util::tch_data(&tch_result);
         let tch_shape = util::tch_shape(&tch_result);
 
-        assert_eq!(output.data.unwrap(), tch_output);
-        assert_eq!(output.shape, tch_shape);
+        assert_eq!(data, tch_output);
+        assert_eq!(shape, tch_shape);
     }
 
     #[test]
@@ -788,8 +764,8 @@ mod tests {
         let kernel = Tensor::rand(vec![32, 3, 3, 3]);
         let tch_kernel = kernel.to_tch();
 
-        let mut output = input.conv2d(kernel, None, Some([1, 1, 1, 1]), Some((2, 2)), None);
-        output.realize();
+        let output = input.conv2d(kernel, None, Some([1, 1, 1, 1]), Some((2, 2)), None);
+        let (data, shape) = output.realize();
         let tch_output = tch_input.conv2d(
             &tch_kernel,
             None::<tch::Tensor>,
@@ -802,8 +778,8 @@ mod tests {
         let tch_shape = util::tch_shape(&tch_output);
         let tch_output = util::tch_data(&tch_output);
 
-        assert_eq!(output.shape, tch_shape);
-        util::assert_aprox_eq_vec(output.data.unwrap(), tch_output, 1e-6);
+        assert_eq!(shape, tch_shape);
+        util::assert_aprox_eq_vec(data, tch_output, 1e-6);
     }
 
     #[test]
@@ -813,9 +789,9 @@ mod tests {
         let kernel = Tensor::rand(vec![32, 3, 3, 3]);
         let tch_kernel = kernel.to_tch();
 
-        let mut output = input.conv2d(kernel, None, Some([0, 1, 0, 1]), Some((2, 2)), None);
+        let output = input.conv2d(kernel, None, Some([0, 1, 0, 1]), Some((2, 2)), None);
         assert_eq!(output.shape, vec![1, 32, 112, 112]);
-        output.realize();
+        let (data, shape) = output.realize();
         let tch_input = tch_input.zero_pad2d(0, 1, 0, 1);
         let tch_output = tch_input.conv2d(
             &tch_kernel,
@@ -828,22 +804,22 @@ mod tests {
         let tch_shape = util::tch_shape(&tch_output);
         let tch_output = util::tch_data(&tch_output);
 
-        assert_eq!(output.shape, tch_shape);
-        util::assert_aprox_eq_vec(output.data.unwrap(), tch_output, 1e-6);
+        assert_eq!(shape, tch_shape);
+        util::assert_aprox_eq_vec(data, tch_output, 1e-6);
     }
 
     #[test]
     fn pad_2d_weird_padding() {
         let input = Tensor::rand(vec![1, 3, 16, 16]);
         let tch_input = input.to_tch();
-        let mut output = input.pad_2d(0., [1, 2, 3, 4]);
-        output.realize();
+        let output = input.pad_2d(0., [1, 2, 3, 4]);
+        let (data, shape) = output.realize();
         let tch_output = tch_input.zero_pad2d(1, 2, 3, 4);
         let tch_shape = util::tch_shape(&tch_output);
         let tch_output = util::tch_data(&tch_output);
 
-        assert_eq!(output.shape, tch_shape);
-        assert_eq!(output.data.unwrap(), tch_output,);
+        assert_eq!(shape, tch_shape);
+        assert_eq!(data, tch_output,);
     }
 
     #[test]
@@ -851,14 +827,14 @@ mod tests {
         let input = Tensor::rand(vec![5, 15]);
         let tch_input = input.to_tch();
 
-        let mut output = input.permute(vec![1, 0]);
-        output.realize();
+        let output = input.permute(vec![1, 0]);
+        let (data, shape) = output.realize();
         let tch_result = tch_input.permute(vec![1, 0]);
         let tch_output = util::tch_data(&tch_result);
         let tch_shape = util::tch_shape(&tch_result);
 
-        assert_eq!(output.data.unwrap(), tch_output);
-        assert_eq!(output.shape, tch_shape);
+        assert_eq!(data, tch_output);
+        assert_eq!(shape, tch_shape);
     }
 
     #[test]
@@ -866,14 +842,14 @@ mod tests {
         let input = Tensor::rand(vec![10, 1]);
         let tch_input = input.to_tch();
 
-        let mut output = input.expand(vec![10, 10]);
-        output.realize();
+        let output = input.expand(vec![10, 10]);
+        let (data, shape) = output.realize();
         let tch_result = tch_input.expand(vec![10, 10], false);
         let tch_output = util::tch_data(&tch_result);
         let tch_shape = util::tch_shape(&tch_result);
 
-        util::assert_aprox_eq_vec(output.data.unwrap(), tch_output, 1e-6);
-        assert_eq!(output.shape, tch_shape);
+        util::assert_aprox_eq_vec(data, tch_output, 1e-6);
+        assert_eq!(shape, tch_shape);
     }
 
     #[test]
@@ -883,13 +859,12 @@ mod tests {
         let tch_input1 = input1.to_tch();
         let tch_input2 = input2.to_tch();
 
-        let mut output = input1.matmul(input2);
-        output.realize();
+        let (output_data, shape) = input1.matmul(input2).realize();
         let tch_result = tch_input1.matmul(&tch_input2);
         let tch_output = util::tch_data(&tch_result);
         let tch_shape = util::tch_shape(&tch_result);
 
-        util::assert_aprox_eq_vec(output.data.unwrap(), tch_output, 1e-6);
-        assert_eq!(output.shape, tch_shape);
+        util::assert_aprox_eq_vec(output_data, tch_output, 1e-6);
+        assert_eq!(shape, tch_shape);
     }
 }

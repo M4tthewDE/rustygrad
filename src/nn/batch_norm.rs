@@ -90,8 +90,8 @@ mod tests {
 
         let input = Tensor::rand(vec![2, num_features, 3, 3]);
         let tch_input = input.to_tch();
-        let mut out = bn.forward(input);
-        out.realize();
+        let out = bn.forward(input);
+        let (data, shape) = out.realize();
         let tch_weight = bn.weight.unwrap().to_tch();
         let tch_bias = bn.bias.unwrap().to_tch();
         let tch_running_mean = bn.running_mean.to_tch();
@@ -109,7 +109,7 @@ mod tests {
         let tch_shape = util::tch_shape(&tch_out);
         let tch_output = util::tch_data(&tch_out);
 
-        assert_eq!(out.shape, tch_shape);
-        util::assert_aprox_eq_vec(out.data.unwrap(), tch_output, 1e-6);
+        assert_eq!(shape, tch_shape);
+        util::assert_aprox_eq_vec(data, tch_output, 1e-6);
     }
 }
