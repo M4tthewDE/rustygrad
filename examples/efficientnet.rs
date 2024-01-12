@@ -1,7 +1,7 @@
 use std::{collections::HashMap, env, time::Instant};
 
 use image::{imageops::FilterType, io::Reader, DynamicImage};
-use rustygrad::{efficientnet::Efficientnet, tensor::Tensor, util};
+use rustygrad::{models::efficientnet::Efficientnet, tensor::Tensor, util};
 use tracing::info;
 
 // https://github.com/tinygrad/tinygrad/blob/master/extra/models/efficientnet.py
