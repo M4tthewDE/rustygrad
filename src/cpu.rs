@@ -335,7 +335,6 @@ impl Op {
                 stride *= size;
             }
 
-            // Place the original data into its new position
             new_data[new_index] = *item;
         }
 

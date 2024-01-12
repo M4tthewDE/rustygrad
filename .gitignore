@@ -3,3 +3,4 @@
 .venv/
 *.dot
 *.png
+*.data
