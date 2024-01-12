@@ -356,24 +356,20 @@ impl Op {
         }
 
         let mut new_data = vec![0.0; new_shape.iter().product::<usize>()];
-        let mut old_indices = Vec::with_capacity(shape.len());
 
         for (i, elem) in new_data.iter_mut().enumerate() {
+            let mut idx = 0;
+            let mut factor = 1;
             let mut i = i;
 
             for (&size_new, &size_old) in new_shape.iter().zip(&shape).rev() {
-                old_indices.push(if size_old == 1 { 0 } else { i % size_old });
+                let old_index = if size_old == 1 { 0 } else { i % size_new };
+                idx += old_index * factor;
+                factor *= size_old;
                 i /= size_new;
             }
 
-            old_indices.reverse();
-
-            *elem = data[old_indices
-                .iter()
-                .zip(shape.iter())
-                .fold(0, |acc, (&i, &dim)| acc * dim + i)];
-
-            old_indices.clear();
+            *elem = data[idx];
         }
 
         (new_data, new_shape.to_owned())
