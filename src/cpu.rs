@@ -356,16 +356,18 @@ impl Op {
         }
 
         let mut data = input_data.clone();
-        let mut new_data = Vec::new();
+        let mut new_data = Vec::with_capacity(shape.iter().product());
 
         let mut n_parts = 1;
         for (&old_dim, &new_dim) in shape.iter().zip(new_shape) {
             n_parts *= old_dim;
             if old_dim == 1 {
                 new_data.clear();
+
                 for chunk in data.chunks(data.len() / n_parts) {
                     new_data.extend_from_slice(&chunk.repeat(new_dim));
                 }
+
                 data = new_data.clone();
                 n_parts *= new_dim;
             }
