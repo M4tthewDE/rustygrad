@@ -17,11 +17,11 @@ const DEVICE_TO_HOST: c_int = 2;
 unsafe fn realize_cuda(op: &Op, mut dev_ptr: *mut c_void) -> (*mut c_void, Vec<usize>) {
     match op {
         Op::Add(lhs, rhs) => {
-            let (lhs_ptr, _) = realize_cuda(&lhs.op, std::ptr::null_mut());
+            let (lhs_ptr, _) = realize_cuda(&lhs.op, dev_ptr);
             let (rhs_ptr, _) = realize_cuda(&rhs.op, std::ptr::null_mut());
             dbg!(lhs_ptr);
             dbg!(rhs_ptr);
-            todo!();
+            todo!("ADD");
         }
         Op::Sub(_, _) => todo!(),
         Op::Mul(_, _) => todo!(),
@@ -60,7 +60,7 @@ unsafe fn realize_cuda(op: &Op, mut dev_ptr: *mut c_void) -> (*mut c_void, Vec<u
         }
         Op::Permute(_, _) => todo!(),
         Op::Expand(t, _) => {
-            let (t_ptr, _) = realize_cuda(&t.op, std::ptr::null_mut());
+            let (t_ptr, _) = realize_cuda(&t.op, dev_ptr);
             dbg!(t_ptr);
             todo!();
         }
