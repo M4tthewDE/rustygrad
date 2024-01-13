@@ -41,18 +41,18 @@ unsafe fn realize_cuda(op: &Op, mut dev_ptr: *mut c_void) -> (*mut c_void, Vec<u
         Op::Load(data, shape) => {
             let bytes = data.len() * std::mem::size_of::<f64>();
 
-            let result = cudaMalloc(&mut dev_ptr as *mut *mut c_void, bytes);
-            if result != 0 {
-                handle_error(result);
+            let code = cudaMalloc(&mut dev_ptr as *mut *mut c_void, bytes);
+            if code != 0 {
+                panic!("{}", error_string(code));
             }
-            let result = cudaMemcpy(
+            let code = cudaMemcpy(
                 dev_ptr,
                 data.as_ptr() as *const c_void,
                 bytes,
                 HOST_TO_DEVICE,
             );
-            if result != 0 {
-                handle_error(result);
+            if code != 0 {
+                panic!("{}", error_string(code));
             }
             (dev_ptr, shape.to_vec())
         }
@@ -93,7 +93,7 @@ pub fn realize(op: &Op) -> (Vec<f64>, Vec<usize>) {
         );
         if code != 0 {
             cudaFree(dev_ptr);
-            handle_error(code);
+            panic!("{}", error_string(code));
         }
 
         cudaFree(dev_ptr);
@@ -102,9 +102,8 @@ pub fn realize(op: &Op) -> (Vec<f64>, Vec<usize>) {
     }
 }
 
-unsafe fn handle_error(code: i32) {
-    let error_str = CStr::from_ptr(cudaGetErrorString(code))
+unsafe fn error_string(code: i32) -> String {
+    CStr::from_ptr(cudaGetErrorString(code))
         .to_string_lossy()
-        .into_owned();
-    panic!("{}", error_str);
+        .into_owned()
 }
