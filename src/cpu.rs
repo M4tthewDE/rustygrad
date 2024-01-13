@@ -364,9 +364,7 @@ impl Op {
             if old_dim == 1 {
                 new_data.clear();
                 for chunk in data.chunks(data.len() / n_parts) {
-                    for _ in 0..new_dim {
-                        new_data.extend_from_slice(chunk);
-                    }
+                    new_data.extend_from_slice(&chunk.repeat(new_dim));
                 }
                 data = new_data.clone();
                 n_parts *= new_dim;
