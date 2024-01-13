@@ -342,7 +342,7 @@ impl Op {
     }
 
     pub fn expand(t: &Rc<UnrealizedOp>, new_shape: &Vec<usize>) -> (Vec<f64>, Vec<usize>) {
-        let (data, shape) = t.realize();
+        let (input_data, shape) = t.realize();
         assert_eq!(
             shape.len(),
             new_shape.len(),
@@ -355,24 +355,29 @@ impl Op {
             );
         }
 
-        let mut new_data = vec![0.0; new_shape.iter().product::<usize>()];
+        let mut data = input_data.clone();
+        let mut new_data = Vec::new();
 
-        for (i, elem) in new_data.iter_mut().enumerate() {
-            let mut idx = 0;
-            let mut factor = 1;
-            let mut i = i;
-
-            for (&size_new, &size_old) in new_shape.iter().zip(&shape).rev() {
-                let old_index = if size_old == 1 { 0 } else { i % size_new };
-                idx += old_index * factor;
-                factor *= size_old;
-                i /= size_new;
+        let mut n_parts = 1;
+        for (&old_dim, &new_dim) in shape.iter().zip(new_shape) {
+            n_parts *= old_dim;
+            if old_dim == 1 {
+                new_data.clear();
+                for chunk in data.chunks(data.len() / n_parts) {
+                    for _ in 0..new_dim {
+                        new_data.extend_from_slice(chunk);
+                    }
+                }
+                data = new_data.clone();
+                n_parts *= new_dim;
             }
-
-            *elem = data[idx];
         }
 
-        (new_data, new_shape.to_owned())
+        if data.is_empty() {
+            (input_data, shape)
+        } else {
+            (data, new_shape.to_owned())
+        }
     }
 
     fn matmul(lhs: &Rc<UnrealizedOp>, rhs: &Rc<UnrealizedOp>) -> (Vec<f64>, Vec<usize>) {

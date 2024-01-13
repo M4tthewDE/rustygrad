@@ -838,17 +838,107 @@ mod tests {
     }
 
     #[test]
-    fn expand() {
-        let input = Tensor::rand(vec![10, 1]);
+    fn expand_end() {
+        let input = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2, 1]);
         let tch_input = input.to_tch();
 
-        let output = input.expand(vec![10, 10]);
+        let output = input.expand(vec![2, 2, 3]);
         let (data, shape) = output.realize();
-        let tch_result = tch_input.expand(vec![10, 10], false);
+        let tch_result = tch_input.expand(vec![2, 2, 3], false);
         let tch_output = util::tch_data(&tch_result);
         let tch_shape = util::tch_shape(&tch_result);
 
-        util::assert_aprox_eq_vec(data, tch_output, 1e-6);
+        assert_eq!(data.clone(), tch_output);
+        assert_eq!(shape, tch_shape);
+    }
+
+    #[test]
+    fn expand_middle() {
+        let input = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 1, 2]);
+        let tch_input = input.to_tch();
+
+        let output = input.expand(vec![2, 3, 2]);
+        let (data, shape) = output.realize();
+        let tch_result = tch_input.expand(vec![2, 3, 2], false);
+        let tch_output = util::tch_data(&tch_result);
+        let tch_shape = util::tch_shape(&tch_result);
+
+        assert_eq!(data.clone(), tch_output);
+        assert_eq!(shape, tch_shape);
+    }
+
+    #[test]
+    fn expand_first() {
+        let input = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![1, 2, 2]);
+        let tch_input = input.to_tch();
+
+        let output = input.expand(vec![3, 2, 2]);
+        let (data, shape) = output.realize();
+        let tch_result = tch_input.expand(vec![3, 2, 2], false);
+        let tch_output = util::tch_data(&tch_result);
+        let tch_shape = util::tch_shape(&tch_result);
+
+        assert_eq!(data.clone(), tch_output);
+        assert_eq!(shape, tch_shape);
+    }
+
+    #[test]
+    fn expand_complicated_front() {
+        let input = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![1, 1, 2, 2]);
+        let tch_input = input.to_tch();
+
+        let output = input.expand(vec![2, 2, 2, 2]);
+        let (data, shape) = output.realize();
+        let tch_result = tch_input.expand(vec![2, 2, 2, 2], false);
+        let tch_output = util::tch_data(&tch_result);
+        let tch_shape = util::tch_shape(&tch_result);
+
+        assert_eq!(data.clone(), tch_output);
+        assert_eq!(shape, tch_shape);
+    }
+
+    #[test]
+    fn expand_complicated_back() {
+        let input = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2, 1, 1]);
+        let tch_input = input.to_tch();
+
+        let output = input.expand(vec![2, 2, 2, 2]);
+        let (data, shape) = output.realize();
+        let tch_result = tch_input.expand(vec![2, 2, 2, 2], false);
+        let tch_output = util::tch_data(&tch_result);
+        let tch_shape = util::tch_shape(&tch_result);
+
+        assert_eq!(data.clone(), tch_output);
+        assert_eq!(shape, tch_shape);
+    }
+
+    #[test]
+    fn expand_complicated_front_and_back() {
+        let input = Tensor::from_vec(vec![1.0, 2.0], vec![1, 2, 1, 1]);
+        let tch_input = input.to_tch();
+
+        let output = input.expand(vec![2, 2, 2, 2]);
+        let (data, shape) = output.realize();
+        let tch_result = tch_input.expand(vec![2, 2, 2, 2], false);
+        let tch_output = util::tch_data(&tch_result);
+        let tch_shape = util::tch_shape(&tch_result);
+
+        assert_eq!(data.clone(), tch_output);
+        assert_eq!(shape, tch_shape);
+    }
+
+    #[test]
+    fn expand_complicated_middle() {
+        let input = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 1, 1, 2]);
+        let tch_input = input.to_tch();
+
+        let output = input.expand(vec![2, 2, 2, 2]);
+        let (data, shape) = output.realize();
+        let tch_result = tch_input.expand(vec![2, 2, 2, 2], false);
+        let tch_output = util::tch_data(&tch_result);
+        let tch_shape = util::tch_shape(&tch_result);
+
+        assert_eq!(data.clone(), tch_output);
         assert_eq!(shape, tch_shape);
     }
 
