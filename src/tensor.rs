@@ -301,26 +301,16 @@ impl Tensor {
 impl ops::Add<f64> for Tensor {
     type Output = Tensor;
     fn add(self, rhs: f64) -> Self::Output {
-        let (l, r, shape) = broadcast_shapes(&self.shape, &[1]);
-        let lhs = self.reshape(l).expand(shape.clone());
-        let rhs = Tensor::from_scalar(rhs).reshape(r).expand(shape.clone());
-        Tensor::from_op(
-            Op::Add(Rc::new(lhs.unrealized_op), Rc::new(rhs.unrealized_op)),
-            &shape,
-        )
+        let rhs = Tensor::from_scalar(rhs);
+        self + rhs
     }
 }
 
 impl ops::Add<Tensor> for f64 {
     type Output = Tensor;
     fn add(self, rhs: Tensor) -> Self::Output {
-        let (l, r, shape) = broadcast_shapes(&[1], &rhs.shape);
-        let lhs = Tensor::from_scalar(self).reshape(l).expand(shape.clone());
-        let rhs = rhs.reshape(r).expand(shape.clone());
-        Tensor::from_op(
-            Op::Add(Rc::new(lhs.unrealized_op), Rc::new(rhs.unrealized_op)),
-            &shape,
-        )
+        let lhs = Tensor::from_scalar(self);
+        lhs + rhs
     }
 }
 
@@ -328,8 +318,16 @@ impl ops::Add<Tensor> for Tensor {
     type Output = Tensor;
     fn add(self, rhs: Tensor) -> Self::Output {
         let (l, r, shape) = broadcast_shapes(&self.shape, &rhs.shape);
-        let lhs = self.reshape(l).expand(shape.clone());
-        let rhs = rhs.reshape(r).expand(shape.clone());
+        let lhs = if l != shape {
+            self.reshape(l).expand(shape.clone())
+        } else {
+            self
+        };
+        let rhs = if r != shape {
+            rhs.reshape(r).expand(shape.clone())
+        } else {
+            rhs
+        };
 
         Tensor::from_op(
             Op::Add(Rc::new(lhs.unrealized_op), Rc::new(rhs.unrealized_op)),
