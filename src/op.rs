@@ -11,6 +11,8 @@ use std::{
     },
 };
 
+use crate::{cpu, device::Device};
+
 type OpCache = Mutex<HashMap<usize, (Vec<f64>, Vec<usize>)>>;
 
 lazy_static! {
@@ -23,13 +25,14 @@ lazy_static! {
 pub struct UnrealizedOp {
     pub id: usize,
     pub op: Op,
+    pub device: Device,
 }
 
 impl UnrealizedOp {
-    pub fn new(op: Op) -> UnrealizedOp {
+    pub fn new(op: Op, device: Device) -> UnrealizedOp {
         let id = OP_COUNTER.fetch_add(1, Ordering::Relaxed);
 
-        UnrealizedOp { id, op }
+        UnrealizedOp { id, op, device }
     }
 
     pub fn realize(&self) -> (Vec<f64>, Vec<usize>) {
@@ -41,9 +44,12 @@ impl UnrealizedOp {
                 }
             }
         }
+
+        // guaranteed to have at least 32K of stack
         stacker::maybe_grow(32 * 1024, 1024 * 1024, || {
-            // guaranteed to have at least 32K of stack
-            let result = self.op.realize();
+            let result = match self.device {
+                Device::Cpu => cpu::realize(&self.op),
+            };
 
             if *USE_CACHE {
                 let mut cache = OP_CACHE.lock().unwrap();

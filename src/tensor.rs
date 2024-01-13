@@ -1,3 +1,4 @@
+use lazy_static::lazy_static;
 use std::fmt::Debug;
 use std::iter::zip;
 use std::rc::Rc;
@@ -8,8 +9,13 @@ use itertools::{EitherOrBoth, Itertools};
 use rand::{distributions::Uniform, prelude::Distribution};
 use tracing::debug;
 
+use crate::device::Device;
 use crate::graph;
 use crate::op::{Op, UnrealizedOp};
+
+lazy_static! {
+    static ref DEVICE: Device = Device::Cpu;
+}
 
 #[derive(Clone)]
 pub struct Tensor {
@@ -27,7 +33,7 @@ impl Debug for Tensor {
 impl Tensor {
     fn from_op(op: Op, shape: &[usize]) -> Tensor {
         Tensor {
-            unrealized_op: UnrealizedOp::new(op),
+            unrealized_op: UnrealizedOp::new(op, DEVICE.clone()),
             data: None,
             shape: shape.to_owned(),
         }
