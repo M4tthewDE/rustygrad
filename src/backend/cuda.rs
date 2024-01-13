@@ -54,10 +54,9 @@ unsafe fn realize_cuda(op: &Op, mut dev_ptr: *mut c_void) -> (*mut c_void, Vec<u
         Op::Pool2D(_, _, _, _, _) => todo!(),
         Op::Conv2D(_, _, _, _) => todo!(),
         Op::Pad2D(_, _, _) => todo!(),
-        Op::Reshape(t, _) => {
-            let (t_ptr, _) = realize_cuda(&t.op, std::ptr::null_mut());
-            dbg!(t_ptr);
-            todo!();
+        Op::Reshape(t, shape) => {
+            let (t_ptr, _) = realize_cuda(&t.op, dev_ptr);
+            (t_ptr, shape.to_vec())
         }
         Op::Permute(_, _) => todo!(),
         Op::Expand(t, _) => {
