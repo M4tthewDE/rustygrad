@@ -1,5 +1,5 @@
 #[cfg(test)]
-mod tests {
+mod batch_norm {
     use rustygrad::{nn::batch_norm::BatchNorm2dBuilder, tensor::Tensor, util};
 
     #[test]

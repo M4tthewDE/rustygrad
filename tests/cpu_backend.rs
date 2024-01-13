@@ -1,5 +1,5 @@
 #[cfg(test)]
-mod tests {
+mod cpu {
     use rustygrad::{tensor::Tensor, util};
 
     #[test]

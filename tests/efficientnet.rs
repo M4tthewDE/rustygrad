@@ -1,5 +1,5 @@
 #[cfg(test)]
-mod tests {
+mod efficientnet {
     use image::{imageops::FilterType, io::Reader};
     use rustygrad::{models::efficientnet::Efficientnet, tensor::Tensor, util};
 
