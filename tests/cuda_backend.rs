@@ -15,4 +15,16 @@ mod cuda {
         assert_eq!(data, vec![2.0]);
         assert_eq!(shape, vec![1]);
     }
+
+    #[test]
+    fn addition() {
+        device::set_device(Device::Cuda);
+
+        let a = Tensor::from_scalar(2.0);
+        let b = Tensor::from_scalar(3.0);
+        let (data, shape) = (a + b).realize();
+
+        assert_eq!(data, vec![5.0]);
+        assert_eq!(shape, vec![1]);
+    }
 }

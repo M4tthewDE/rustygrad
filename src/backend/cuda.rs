@@ -16,7 +16,13 @@ const DEVICE_TO_HOST: c_int = 2;
 
 unsafe fn realize_cuda(op: &Op, mut dev_ptr: *mut c_void) -> (*mut c_void, Vec<usize>) {
     match op {
-        Op::Add(_, _) => todo!(),
+        Op::Add(lhs, rhs) => {
+            let (lhs_ptr, _) = realize_cuda(&lhs.op, std::ptr::null_mut());
+            let (rhs_ptr, _) = realize_cuda(&rhs.op, std::ptr::null_mut());
+            dbg!(lhs_ptr);
+            dbg!(rhs_ptr);
+            todo!();
+        }
         Op::Sub(_, _) => todo!(),
         Op::Mul(_, _) => todo!(),
         Op::Div(_, _) => todo!(),
@@ -31,7 +37,6 @@ unsafe fn realize_cuda(op: &Op, mut dev_ptr: *mut c_void) -> (*mut c_void, Vec<u
             if result != 0 {
                 handle_error(result);
             }
-
             let result = cudaMemcpy(
                 dev_ptr,
                 data.as_ptr() as *const c_void,
@@ -49,9 +54,17 @@ unsafe fn realize_cuda(op: &Op, mut dev_ptr: *mut c_void) -> (*mut c_void, Vec<u
         Op::Pool2D(_, _, _, _, _) => todo!(),
         Op::Conv2D(_, _, _, _) => todo!(),
         Op::Pad2D(_, _, _) => todo!(),
-        Op::Reshape(_, _) => todo!(),
+        Op::Reshape(t, _) => {
+            let (t_ptr, _) = realize_cuda(&t.op, std::ptr::null_mut());
+            dbg!(t_ptr);
+            todo!();
+        }
         Op::Permute(_, _) => todo!(),
-        Op::Expand(_, _) => todo!(),
+        Op::Expand(t, _) => {
+            let (t_ptr, _) = realize_cuda(&t.op, std::ptr::null_mut());
+            dbg!(t_ptr);
+            todo!();
+        }
         Op::MatMul(_, _) => todo!(),
     }
 }
