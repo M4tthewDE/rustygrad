@@ -11,7 +11,10 @@ use std::{
     },
 };
 
-use crate::{backend::cpu, device::Device};
+use crate::{
+    backend::{cpu, cuda},
+    device::Device,
+};
 
 type OpCache = Mutex<HashMap<usize, (Vec<f64>, Vec<usize>)>>;
 
@@ -49,6 +52,7 @@ impl UnrealizedOp {
         stacker::maybe_grow(32 * 1024, 1024 * 1024, || {
             let result = match self.device {
                 Device::Cpu => cpu::realize(&self.op),
+                Device::Cuda => cuda::realize(&self.op),
             };
 
             if *USE_CACHE {

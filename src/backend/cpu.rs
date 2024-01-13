@@ -1,10 +1,4 @@
-use lazy_static::lazy_static;
-use std::{
-    f64::consts::E,
-    iter::zip,
-    rc::Rc,
-    sync::atomic::{AtomicUsize, Ordering},
-};
+use std::{f64::consts::E, iter::zip, rc::Rc};
 
 use tracing::trace;
 
@@ -12,10 +6,6 @@ use crate::{
     op::{Op, PoolOp, UnrealizedOp},
     util,
 };
-
-lazy_static! {
-    static ref GLOBAL_COUNTER: AtomicUsize = AtomicUsize::new(0);
-}
 
 fn add(lhs: &Rc<UnrealizedOp>, rhs: &Rc<UnrealizedOp>) -> (Vec<f64>, Vec<usize>) {
     let (lhs_data, lhs_shape) = lhs.realize();
@@ -403,8 +393,7 @@ pub fn load(data: &[f64], shape: &[usize]) -> (Vec<f64>, Vec<usize>) {
 }
 
 pub fn realize(op: &Op) -> (Vec<f64>, Vec<usize>) {
-    let count = GLOBAL_COUNTER.fetch_add(1, Ordering::Relaxed);
-    trace!("Realizing {:?} {}", op, count);
+    trace!("Realizing {:?}", op);
     match op {
         Op::Add(lhs, rhs) => add(lhs, rhs),
         Op::Sub(lhs, rhs) => sub(lhs, rhs),

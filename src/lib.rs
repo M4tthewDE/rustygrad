@@ -1,5 +1,5 @@
 pub mod backend;
-mod device;
+pub mod device;
 mod graph;
 pub mod models;
 pub mod nn;
