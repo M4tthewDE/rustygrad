@@ -33,3 +33,7 @@ harness = false
 [[bench]]
 name = "conv2d"
 harness = false
+
+[[bench]]
+name = "avg_pool_2d"
+harness = false
