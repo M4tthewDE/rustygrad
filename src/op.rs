@@ -1,14 +1,9 @@
 use lazy_static::lazy_static;
 use std::{
-    collections::HashMap,
-    env,
     fmt::{Debug, Display},
     hash::Hash,
     rc::Rc,
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        Mutex,
-    },
+    sync::atomic::{AtomicUsize, Ordering},
 };
 
 use crate::{
@@ -16,12 +11,8 @@ use crate::{
     device::Device,
 };
 
-type OpCache = Mutex<HashMap<usize, (Vec<f64>, Vec<usize>)>>;
-
 lazy_static! {
     static ref OP_COUNTER: AtomicUsize = AtomicUsize::new(0);
-    static ref OP_CACHE: OpCache = Mutex::new(HashMap::new());
-    static ref USE_CACHE: bool = env::var("NO_CACHE").is_err();
 }
 
 #[derive(Clone)]
@@ -39,28 +30,10 @@ impl UnrealizedOp {
     }
 
     pub fn realize(&self) -> (Vec<f64>, Vec<usize>) {
-        if *USE_CACHE {
-            {
-                let cache = OP_CACHE.lock().unwrap();
-                if let Some(result) = cache.get(&self.id) {
-                    return result.clone();
-                }
-            }
+        match self.device {
+            Device::Cpu => cpu::realize(self),
+            Device::Cuda => cuda::realize(&self.op),
         }
-
-        // guaranteed to have at least 32K of stack
-        stacker::maybe_grow(32 * 1024, 1024 * 1024, || {
-            let result = match self.device {
-                Device::Cpu => cpu::realize(&self.op),
-                Device::Cuda => cuda::realize(&self.op),
-            };
-
-            if *USE_CACHE {
-                let mut cache = OP_CACHE.lock().unwrap();
-                cache.insert(self.id, result.clone());
-            }
-            result
-        })
     }
 }
 
