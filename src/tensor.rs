@@ -317,16 +317,20 @@ impl ops::Add<Tensor> for f64 {
 impl ops::Add<Tensor> for Tensor {
     type Output = Tensor;
     fn add(self, rhs: Tensor) -> Self::Output {
+        // FIXME: these reshapes shouldn't be necessary all the time,
+        // but running into hard to track down bug without them
+        // (shape gets wrong, maybe shape tracking is off somewhere)
+        // one fix should solve all binary ops
         let (l, r, shape) = broadcast_shapes(&self.shape, &rhs.shape);
         let lhs = if l != shape {
             self.reshape(l).expand(shape.clone())
         } else {
-            self
+            self.reshape(l)
         };
         let rhs = if r != shape {
             rhs.reshape(r).expand(shape.clone())
         } else {
-            rhs
+            rhs.reshape(r)
         };
 
         Tensor::from_op(
@@ -361,12 +365,12 @@ impl ops::Sub<Tensor> for Tensor {
         let lhs = if l != shape {
             self.reshape(l).expand(shape.clone())
         } else {
-            self
+            self.reshape(l)
         };
         let rhs = if r != shape {
             rhs.reshape(r).expand(shape.clone())
         } else {
-            rhs
+            rhs.reshape(r)
         };
 
         Tensor::from_op(
@@ -401,12 +405,12 @@ impl ops::Mul<Tensor> for Tensor {
         let lhs = if l != shape {
             self.reshape(l).expand(shape.clone())
         } else {
-            self
+            self.reshape(l)
         };
         let rhs = if r != shape {
             rhs.reshape(r).expand(shape.clone())
         } else {
-            rhs
+            rhs.reshape(r)
         };
 
         Tensor::from_op(
