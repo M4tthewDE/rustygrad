@@ -17,7 +17,6 @@ mod cuda {
     }
 
     #[test]
-    #[ignore]
     fn addition() {
         device::set_device(Device::Cuda);
 

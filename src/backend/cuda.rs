@@ -9,6 +9,8 @@ extern "C" {
     fn cudaMemcpy(dst: *mut c_void, src: *const c_void, count: usize, kind: c_int) -> c_int;
     fn cudaFree(devPtr: *mut c_void) -> c_int;
     fn cudaGetErrorString(error: c_int) -> *const i8;
+
+    fn add(a: *const i32, b: *const i32, c: *mut i32, n: i32);
 }
 
 const HOST_TO_DEVICE: c_int = 1;
@@ -17,11 +19,17 @@ const DEVICE_TO_HOST: c_int = 2;
 unsafe fn realize_cuda(op: &Op, mut dev_ptr: *mut c_void) -> (*mut c_void, Vec<usize>) {
     match op {
         Op::Add(lhs, rhs) => {
-            let (lhs_ptr, _) = realize_cuda(&lhs.op, dev_ptr);
+            let (lhs_ptr, shape) = realize_cuda(&lhs.op, dev_ptr);
             let (rhs_ptr, _) = realize_cuda(&rhs.op, std::ptr::null_mut());
-            dbg!(lhs_ptr);
-            dbg!(rhs_ptr);
-            todo!("ADD");
+
+            let result = std::ptr::null_mut();
+            add(
+                lhs_ptr as *const i32,
+                rhs_ptr as *const i32,
+                result as *mut i32,
+                shape.iter().product::<usize>() as i32,
+            );
+            (result, shape)
         }
         Op::Sub(_, _) => todo!(),
         Op::Mul(_, _) => todo!(),
