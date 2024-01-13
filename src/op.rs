@@ -11,7 +11,7 @@ use std::{
     },
 };
 
-use crate::{cpu, device::Device};
+use crate::{backend::cpu, device::Device};
 
 type OpCache = Mutex<HashMap<usize, (Vec<f64>, Vec<usize>)>>;
 

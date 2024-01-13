@@ -1,4 +1,4 @@
-mod cpu;
+pub mod backend;
 mod device;
 mod graph;
 pub mod models;
