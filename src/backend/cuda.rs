@@ -17,6 +17,8 @@ extern "C" {
 
     fn add(a: *const c_void, b: *const c_void, c: *mut c_void, n: usize);
     fn sub(a: *const c_void, b: *const c_void, c: *mut c_void, n: usize);
+    fn mul(a: *const c_void, b: *const c_void, c: *mut c_void, n: usize);
+    fn division(a: *const c_void, b: *const c_void, c: *mut c_void, n: usize);
 }
 
 unsafe fn error_string(code: i32) -> String {
@@ -89,8 +91,24 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             check_last_error();
             (result_ptr, shape)
         }
-        Op::Mul(_, _) => todo!(),
-        Op::Div(_, _) => todo!(),
+        Op::Mul(lhs, rhs) => {
+            let (lhs_ptr, shape) = realize_cuda(&lhs.op);
+            let (rhs_ptr, _) = realize_cuda(&rhs.op);
+            let result_size = shape.iter().product::<usize>();
+            let result_ptr = malloc(result_size);
+            mul(lhs_ptr, rhs_ptr, result_ptr, result_size);
+            check_last_error();
+            (result_ptr, shape)
+        }
+        Op::Div(lhs, rhs) => {
+            let (lhs_ptr, shape) = realize_cuda(&lhs.op);
+            let (rhs_ptr, _) = realize_cuda(&rhs.op);
+            let result_size = shape.iter().product::<usize>();
+            let result_ptr = malloc(result_size);
+            division(lhs_ptr, rhs_ptr, result_ptr, result_size);
+            check_last_error();
+            (result_ptr, shape)
+        }
         Op::Max(_) => todo!(),
         Op::Min(_) => todo!(),
         Op::Sqrt(_) => todo!(),
