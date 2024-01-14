@@ -23,14 +23,17 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             let (rhs_ptr, _) = realize_cuda(&rhs.op);
 
             let result_size = shape.iter().product::<usize>();
-            let mut result: *mut c_void = std::ptr::null_mut();
-            let code = cudaMalloc(&mut result as *mut *mut c_void, result_size);
+            let mut result_ptr: *mut c_void = std::ptr::null_mut();
+            let code = cudaMalloc(
+                &mut result_ptr as *mut *mut c_void,
+                result_size * std::mem::size_of::<f64>(),
+            );
             if code != 0 {
                 panic!("{}", error_string(code));
             }
 
-            add(lhs_ptr, rhs_ptr, &mut result, result_size);
-            (result, shape)
+            add(lhs_ptr, rhs_ptr, &mut result_ptr, result_size);
+            (result_ptr, shape)
         }
         Op::Sub(_, _) => todo!(),
         Op::Mul(_, _) => todo!(),
@@ -81,12 +84,12 @@ pub fn realize(op: &Op) -> (Vec<f64>, Vec<usize>) {
     trace!("Realizing {:?}", op);
 
     unsafe {
-        let (dev_ptr, shape) = realize_cuda(op);
+        let (result_ptr, shape) = realize_cuda(op);
         let result_size = shape.iter().product();
         let mut result = vec![0.0; result_size];
         let code = cudaMemcpy(
             result.as_mut_ptr() as *mut c_void,
-            dev_ptr,
+            result_ptr,
             result_size * std::mem::size_of::<f64>(),
             DEVICE_TO_HOST,
         );
