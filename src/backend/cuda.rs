@@ -16,11 +16,11 @@ extern "C" {
 const HOST_TO_DEVICE: c_int = 1;
 const DEVICE_TO_HOST: c_int = 2;
 
-unsafe fn realize_cuda(op: &Op, mut dev_ptr: *mut c_void) -> (*mut c_void, Vec<usize>) {
+unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
     match op {
         Op::Add(lhs, rhs) => {
-            let (lhs_ptr, shape) = realize_cuda(&lhs.op, dev_ptr);
-            let (rhs_ptr, _) = realize_cuda(&rhs.op, std::ptr::null_mut());
+            let (lhs_ptr, shape) = realize_cuda(&lhs.op);
+            let (rhs_ptr, _) = realize_cuda(&rhs.op);
 
             let result = std::ptr::null_mut();
             add(
@@ -40,7 +40,7 @@ unsafe fn realize_cuda(op: &Op, mut dev_ptr: *mut c_void) -> (*mut c_void, Vec<u
         Op::Log(_) => todo!(),
         Op::Load(data, shape) => {
             let bytes = data.len() * std::mem::size_of::<f64>();
-
+            let mut dev_ptr: *mut c_void = std::ptr::null_mut();
             let code = cudaMalloc(&mut dev_ptr as *mut *mut c_void, bytes);
             if code != 0 {
                 panic!("{}", error_string(code));
@@ -63,12 +63,12 @@ unsafe fn realize_cuda(op: &Op, mut dev_ptr: *mut c_void) -> (*mut c_void, Vec<u
         Op::Conv2D(_, _, _, _) => todo!(),
         Op::Pad2D(_, _, _) => todo!(),
         Op::Reshape(t, shape) => {
-            let (t_ptr, _) = realize_cuda(&t.op, dev_ptr);
+            let (t_ptr, _) = realize_cuda(&t.op);
             (t_ptr, shape.to_vec())
         }
         Op::Permute(_, _) => todo!(),
         Op::Expand(t, _) => {
-            let (t_ptr, _) = realize_cuda(&t.op, dev_ptr);
+            let (t_ptr, _) = realize_cuda(&t.op);
             dbg!(t_ptr);
             todo!();
         }
@@ -80,8 +80,7 @@ pub fn realize(op: &Op) -> (Vec<f64>, Vec<usize>) {
     trace!("Realizing {:?}", op);
 
     unsafe {
-        let dev_ptr: *mut c_void = std::ptr::null_mut();
-        let (dev_ptr, shape) = realize_cuda(op, dev_ptr);
+        let (dev_ptr, shape) = realize_cuda(op);
 
         let result_size = shape.iter().product();
         let mut result = vec![0.0; result_size];
