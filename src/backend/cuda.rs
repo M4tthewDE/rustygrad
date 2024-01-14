@@ -22,12 +22,18 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             let (lhs_ptr, shape) = realize_cuda(&lhs.op);
             let (rhs_ptr, _) = realize_cuda(&rhs.op);
 
-            let result = std::ptr::null_mut();
+            let result_size = shape.iter().product::<usize>();
+            let mut result: *mut c_void = std::ptr::null_mut();
+            let code = cudaMalloc(&mut result as *mut *mut c_void, result_size);
+            if code != 0 {
+                panic!("{}", error_string(code));
+            }
+
             add(
                 lhs_ptr as *const i32,
                 rhs_ptr as *const i32,
                 result as *mut i32,
-                shape.iter().product::<usize>() as i32,
+                result_size as i32,
             );
             (result, shape)
         }
@@ -81,7 +87,6 @@ pub fn realize(op: &Op) -> (Vec<f64>, Vec<usize>) {
 
     unsafe {
         let (dev_ptr, shape) = realize_cuda(op);
-
         let result_size = shape.iter().product();
         let mut result = vec![0.0; result_size];
         let code = cudaMemcpy(
