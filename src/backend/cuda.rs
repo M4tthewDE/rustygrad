@@ -77,8 +77,7 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
         }
         Op::Permute(_, _) => todo!(),
         Op::Expand(t, _) => {
-            let (t_ptr, _) = realize_cuda(&t.op);
-            dbg!(t_ptr);
+            let (_, _) = realize_cuda(&t.op);
             todo!();
         }
         Op::MatMul(_, _) => todo!(),
