@@ -7,7 +7,7 @@ use crate::op::Op;
 extern "C" {
     fn cudaMalloc(devPtr: *mut *mut c_void, size: usize) -> c_int;
     fn cudaMemcpy(dst: *mut c_void, src: *const c_void, count: usize, kind: c_int) -> c_int;
-    fn cudaFree(devPtr: *mut c_void) -> c_int;
+    //fn cudaFree(devPtr: *mut c_void) -> c_int;
     fn cudaGetErrorString(error: c_int) -> *const i8;
 
     fn add(a: *const i32, b: *const i32, c: *mut i32, n: i32);
@@ -91,11 +91,8 @@ pub fn realize(op: &Op) -> (Vec<f64>, Vec<usize>) {
             DEVICE_TO_HOST,
         );
         if code != 0 {
-            cudaFree(dev_ptr);
             panic!("{}", error_string(code));
         }
-
-        cudaFree(dev_ptr);
 
         (result, shape)
     }
