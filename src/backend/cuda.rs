@@ -9,6 +9,7 @@ extern "C" {
     fn cudaMemcpy(dst: *mut c_void, src: *const c_void, count: usize, kind: c_int) -> c_int;
     //fn cudaFree(devPtr: *mut c_void) -> c_int;
     fn cudaGetErrorString(error: c_int) -> *const i8;
+    fn cudaGetLastError() -> c_int;
 
     fn add(a: *const c_void, b: *const c_void, c: *mut *mut c_void, n: usize);
 }
@@ -33,6 +34,10 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             }
 
             add(lhs_ptr, rhs_ptr, &mut result_ptr, result_size);
+            let code = cudaGetLastError();
+            if code != 0 {
+                panic!("{}", error_string(code));
+            }
             (result_ptr, shape)
         }
         Op::Sub(_, _) => todo!(),
