@@ -10,7 +10,7 @@ extern "C" {
     //fn cudaFree(devPtr: *mut c_void) -> c_int;
     fn cudaGetErrorString(error: c_int) -> *const i8;
 
-    fn add(a: *const i32, b: *const i32, c: *mut i32, n: i32);
+    fn add(a: *const c_void, b: *const c_void, c: *mut *mut c_void, n: usize);
 }
 
 const HOST_TO_DEVICE: c_int = 1;
@@ -29,12 +29,7 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
                 panic!("{}", error_string(code));
             }
 
-            add(
-                lhs_ptr as *const i32,
-                rhs_ptr as *const i32,
-                result as *mut i32,
-                result_size as i32,
-            );
+            add(lhs_ptr, rhs_ptr, &mut result, result_size);
             (result, shape)
         }
         Op::Sub(_, _) => todo!(),
