@@ -11,7 +11,7 @@ extern "C" {
     fn cudaGetErrorString(error: c_int) -> *const i8;
     fn cudaGetLastError() -> c_int;
 
-    fn add(a: *const c_void, b: *const c_void, c: *mut *mut c_void, n: usize);
+    fn add(a: *const c_void, b: *const c_void, c: *mut c_void, n: usize);
 }
 
 const HOST_TO_DEVICE: c_int = 1;
@@ -33,7 +33,7 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
                 panic!("{}", error_string(code));
             }
 
-            add(lhs_ptr, rhs_ptr, &mut result_ptr, result_size);
+            add(lhs_ptr, rhs_ptr, result_ptr, result_size);
             let code = cudaGetLastError();
             if code != 0 {
                 panic!("{}", error_string(code));
