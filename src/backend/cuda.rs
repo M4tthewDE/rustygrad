@@ -10,8 +10,7 @@ const DEVICE_TO_HOST: c_int = 2;
 extern "C" {
     fn cudaMalloc(devPtr: *mut *mut c_void, size: usize) -> c_int;
     fn cudaMemcpy(dst: *mut c_void, src: *const c_void, count: usize, kind: c_int) -> c_int;
-    // FIXME: we should really use this at some point...
-    //fn cudaFree(devPtr: *mut c_void) -> c_int;
+    fn cudaFree(devPtr: *mut c_void) -> c_int;
     fn cudaGetErrorString(error: c_int) -> *const i8;
     fn cudaGetLastError() -> c_int;
 
@@ -244,6 +243,7 @@ pub fn realize(op: &Op) -> (Vec<f64>, Vec<usize>) {
         let result_size = shape.iter().product();
         let mut result = vec![0.0; result_size];
         memcpy_to_host(&mut result, result_ptr, result_size);
+        cudaFree(result_ptr);
         (result, shape)
     }
 }
