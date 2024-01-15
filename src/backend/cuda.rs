@@ -24,6 +24,7 @@ extern "C" {
     fn relu(a: *const c_void, c: *mut c_void, n: usize);
     fn sigmoid(a: *const c_void, c: *mut c_void, n: usize);
     fn rusty_max(a: *const c_void, c: *mut c_void, n: usize);
+    fn rusty_min(a: *const c_void, c: *mut c_void, n: usize);
 }
 
 unsafe fn error_string(code: i32) -> String {
@@ -121,7 +122,13 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             check_last_error();
             (result_ptr, vec![])
         }
-        Op::Min(_) => todo!(),
+        Op::Min(t) => {
+            let (t_ptr, shape) = realize_cuda(&t.op);
+            let result_ptr = malloc(1);
+            rusty_min(t_ptr, result_ptr, shape.iter().product());
+            check_last_error();
+            (result_ptr, vec![])
+        }
         Op::Sqrt(t) => {
             let (t_ptr, shape) = realize_cuda(&t.op);
             let result_size = shape.iter().product::<usize>();

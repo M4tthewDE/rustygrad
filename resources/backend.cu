@@ -170,3 +170,56 @@ extern "C" void rusty_max(double *a, double *c, int n) {
 
   cudaMemcpy(c, &finalMax, 1 * sizeof(double), cudaMemcpyHostToDevice);
 }
+
+__global__ void min_kernel(double *a, double *max, int n) {
+  extern __shared__ double shared[];
+
+  int index = threadIdx.x + blockIdx.x * blockDim.x;
+  int stride = blockDim.x * gridDim.x;
+  double localMin = DBL_MAX;
+
+  // Local reduction
+  for (int i = index; i < n; i += stride) {
+    localMin = fmin(localMin, a[i]);
+  }
+
+  // Store local max in shared memory
+  shared[threadIdx.x] = localMin;
+  __syncthreads();
+
+  // Reduction within a block
+  for (int s = blockDim.x / 2; s > 0; s >>= 1) {
+    if (threadIdx.x < s) {
+      shared[threadIdx.x] = fmin(shared[threadIdx.x], shared[threadIdx.x + s]);
+    }
+    __syncthreads();
+  }
+
+  // First thread in each block writes the result
+  if (threadIdx.x == 0) {
+    max[blockIdx.x] = shared[0];
+  }
+}
+
+extern "C" void rusty_min(double *a, double *c, int n) {
+  const int blockSize = 256;
+  const int numBlocks = (n + blockSize - 1) / blockSize;
+  dim3 blockDim(blockSize);
+  dim3 gridDim(numBlocks);
+
+  double *min;
+  cudaMalloc(&min, numBlocks * sizeof(double));
+
+  min_kernel<<<gridDim, blockDim, blockSize * sizeof(double)>>>(a, min, n);
+
+  double *result_min = new double[numBlocks];
+  cudaMemcpy(result_min, min, numBlocks * sizeof(double),
+             cudaMemcpyDeviceToHost);
+
+  double finalMin = DBL_MAX;
+  for (int i = 0; i < numBlocks; ++i) {
+    finalMin = fmin(finalMin, result_min[i]);
+  }
+
+  cudaMemcpy(c, &finalMin, 1 * sizeof(double), cudaMemcpyHostToDevice);
+}
