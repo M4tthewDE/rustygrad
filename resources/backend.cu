@@ -119,7 +119,7 @@ extern "C" void sigmoid(double *a, double *c, int n) {
 }
 
 __global__ void max_kernel(double *a, double *max, int n) {
-  extern __shared__ int shared[];
+  extern __shared__ double shared[];
 
   int index = threadIdx.x + blockIdx.x * blockDim.x;
   int stride = blockDim.x * gridDim.x;
@@ -127,7 +127,7 @@ __global__ void max_kernel(double *a, double *max, int n) {
 
   // Local reduction
   for (int i = index; i < n; i += stride) {
-    localMax = fmaxf(localMax, a[i]);
+    localMax = fmax(localMax, a[i]);
   }
 
   // Store local max in shared memory
@@ -137,7 +137,7 @@ __global__ void max_kernel(double *a, double *max, int n) {
   // Reduction within a block
   for (int s = blockDim.x / 2; s > 0; s >>= 1) {
     if (threadIdx.x < s) {
-      shared[threadIdx.x] = fmaxf(shared[threadIdx.x], shared[threadIdx.x + s]);
+      shared[threadIdx.x] = fmax(shared[threadIdx.x], shared[threadIdx.x + s]);
     }
     __syncthreads();
   }
@@ -155,21 +155,18 @@ extern "C" void rusty_max(double *a, double *c, int n) {
   dim3 gridDim(numBlocks);
 
   double *max;
-  cudaMalloc(&max, numBlocks);
-  double *result_max;
-  cudaMalloc(&result_max, numBlocks);
+  cudaMalloc(&max, numBlocks * sizeof(double));
 
-  max_kernel<<<gridDim, blockDim>>>(a, max, n);
+  max_kernel<<<gridDim, blockDim, blockSize * sizeof(double)>>>(a, max, n);
 
-  // Copy results back to host
+  double *result_max = new double[numBlocks];
   cudaMemcpy(result_max, max, numBlocks * sizeof(double),
              cudaMemcpyDeviceToHost);
 
-  // Final reduction on host
   double finalMax = -DBL_MAX;
   for (int i = 0; i < numBlocks; ++i) {
-    finalMax = fmaxf(finalMax, result_max[i]);
+    finalMax = fmax(finalMax, result_max[i]);
   }
 
-  cudaMemcpy(c, &finalMax, 1, cudaMemcpyHostToDevice);
+  cudaMemcpy(c, &finalMax, 1 * sizeof(double), cudaMemcpyHostToDevice);
 }

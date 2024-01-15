@@ -119,7 +119,7 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             let result_ptr = malloc(1);
             rusty_max(t_ptr, result_ptr, shape.iter().product());
             check_last_error();
-            (result_ptr, vec![1])
+            (result_ptr, vec![])
         }
         Op::Min(_) => todo!(),
         Op::Sqrt(t) => {
