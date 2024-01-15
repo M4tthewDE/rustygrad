@@ -19,6 +19,11 @@ extern "C" {
     fn sub(a: *const c_void, b: *const c_void, c: *mut c_void, n: usize);
     fn mul(a: *const c_void, b: *const c_void, c: *mut c_void, n: usize);
     fn division(a: *const c_void, b: *const c_void, c: *mut c_void, n: usize);
+    fn rusty_sqrt(a: *const c_void, c: *mut c_void, n: usize);
+    fn rusty_log(a: *const c_void, c: *mut c_void, n: usize);
+    fn relu(a: *const c_void, c: *mut c_void, n: usize);
+    fn sigmoid(a: *const c_void, c: *mut c_void, n: usize);
+    fn rusty_max(a: *const c_void, c: *mut c_void, n: usize);
 }
 
 unsafe fn error_string(code: i32) -> String {
@@ -109,17 +114,51 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             check_last_error();
             (result_ptr, shape)
         }
-        Op::Max(_) => todo!(),
+        Op::Max(t) => {
+            let (t_ptr, shape) = realize_cuda(&t.op);
+            let result_ptr = malloc(1);
+            rusty_max(t_ptr, result_ptr, shape.iter().product());
+            check_last_error();
+            (result_ptr, vec![1])
+        }
         Op::Min(_) => todo!(),
-        Op::Sqrt(_) => todo!(),
-        Op::Log(_) => todo!(),
+        Op::Sqrt(t) => {
+            let (t_ptr, shape) = realize_cuda(&t.op);
+            let result_size = shape.iter().product::<usize>();
+            let result_ptr = malloc(result_size);
+            rusty_sqrt(t_ptr, result_ptr, result_size);
+            check_last_error();
+            (result_ptr, shape)
+        }
+        Op::Log(t) => {
+            let (t_ptr, shape) = realize_cuda(&t.op);
+            let result_size = shape.iter().product::<usize>();
+            let result_ptr = malloc(result_size);
+            rusty_log(t_ptr, result_ptr, result_size);
+            check_last_error();
+            (result_ptr, shape)
+        }
         Op::Load(data, shape) => {
             let dev_ptr = malloc(data.len());
             memcpy_to_device(dev_ptr, data);
             (dev_ptr, shape.to_vec())
         }
-        Op::Sigmoid(_) => todo!(),
-        Op::Relu(_) => todo!(),
+        Op::Sigmoid(t) => {
+            let (t_ptr, shape) = realize_cuda(&t.op);
+            let result_size = shape.iter().product::<usize>();
+            let result_ptr = malloc(result_size);
+            sigmoid(t_ptr, result_ptr, result_size);
+            check_last_error();
+            (result_ptr, shape)
+        }
+        Op::Relu(t) => {
+            let (t_ptr, shape) = realize_cuda(&t.op);
+            let result_size = shape.iter().product::<usize>();
+            let result_ptr = malloc(result_size);
+            relu(t_ptr, result_ptr, result_size);
+            check_last_error();
+            (result_ptr, shape)
+        }
         Op::Sum(_, _, _) => todo!(),
         Op::Pool2D(_, _, _, _, _) => todo!(),
         Op::Conv2D(_, _, _, _) => todo!(),
