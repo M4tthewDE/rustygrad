@@ -30,6 +30,18 @@ mod cuda {
     }
 
     #[test]
+    fn addition_broadcasting() {
+        device::set_device(Device::Cuda);
+
+        let a = Tensor::from_vec(vec![2.0; 100 * 100], vec![100, 100]);
+        let b = Tensor::from_scalar(3.0);
+        let (data, shape) = (a + b).realize();
+
+        assert_eq!(data, vec![5.0; 100 * 100]);
+        assert_eq!(shape, vec![100, 100]);
+    }
+
+    #[test]
     fn sub() {
         device::set_device(Device::Cuda);
 
