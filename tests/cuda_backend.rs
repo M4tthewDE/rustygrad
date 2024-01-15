@@ -164,4 +164,20 @@ mod cuda {
         util::assert_aprox_eq_vec(data, tch_output, 1e-6);
         assert_eq!(shape, tch_shape);
     }
+
+    #[test]
+    fn expand() {
+        device::set_device(Device::Cuda);
+        let input = Tensor::rand(vec![10, 1]);
+        let tch_input = input.to_tch();
+
+        let output = input.expand(vec![10, 10]);
+        let (data, shape) = output.realize();
+        let tch_result = tch_input.expand(vec![10, 10], false);
+        let tch_output = util::tch_data(&tch_result);
+        let tch_shape = util::tch_shape(&tch_result);
+
+        util::assert_aprox_eq_vec(data, tch_output, 1e-6);
+        assert_eq!(shape, tch_shape);
+    }
 }

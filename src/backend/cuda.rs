@@ -26,6 +26,14 @@ extern "C" {
     fn rusty_max(a: *const c_void, c: *mut c_void, n: usize);
     fn rusty_min(a: *const c_void, c: *mut c_void, n: usize);
     fn matmul(a: *const c_void, b: *const c_void, c: *const c_void, M: usize, K: usize, N: usize);
+    fn expand(
+        input: *const c_void,
+        output: *const c_void,
+        output_length: usize,
+        dim_count: usize,
+        old_shape: *const c_void,
+        new_shape: *const c_void,
+    );
 }
 
 unsafe fn error_string(code: i32) -> String {
@@ -41,12 +49,9 @@ unsafe fn check_last_error() {
     }
 }
 
-unsafe fn malloc(size: usize) -> *mut c_void {
+unsafe fn malloc(amount: usize, size: usize) -> *mut c_void {
     let mut ptr: *mut c_void = std::ptr::null_mut();
-    let code = cudaMalloc(
-        &mut ptr as *mut *mut c_void,
-        size * std::mem::size_of::<f64>(),
-    );
+    let code = cudaMalloc(&mut ptr as *mut *mut c_void, amount * size);
     if code != 0 {
         panic!("{}", error_string(code));
     }
@@ -59,6 +64,18 @@ unsafe fn memcpy_to_device(ptr: *mut c_void, data: &Vec<f64>) {
         ptr,
         data.as_ptr() as *const c_void,
         data.len() * std::mem::size_of::<f64>(),
+        HOST_TO_DEVICE,
+    );
+    if code != 0 {
+        panic!("{}", error_string(code));
+    }
+}
+
+unsafe fn memcpy_to_device_usize(ptr: *mut c_void, data: &Vec<usize>) {
+    let code = cudaMemcpy(
+        ptr,
+        data.as_ptr() as *const c_void,
+        data.len() * std::mem::size_of::<usize>(),
         HOST_TO_DEVICE,
     );
     if code != 0 {
@@ -84,7 +101,7 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             let (lhs_ptr, shape) = realize_cuda(&lhs.op);
             let (rhs_ptr, _) = realize_cuda(&rhs.op);
             let result_size = shape.iter().product::<usize>();
-            let result_ptr = malloc(result_size);
+            let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
             add(lhs_ptr, rhs_ptr, result_ptr, result_size);
             check_last_error();
             (result_ptr, shape)
@@ -93,7 +110,7 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             let (lhs_ptr, shape) = realize_cuda(&lhs.op);
             let (rhs_ptr, _) = realize_cuda(&rhs.op);
             let result_size = shape.iter().product::<usize>();
-            let result_ptr = malloc(result_size);
+            let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
             sub(lhs_ptr, rhs_ptr, result_ptr, result_size);
             check_last_error();
             (result_ptr, shape)
@@ -102,7 +119,7 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             let (lhs_ptr, shape) = realize_cuda(&lhs.op);
             let (rhs_ptr, _) = realize_cuda(&rhs.op);
             let result_size = shape.iter().product::<usize>();
-            let result_ptr = malloc(result_size);
+            let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
             mul(lhs_ptr, rhs_ptr, result_ptr, result_size);
             check_last_error();
             (result_ptr, shape)
@@ -111,21 +128,21 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             let (lhs_ptr, shape) = realize_cuda(&lhs.op);
             let (rhs_ptr, _) = realize_cuda(&rhs.op);
             let result_size = shape.iter().product::<usize>();
-            let result_ptr = malloc(result_size);
+            let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
             division(lhs_ptr, rhs_ptr, result_ptr, result_size);
             check_last_error();
             (result_ptr, shape)
         }
         Op::Max(t) => {
             let (t_ptr, shape) = realize_cuda(&t.op);
-            let result_ptr = malloc(1);
+            let result_ptr = malloc(1, std::mem::size_of::<f64>());
             rusty_max(t_ptr, result_ptr, shape.iter().product());
             check_last_error();
             (result_ptr, vec![])
         }
         Op::Min(t) => {
             let (t_ptr, shape) = realize_cuda(&t.op);
-            let result_ptr = malloc(1);
+            let result_ptr = malloc(1, std::mem::size_of::<f64>());
             rusty_min(t_ptr, result_ptr, shape.iter().product());
             check_last_error();
             (result_ptr, vec![])
@@ -133,7 +150,7 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
         Op::Sqrt(t) => {
             let (t_ptr, shape) = realize_cuda(&t.op);
             let result_size = shape.iter().product::<usize>();
-            let result_ptr = malloc(result_size);
+            let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
             rusty_sqrt(t_ptr, result_ptr, result_size);
             check_last_error();
             (result_ptr, shape)
@@ -141,20 +158,20 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
         Op::Log(t) => {
             let (t_ptr, shape) = realize_cuda(&t.op);
             let result_size = shape.iter().product::<usize>();
-            let result_ptr = malloc(result_size);
+            let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
             rusty_log(t_ptr, result_ptr, result_size);
             check_last_error();
             (result_ptr, shape)
         }
         Op::Load(data, shape) => {
-            let dev_ptr = malloc(data.len());
+            let dev_ptr = malloc(data.len(), std::mem::size_of::<f64>());
             memcpy_to_device(dev_ptr, data);
             (dev_ptr, shape.to_vec())
         }
         Op::Sigmoid(t) => {
             let (t_ptr, shape) = realize_cuda(&t.op);
             let result_size = shape.iter().product::<usize>();
-            let result_ptr = malloc(result_size);
+            let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
             sigmoid(t_ptr, result_ptr, result_size);
             check_last_error();
             (result_ptr, shape)
@@ -162,7 +179,7 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
         Op::Relu(t) => {
             let (t_ptr, shape) = realize_cuda(&t.op);
             let result_size = shape.iter().product::<usize>();
-            let result_ptr = malloc(result_size);
+            let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
             relu(t_ptr, result_ptr, result_size);
             check_last_error();
             (result_ptr, shape)
@@ -176,9 +193,35 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             (t_ptr, shape.to_vec())
         }
         Op::Permute(_, _) => todo!(),
-        Op::Expand(t, _) => {
-            let (_, _) = realize_cuda(&t.op);
-            todo!();
+        Op::Expand(t, new_shape) => {
+            let (t_ptr, old_shape) = realize_cuda(&t.op);
+            assert_eq!(
+                old_shape.len(),
+                new_shape.len(),
+                "Only supporting same size shapes"
+            );
+            for (old, new) in old_shape.iter().zip(new_shape.clone()) {
+                assert!(
+                    *old == new || *old == 1,
+                    "Old dimension must be either 1 or identical to new dimension"
+                );
+            }
+            let result_size = new_shape.iter().product::<usize>();
+            let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
+            let old_shape_ptr = malloc(old_shape.len(), std::mem::size_of::<usize>());
+            memcpy_to_device_usize(old_shape_ptr, &old_shape);
+            let new_shape_ptr = malloc(new_shape.len(), std::mem::size_of::<usize>());
+            memcpy_to_device_usize(new_shape_ptr, &new_shape);
+            expand(
+                t_ptr,
+                result_ptr,
+                result_size,
+                new_shape.len(),
+                old_shape_ptr,
+                new_shape_ptr,
+            );
+            check_last_error();
+            (result_ptr, new_shape.to_vec())
         }
         Op::MatMul(lhs, rhs) => {
             let (lhs_ptr, lhs_shape) = realize_cuda(&lhs.op);
@@ -190,7 +233,7 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
 
             assert_eq!(lhs_shape[1], rhs_shape[0]);
             let result_size = lhs_shape[0] * rhs_shape[1];
-            let result_ptr = malloc(result_size);
+            let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
             matmul(
                 lhs_ptr,
                 rhs_ptr,

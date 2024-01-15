@@ -246,3 +246,40 @@ extern "C" void matmul(double *a, double *b, double *c, int M, int K, int N) {
                1);
   matmul_kernel<<<dimGrid, dimBlock>>>(a, b, c, M, K, N);
 }
+
+__global__ void expand_kernel(double *input, double *output, int output_length,
+                              int dim_count, size_t *old_shape,
+                              size_t *new_shape) {
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+
+  if (i < output_length) {
+    size_t idx = 0;
+    size_t factor = 1;
+    size_t index = i;
+
+    for (int k = dim_count - 1; k >= 0; k--) {
+      size_t size_new = new_shape[k];
+      size_t size_old = old_shape[k];
+      int old_index = 0;
+
+      if (size_old != 1) {
+        old_index = i % size_new;
+      }
+
+      idx += old_index * factor;
+      factor *= size_old;
+      i /= size_new;
+    }
+
+    output[index] = input[idx];
+  }
+}
+
+extern "C" void expand(double *input, double *output, int output_length,
+                       int dim_count, size_t *old_shape, size_t *new_shape) {
+  dim3 blockDim(256);
+  dim3 gridDim((output_length + blockDim.x - 1) / blockDim.x);
+
+  expand_kernel<<<gridDim, blockDim>>>(input, output, output_length, dim_count,
+                                       old_shape, new_shape);
+}
