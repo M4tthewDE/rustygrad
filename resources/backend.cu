@@ -223,3 +223,26 @@ extern "C" void rusty_min(double *a, double *c, int n) {
 
   cudaMemcpy(c, &finalMin, 1 * sizeof(double), cudaMemcpyHostToDevice);
 }
+
+// A: M x K, B: K x N, C: M x N
+__global__ void matmul_kernel(double *A, double *B, double *C, int M, int K,
+                              int N) {
+  int row = blockIdx.y * blockDim.y + threadIdx.y;
+  int col = blockIdx.x * blockDim.x + threadIdx.x;
+
+  if (row < M && col < N) {
+    double sum = 0.0;
+    for (int k = 0; k < K; k++) {
+      sum += A[row * K + k] * B[k * N + col];
+    }
+    C[row * N + col] = sum;
+  }
+}
+
+extern "C" void matmul(double *a, double *b, double *c, int M, int K, int N) {
+  int blockSize = 16;
+  dim3 dimBlock(blockSize, blockSize, 1);
+  dim3 dimGrid((N + blockSize - 1) / blockSize, (M + blockSize - 1) / blockSize,
+               1);
+  matmul_kernel<<<dimGrid, dimBlock>>>(a, b, c, M, K, N);
+}

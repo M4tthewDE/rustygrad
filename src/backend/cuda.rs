@@ -25,6 +25,7 @@ extern "C" {
     fn sigmoid(a: *const c_void, c: *mut c_void, n: usize);
     fn rusty_max(a: *const c_void, c: *mut c_void, n: usize);
     fn rusty_min(a: *const c_void, c: *mut c_void, n: usize);
+    fn matmul(a: *const c_void, b: *const c_void, c: *const c_void, M: usize, K: usize, N: usize);
 }
 
 unsafe fn error_string(code: i32) -> String {
@@ -179,7 +180,28 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             let (_, _) = realize_cuda(&t.op);
             todo!();
         }
-        Op::MatMul(_, _) => todo!(),
+        Op::MatMul(lhs, rhs) => {
+            let (lhs_ptr, lhs_shape) = realize_cuda(&lhs.op);
+            let (rhs_ptr, rhs_shape) = realize_cuda(&rhs.op);
+            assert!(
+                lhs_shape.len() == 2 && rhs_shape.len() == 2,
+                "only supporting 2d tensors for now"
+            );
+
+            assert_eq!(lhs_shape[1], rhs_shape[0]);
+            let result_size = lhs_shape[0] * rhs_shape[1];
+            let result_ptr = malloc(result_size);
+            matmul(
+                lhs_ptr,
+                rhs_ptr,
+                result_ptr,
+                lhs_shape[0],
+                lhs_shape[1],
+                rhs_shape[1],
+            );
+            check_last_error();
+            (result_ptr, vec![lhs_shape[0], rhs_shape[1]])
+        }
     }
 }
 
