@@ -91,6 +91,8 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
             add(lhs_ptr, rhs_ptr, result_ptr, result_size);
             check_last_error();
+            cudaFree(lhs_ptr);
+            cudaFree(rhs_ptr);
             (result_ptr, shape)
         }
         Op::Sub(lhs, rhs) => {
@@ -100,6 +102,8 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
             sub(lhs_ptr, rhs_ptr, result_ptr, result_size);
             check_last_error();
+            cudaFree(lhs_ptr);
+            cudaFree(rhs_ptr);
             (result_ptr, shape)
         }
         Op::Mul(lhs, rhs) => {
@@ -109,6 +113,8 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
             mul(lhs_ptr, rhs_ptr, result_ptr, result_size);
             check_last_error();
+            cudaFree(lhs_ptr);
+            cudaFree(rhs_ptr);
             (result_ptr, shape)
         }
         Op::Div(lhs, rhs) => {
@@ -118,6 +124,8 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
             division(lhs_ptr, rhs_ptr, result_ptr, result_size);
             check_last_error();
+            cudaFree(lhs_ptr);
+            cudaFree(rhs_ptr);
             (result_ptr, shape)
         }
         Op::Max(t) => {
@@ -125,6 +133,7 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             let result_ptr = malloc(1, std::mem::size_of::<f64>());
             rusty_max(t_ptr, result_ptr, shape.iter().product());
             check_last_error();
+            cudaFree(t_ptr);
             (result_ptr, vec![])
         }
         Op::Min(t) => {
@@ -132,6 +141,7 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             let result_ptr = malloc(1, std::mem::size_of::<f64>());
             rusty_min(t_ptr, result_ptr, shape.iter().product());
             check_last_error();
+            cudaFree(t_ptr);
             (result_ptr, vec![])
         }
         Op::Sqrt(t) => {
@@ -140,6 +150,7 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
             rusty_sqrt(t_ptr, result_ptr, result_size);
             check_last_error();
+            cudaFree(t_ptr);
             (result_ptr, shape)
         }
         Op::Log(t) => {
@@ -148,6 +159,7 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
             rusty_log(t_ptr, result_ptr, result_size);
             check_last_error();
+            cudaFree(t_ptr);
             (result_ptr, shape)
         }
         Op::Load(data, shape) => {
@@ -161,6 +173,7 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
             sigmoid(t_ptr, result_ptr, result_size);
             check_last_error();
+            cudaFree(t_ptr);
             (result_ptr, shape)
         }
         Op::Relu(t) => {
@@ -169,6 +182,7 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
             relu(t_ptr, result_ptr, result_size);
             check_last_error();
+            cudaFree(t_ptr);
             (result_ptr, shape)
         }
         Op::Sum(_, _, _) => todo!(),
@@ -207,6 +221,7 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
                 old_shape_ptr,
                 new_shape_ptr,
             );
+            cudaFree(t_ptr);
             check_last_error();
             (result_ptr, new_shape.to_vec())
         }
@@ -230,6 +245,8 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
                 rhs_shape[1],
             );
             check_last_error();
+            cudaFree(lhs_ptr);
+            cudaFree(rhs_ptr);
             (result_ptr, vec![lhs_shape[0], rhs_shape[1]])
         }
     }
