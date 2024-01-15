@@ -59,23 +59,11 @@ unsafe fn malloc(amount: usize, size: usize) -> *mut c_void {
     ptr
 }
 
-unsafe fn memcpy_to_device(ptr: *mut c_void, data: &Vec<f64>) {
+unsafe fn memcpy_to_device<T>(ptr: *mut c_void, data: &Vec<T>) {
     let code = cudaMemcpy(
         ptr,
         data.as_ptr() as *const c_void,
-        data.len() * std::mem::size_of::<f64>(),
-        HOST_TO_DEVICE,
-    );
-    if code != 0 {
-        panic!("{}", error_string(code));
-    }
-}
-
-unsafe fn memcpy_to_device_usize(ptr: *mut c_void, data: &Vec<usize>) {
-    let code = cudaMemcpy(
-        ptr,
-        data.as_ptr() as *const c_void,
-        data.len() * std::mem::size_of::<usize>(),
+        data.len() * std::mem::size_of::<T>(),
         HOST_TO_DEVICE,
     );
     if code != 0 {
@@ -209,9 +197,9 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             let result_size = new_shape.iter().product::<usize>();
             let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
             let old_shape_ptr = malloc(old_shape.len(), std::mem::size_of::<usize>());
-            memcpy_to_device_usize(old_shape_ptr, &old_shape);
+            memcpy_to_device(old_shape_ptr, &old_shape);
             let new_shape_ptr = malloc(new_shape.len(), std::mem::size_of::<usize>());
-            memcpy_to_device_usize(new_shape_ptr, &new_shape);
+            memcpy_to_device(new_shape_ptr, new_shape);
             expand(
                 t_ptr,
                 result_ptr,
