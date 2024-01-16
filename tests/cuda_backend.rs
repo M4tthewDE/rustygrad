@@ -192,4 +192,34 @@ mod cuda {
         util::assert_aprox_eq_vec(data, tch_output, 1e-6);
         assert_eq!(shape, tch_shape);
     }
+
+    #[test]
+    fn pad_2d_cuda() {
+        device::set_device(Device::Cuda);
+        let input = Tensor::rand(vec![1, 1, 3, 3]);
+        let tch_input = input.to_tch();
+        let output = input.pad_2d(0., [1, 1, 1, 1]);
+        let (data, shape) = output.realize();
+        let tch_output = tch_input.zero_pad2d(1, 1, 1, 1);
+        let tch_shape = util::tch_shape(&tch_output);
+        let tch_output = util::tch_data(&tch_output);
+
+        assert_eq!(shape, tch_shape);
+        assert_eq!(data, tch_output,);
+    }
+
+    #[test]
+    fn pad_2d_weird_padding() {
+        device::set_device(Device::Cuda);
+        let input = Tensor::rand(vec![1, 3, 16, 16]);
+        let tch_input = input.to_tch();
+        let output = input.pad_2d(0., [1, 2, 3, 4]);
+        let (data, shape) = output.realize();
+        let tch_output = tch_input.zero_pad2d(1, 2, 3, 4);
+        let tch_shape = util::tch_shape(&tch_output);
+        let tch_output = util::tch_data(&tch_output);
+
+        assert_eq!(shape, tch_shape);
+        assert_eq!(data, tch_output,);
+    }
 }

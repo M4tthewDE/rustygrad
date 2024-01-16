@@ -283,3 +283,52 @@ extern "C" void expand(double *input, double *output, int output_length,
   expand_kernel<<<gridDim, blockDim>>>(input, output, output_length, dim_count,
                                        old_shape, new_shape);
 }
+
+__global__ void pad2d_kernel(double *input, double *output, int input_length,
+                             int dim_count, size_t *shape, size_t *new_shape,
+                             size_t *padding) {
+  extern __shared__ int shared_mem[];
+  int *multi_dim_index = shared_mem + threadIdx.x * dim_count;
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+
+  if (i < input_length) {
+    size_t temp_index = i;
+
+    for (int k = dim_count - 1; k >= 0; k--) {
+      size_t size = shape[k];
+      multi_dim_index[k] = temp_index % size;
+      temp_index /= size;
+    }
+
+    // bottom and right padding is added in the initialization
+    if (dim_count >= 2) {
+      multi_dim_index[dim_count - 2] += padding[2]; // top padding
+      multi_dim_index[dim_count - 1] += padding[0]; // left padding
+    }
+
+    size_t new_index = 0;
+    size_t stride = 1;
+    for (int k = dim_count - 1; k >= 0; k--) {
+      size_t size = new_shape[k];
+      size_t index = multi_dim_index[k];
+
+      new_index += index * stride;
+      stride *= size;
+    }
+
+    // printf("new_index: %llu\n", (unsigned long long)new_index);
+    output[new_index] = input[i];
+  }
+}
+
+extern "C" void pad2d(double *input, double *output, int input_length,
+                      int dim_count, size_t *shape, size_t *new_shape,
+                      size_t *padding) {
+  dim3 blockDim(256);
+  dim3 gridDim((input_length + blockDim.x - 1) / blockDim.x);
+
+  size_t sharedMemSize = blockDim.x * dim_count * sizeof(int);
+
+  pad2d_kernel<<<gridDim, blockDim, sharedMemSize>>>(
+      input, output, input_length, dim_count, shape, new_shape, padding);
+}
