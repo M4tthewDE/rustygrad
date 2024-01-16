@@ -316,7 +316,6 @@ __global__ void pad2d_kernel(double *input, double *output, int input_length,
       stride *= size;
     }
 
-    // printf("new_index: %llu\n", (unsigned long long)new_index);
     output[new_index] = input[i];
   }
 }

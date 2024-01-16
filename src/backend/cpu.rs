@@ -288,8 +288,7 @@ fn pad2d(t: &Rc<UnrealizedOp>, value: &f64, padding: &[usize; 4]) -> (Vec<f64>, 
 
         let mut new_index = 0;
         let mut stride = 1;
-        // FIXME: can't this be just one rev()?
-        for (&size, &index) in new_shape.iter().rev().zip(multi_dim_index.iter().rev()) {
+        for (&size, &index) in new_shape.iter().zip(&multi_dim_index).rev() {
             new_index += index * stride;
             stride *= size;
         }
