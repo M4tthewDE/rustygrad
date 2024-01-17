@@ -100,6 +100,12 @@ unsafe fn memcpy_to_host(result: &mut Vec<f64>, ptr: *mut c_void, size: usize) {
     }
 }
 
+unsafe fn cpy_to_device<T>(data: &Vec<T>) -> *mut c_void {
+    let ptr = malloc(data.len(), std::mem::size_of::<T>());
+    memcpy_to_device(ptr, &data);
+    ptr
+}
+
 unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
     match op {
         Op::Add(lhs, rhs) => {
@@ -222,14 +228,9 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
             memcpy_to_device(result_ptr, &vec![*value; result_size]);
 
-            let shape_ptr = malloc(shape.len(), std::mem::size_of::<usize>());
-            memcpy_to_device(shape_ptr, &shape);
-
-            let new_shape_ptr = malloc(new_shape.len(), std::mem::size_of::<usize>());
-            memcpy_to_device(new_shape_ptr, &new_shape);
-
-            let padding_ptr = malloc(padding.len(), std::mem::size_of::<usize>());
-            memcpy_to_device(padding_ptr, &padding.to_vec());
+            let shape_ptr = cpy_to_device(&shape);
+            let new_shape_ptr = cpy_to_device(&new_shape);
+            let padding_ptr = cpy_to_device(&padding.to_vec());
 
             pad2d(
                 t_ptr,
@@ -265,14 +266,9 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
             memcpy_to_device(result_ptr, &vec![0.0; result_size]);
 
-            let shape_ptr = malloc(shape.len(), std::mem::size_of::<usize>());
-            memcpy_to_device(shape_ptr, &shape);
-
-            let new_shape_ptr = malloc(new_shape.len(), std::mem::size_of::<usize>());
-            memcpy_to_device(new_shape_ptr, &new_shape);
-
-            let dims_ptr = malloc(dims.len(), std::mem::size_of::<usize>());
-            memcpy_to_device(dims_ptr, &dims.to_vec());
+            let shape_ptr = cpy_to_device(&shape);
+            let new_shape_ptr = cpy_to_device(&new_shape);
+            let dims_ptr = cpy_to_device(&dims.to_vec());
 
             permute(
                 t_ptr,
@@ -305,12 +301,11 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
                     "Old dimension must be either 1 or identical to new dimension"
                 );
             }
+
             let result_size = new_shape.iter().product::<usize>();
             let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
-            let old_shape_ptr = malloc(old_shape.len(), std::mem::size_of::<usize>());
-            memcpy_to_device(old_shape_ptr, &old_shape);
-            let new_shape_ptr = malloc(new_shape.len(), std::mem::size_of::<usize>());
-            memcpy_to_device(new_shape_ptr, new_shape);
+            let old_shape_ptr = cpy_to_device(&old_shape);
+            let new_shape_ptr = cpy_to_device(&new_shape);
             expand(
                 t_ptr,
                 result_ptr,
