@@ -331,3 +331,45 @@ extern "C" void pad2d(double *input, double *output, int input_length,
   pad2d_kernel<<<gridDim, blockDim, sharedMemSize>>>(
       input, output, input_length, dim_count, shape, new_shape, padding);
 }
+
+__global__ void permute_kernel(double *input, double *output, int input_length,
+                               int dim_count, size_t *shape, size_t *new_shape,
+                               size_t *dims) {
+  extern __shared__ int shared_mem[];
+  int *multi_dim_index = shared_mem + threadIdx.x * dim_count;
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+
+  if (i < input_length) {
+    size_t temp_index = i;
+
+    for (int k = dim_count - 1; k >= 0; k--) {
+      size_t size = shape[k];
+      multi_dim_index[k] = temp_index % size;
+      temp_index /= size;
+    }
+
+    size_t new_index = 0;
+    size_t stride = 1;
+    for (int k = dim_count - 1; k >= 0; k--) {
+      size_t size = new_shape[k];
+      size_t index = multi_dim_index[dims[k]];
+
+      new_index += index * stride;
+      stride *= size;
+    }
+
+    output[new_index] = input[i];
+  }
+}
+
+extern "C" void permute(double *input, double *output, int input_length,
+                        int dim_count, size_t *shape, size_t *new_shape,
+                        size_t *dims) {
+  dim3 blockDim(256);
+  dim3 gridDim((input_length + blockDim.x - 1) / blockDim.x);
+
+  size_t sharedMemSize = blockDim.x * dim_count * sizeof(int);
+
+  permute_kernel<<<gridDim, blockDim, sharedMemSize>>>(
+      input, output, input_length, dim_count, shape, new_shape, dims);
+}

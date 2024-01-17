@@ -42,6 +42,15 @@ extern "C" {
         new_shape: *const c_void,
         padding: *const c_void,
     );
+    fn permute(
+        input: *const c_void,
+        output: *const c_void,
+        output_length: usize,
+        dim_count: usize,
+        shape: *const c_void,
+        new_shape: *const c_void,
+        dims: *const c_void,
+    );
 }
 
 unsafe fn error_string(code: i32) -> String {
@@ -244,7 +253,45 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             let (t_ptr, _) = realize_cuda(&t.op);
             (t_ptr, shape.to_vec())
         }
-        Op::Permute(_, _) => todo!(),
+        Op::Permute(t, dims) => {
+            let (t_ptr, shape) = realize_cuda(&t.op);
+            if shape.len() < 2 {
+                panic!("Tensor must have at least 2 dimensions for 2D padding.");
+            }
+
+            let new_shape: Vec<usize> = dims.iter().map(|&d| shape[d]).collect();
+
+            let result_size = new_shape.iter().product::<usize>();
+            let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
+            memcpy_to_device(result_ptr, &vec![0.0; result_size]);
+
+            let shape_ptr = malloc(shape.len(), std::mem::size_of::<usize>());
+            memcpy_to_device(shape_ptr, &shape);
+
+            let new_shape_ptr = malloc(new_shape.len(), std::mem::size_of::<usize>());
+            memcpy_to_device(new_shape_ptr, &new_shape);
+
+            let dims_ptr = malloc(dims.len(), std::mem::size_of::<usize>());
+            memcpy_to_device(dims_ptr, &dims.to_vec());
+
+            permute(
+                t_ptr,
+                result_ptr,
+                shape.iter().product(),
+                shape.len(),
+                shape_ptr,
+                new_shape_ptr,
+                dims_ptr,
+            );
+            check_last_error();
+
+            cudaFree(t_ptr);
+            cudaFree(shape_ptr);
+            cudaFree(new_shape_ptr);
+            cudaFree(dims_ptr);
+
+            (result_ptr, new_shape.to_vec())
+        }
         Op::Expand(t, new_shape) => {
             let (t_ptr, old_shape) = realize_cuda(&t.op);
             assert_eq!(

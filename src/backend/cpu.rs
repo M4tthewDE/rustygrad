@@ -304,7 +304,7 @@ pub fn reshape(t: &Rc<UnrealizedOp>, shape: &Vec<usize>) -> (Vec<f64>, Vec<usize
     (data, shape.to_owned())
 }
 
-pub fn permute(t: &Rc<UnrealizedOp>, dims: &Vec<usize>) -> (Vec<f64>, Vec<usize>) {
+pub fn permute(t: &Rc<UnrealizedOp>, dims: &[usize]) -> (Vec<f64>, Vec<usize>) {
     let (data, shape) = realize(t);
     let new_shape: Vec<usize> = dims.iter().map(|&d| shape[d]).collect();
     let mut new_data = vec![0.0; data.len()];
@@ -319,14 +319,10 @@ pub fn permute(t: &Rc<UnrealizedOp>, dims: &Vec<usize>) -> (Vec<f64>, Vec<usize>
         }
         multi_dim_index.reverse();
 
-        let mut new_multi_dim_index: Vec<usize> = vec![0; dims.len()];
-        for (new_i, &old_i) in dims.iter().enumerate() {
-            new_multi_dim_index[new_i] = multi_dim_index[old_i];
-        }
-
         let mut new_index = 0;
         let mut stride = 1;
-        for (&size, &index) in new_shape.iter().rev().zip(new_multi_dim_index.iter().rev()) {
+        for (j, &size) in new_shape.iter().rev().enumerate() {
+            let index = multi_dim_index[dims[new_shape.len() - j - 1]];
             new_index += index * stride;
             stride *= size;
         }

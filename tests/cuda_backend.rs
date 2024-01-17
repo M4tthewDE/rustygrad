@@ -222,4 +222,36 @@ mod cuda {
         assert_eq!(shape, tch_shape);
         assert_eq!(data, tch_output,);
     }
+
+    #[test]
+    fn permute() {
+        device::set_device(Device::Cuda);
+        let input = Tensor::rand(vec![5, 15]);
+        let tch_input = input.to_tch();
+
+        let output = input.permute(vec![1, 0]);
+        let (data, shape) = output.realize();
+        let tch_result = tch_input.permute(vec![1, 0]);
+        let tch_output = util::tch_data(&tch_result);
+        let tch_shape = util::tch_shape(&tch_result);
+
+        assert_eq!(data, tch_output);
+        assert_eq!(shape, tch_shape);
+    }
+
+    #[test]
+    fn permute_harder() {
+        device::set_device(Device::Cuda);
+        let input = Tensor::rand(vec![224, 224, 3]);
+        let tch_input = input.to_tch();
+
+        let output = input.permute(vec![2, 0, 1]);
+        let (data, shape) = output.realize();
+        let tch_result = tch_input.permute(vec![2, 0, 1]);
+        let tch_output = util::tch_data(&tch_result);
+        let tch_shape = util::tch_shape(&tch_result);
+
+        assert_eq!(data, tch_output);
+        assert_eq!(shape, tch_shape);
+    }
 }

@@ -336,6 +336,21 @@ mod cpu {
     }
 
     #[test]
+    fn permute_harder() {
+        let input = Tensor::rand(vec![224, 224, 3]);
+        let tch_input = input.to_tch();
+
+        let output = input.permute(vec![2, 0, 1]);
+        let (data, shape) = output.realize();
+        let tch_result = tch_input.permute(vec![2, 0, 1]);
+        let tch_output = util::tch_data(&tch_result);
+        let tch_shape = util::tch_shape(&tch_result);
+
+        assert_eq!(data, tch_output);
+        assert_eq!(shape, tch_shape);
+    }
+
+    #[test]
     fn expand_end() {
         let input = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2, 1]);
         let tch_input = input.to_tch();
