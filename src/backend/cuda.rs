@@ -76,7 +76,8 @@ unsafe fn malloc(amount: usize, size: usize) -> *mut c_void {
     ptr
 }
 
-unsafe fn memcpy_to_device<T>(ptr: *mut c_void, data: &Vec<T>) {
+unsafe fn cpy_to_device<T>(data: &Vec<T>) -> *mut c_void {
+    let ptr = malloc(data.len(), std::mem::size_of::<T>());
     let code = cudaMemcpy(
         ptr,
         data.as_ptr() as *const c_void,
@@ -86,23 +87,6 @@ unsafe fn memcpy_to_device<T>(ptr: *mut c_void, data: &Vec<T>) {
     if code != 0 {
         panic!("{}", error_string(code));
     }
-}
-
-unsafe fn memcpy_to_host(result: &mut Vec<f64>, ptr: *mut c_void, size: usize) {
-    let code = cudaMemcpy(
-        result.as_mut_ptr() as *mut c_void,
-        ptr,
-        size * std::mem::size_of::<f64>(),
-        DEVICE_TO_HOST,
-    );
-    if code != 0 {
-        panic!("{}", error_string(code));
-    }
-}
-
-unsafe fn cpy_to_device<T>(data: &Vec<T>) -> *mut c_void {
-    let ptr = malloc(data.len(), std::mem::size_of::<T>());
-    memcpy_to_device(ptr, &data);
     ptr
 }
 
@@ -186,11 +170,7 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             cudaFree(t_ptr);
             (result_ptr, shape)
         }
-        Op::Load(data, shape) => {
-            let dev_ptr = malloc(data.len(), std::mem::size_of::<f64>());
-            memcpy_to_device(dev_ptr, data);
-            (dev_ptr, shape.to_vec())
-        }
+        Op::Load(data, shape) => (cpy_to_device(data), shape.to_vec()),
         Op::Sigmoid(t) => {
             let (t_ptr, shape) = realize_cuda(&t.op);
             let result_size = shape.iter().product::<usize>();
@@ -224,10 +204,7 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             new_shape[last_two_dims] += padding[2] + padding[3]; // top + bottom
             new_shape[last_two_dims + 1] += padding[0] + padding[1]; // left + right
 
-            let result_size = new_shape.iter().product::<usize>();
-            let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
-            memcpy_to_device(result_ptr, &vec![*value; result_size]);
-
+            let result_ptr = cpy_to_device(&vec![*value; new_shape.iter().product()]);
             let shape_ptr = cpy_to_device(&shape);
             let new_shape_ptr = cpy_to_device(&new_shape);
             let padding_ptr = cpy_to_device(&padding.to_vec());
@@ -261,11 +238,7 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             }
 
             let new_shape: Vec<usize> = dims.iter().map(|&d| shape[d]).collect();
-
-            let result_size = new_shape.iter().product::<usize>();
-            let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
-            memcpy_to_device(result_ptr, &vec![0.0; result_size]);
-
+            let result_ptr = cpy_to_device(&vec![0.0; new_shape.iter().product()]);
             let shape_ptr = cpy_to_device(&shape);
             let new_shape_ptr = cpy_to_device(&new_shape);
             let dims_ptr = cpy_to_device(&dims.to_vec());
@@ -305,7 +278,7 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             let result_size = new_shape.iter().product::<usize>();
             let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
             let old_shape_ptr = cpy_to_device(&old_shape);
-            let new_shape_ptr = cpy_to_device(&new_shape);
+            let new_shape_ptr = cpy_to_device(new_shape);
             expand(
                 t_ptr,
                 result_ptr,
@@ -352,7 +325,15 @@ pub fn realize(op: &Op) -> (Vec<f64>, Vec<usize>) {
         let (result_ptr, shape) = realize_cuda(op);
         let result_size = shape.iter().product();
         let mut result = vec![0.0; result_size];
-        memcpy_to_host(&mut result, result_ptr, result_size);
+        let code = cudaMemcpy(
+            result.as_mut_ptr() as *mut c_void,
+            result_ptr,
+            result_size * std::mem::size_of::<f64>(),
+            DEVICE_TO_HOST,
+        );
+        if code != 0 {
+            panic!("{}", error_string(code));
+        }
         cudaFree(result_ptr);
         (result, shape)
     }
