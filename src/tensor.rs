@@ -143,6 +143,30 @@ impl Tensor {
         Tensor::from_op(Op::Sum(Rc::new(self.unrealized_op), dims, keepdim), &shape)
     }
 
+    // 0 0 0 0 0
+    // 0 0 0 0 0
+    // 0 0 0 0 0
+    // 0 0 0 0 0
+    // 0 0 0 0 0
+    //
+    // a b c d e
+    // f g h i j
+    // k l m n o
+    // p q r s t
+    // u v w x y
+    //
+    // [[a,b,f,g], [b,c,g,h], [c,d,h,i], [d,e,i,j]]
+    //
+    // pool with kernel (2,2) and stride 1
+    // [5, 5] ->[4, 4]
+    //
+    // turning [5, 5] into [16, 4] is the challenge!
+    //
+    // [16, 4]
+    // sum:
+    // [16, 1]
+    // then just reshape to [4, 4] ?
+
     pub fn avg_pool_2d(self, kernel: (usize, usize), stride: Option<usize>) -> Tensor {
         let stride = stride.unwrap_or(1);
         Tensor::from_op(

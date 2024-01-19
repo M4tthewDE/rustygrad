@@ -1,6 +1,8 @@
 #include <float.h>
 #include <stdio.h>
 
+// TODO: read http://users.wfu.edu/choss/CUDA/docs/Lecture%205.pdf
+
 __global__ void add_kernel(double *a, double *b, double *c, int n) {
   int i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < n) {
