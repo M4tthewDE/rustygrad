@@ -71,12 +71,7 @@ fn sigmoid(t: &Rc<UnrealizedOp>) -> (Vec<f64>, Vec<usize>) {
 
 fn relu(t: &Rc<UnrealizedOp>) -> (Vec<f64>, Vec<usize>) {
     let (data, shape) = realize(t);
-    (
-        data.iter()
-            .map(|&x| if x < 0.0 { 0.0 } else { x })
-            .collect(),
-        shape,
-    )
+    (data.iter().map(|&x| x.max(0.0)).collect(), shape)
 }
 
 fn max(t: &Rc<UnrealizedOp>) -> (Vec<f64>, Vec<usize>) {
