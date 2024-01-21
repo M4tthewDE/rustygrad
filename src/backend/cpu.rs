@@ -92,7 +92,7 @@ fn min(t: &Rc<UnrealizedOp>) -> (Vec<f64>, Vec<usize>) {
     (vec![val], vec![])
 }
 
-fn sum(t: &Rc<UnrealizedOp>, dims: &Vec<usize>, keepdim: &bool) -> (Vec<f64>, Vec<usize>) {
+fn sum(t: &Rc<UnrealizedOp>, dims: &[usize], keepdim: &bool) -> (Vec<f64>, Vec<usize>) {
     let (data, shape) = realize(t);
 
     let mut reduced_shape = shape.clone();
@@ -102,33 +102,26 @@ fn sum(t: &Rc<UnrealizedOp>, dims: &Vec<usize>, keepdim: &bool) -> (Vec<f64>, Ve
 
     let mut result: Vec<f64> = vec![0.; reduced_shape.iter().product()];
 
-    let mut shape_pos = Vec::with_capacity(shape.len() - dims.len());
     for (i, elem) in data.iter().enumerate() {
-        shape_pos.clear();
         let mut offset = 0;
+        let mut new_index = 0;
+        let mut reduced_shape_idx = 0;
         for j in 0..shape.len() {
             let count = shape[..=j].iter().product::<usize>();
             let index = (i - offset) / (data.len() / count);
             if !dims.contains(&j) {
-                shape_pos.push(index);
+                if reduced_shape_idx == reduced_shape.len() - 1 {
+                    new_index += index;
+                } else {
+                    new_index += index * reduced_shape[reduced_shape.len() - reduced_shape_idx - 1];
+                }
+
+                reduced_shape_idx += 1;
             }
             offset += (data.len() / count) * index;
         }
 
-        // should be able to combine this with loop above.
-        // might have to set reduced dimensions to 1 so that sizes
-        // of shape and reduced_shape line up.
-        // then depending on keepdim, those dimensions can be removed afterwards.
-        let mut index = 0;
-        for (j, dim) in reduced_shape.iter().rev().enumerate() {
-            if j == reduced_shape.len() - 1 {
-                index += shape_pos[j];
-            } else {
-                index += shape_pos[j] * dim;
-            }
-        }
-
-        *result.get_mut(index).unwrap() += elem;
+        *result.get_mut(new_index).unwrap() += elem;
     }
 
     let new_shape = if *keepdim {
