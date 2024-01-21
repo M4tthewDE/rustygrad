@@ -170,6 +170,8 @@ extern "C" void rusty_max(double *a, double *c, int n) {
     finalMax = fmax(finalMax, result_max[i]);
   }
 
+  // copying it back to device to be used by other ops
+  // FIXME: is it possible to calculate finalMax on device?
   cudaMemcpy(c, &finalMax, 1 * sizeof(double), cudaMemcpyHostToDevice);
 }
 
@@ -374,4 +376,44 @@ extern "C" void permute(double *input, double *output, int input_length,
 
   permute_kernel<<<gridDim, blockDim, sharedMemSize>>>(
       input, output, input_length, dim_count, shape, new_shape, dims);
+}
+
+__global__ void sum_kernel(double *input, int n) {
+  extern __shared__ double shared[];
+
+  int index = threadIdx.x + blockIdx.x * blockDim.x;
+  int stride = blockDim.x * gridDim.x;
+  double localMax = -DBL_MAX;
+
+  // Local reduction
+  for (int i = index; i < n; i += stride) {
+    // TODO
+    // implement algorithm used in cpu backend
+    // and store in shared memory
+  }
+  __syncthreads();
+
+  // Reduction within a block
+  for (int s = blockDim.x / 2; s > 0; s >>= 1) {
+    if (threadIdx.x < s) {
+      // TODO
+      // implement algorithm used in cpu backend
+      // and store in shared memory
+    }
+    __syncthreads();
+  }
+
+  // First thread in each block writes the results
+  if (threadIdx.x == 0) {
+    // TODO
+    // write to output
+  }
+}
+
+extern "C" void sum(double *input, double *output, int n, size_t *input_shape,
+                    size_t *target_dims) {
+  dim3 blockDim(256);
+  dim3 gridDim((n + blockDim.x - 1) / blockDim.x);
+
+  sum_kernel<<<gridDim, blockDim>>>(input, n);
 }

@@ -106,7 +106,7 @@ fn sum(t: &Rc<UnrealizedOp>, dims: &Vec<usize>, keepdim: &bool) -> (Vec<f64>, Ve
     for (i, elem) in data.iter().enumerate() {
         shape_pos.clear();
         let mut offset = 0;
-        for (j, _shape) in shape.iter().enumerate() {
+        for (j, _) in shape.iter().enumerate() {
             let count = shape[..=j].iter().product::<usize>();
             let index = (i - offset) / (data.len() / count);
             if !dims.contains(&j) {
