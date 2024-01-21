@@ -321,7 +321,7 @@ mod cpu {
     }
 
     #[test]
-    fn permute() {
+    fn permute_easy() {
         let input = Tensor::rand(vec![5, 15]);
         let tch_input = input.to_tch();
 
