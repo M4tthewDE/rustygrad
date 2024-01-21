@@ -312,12 +312,11 @@ pub fn permute(t: &Rc<UnrealizedOp>, dims: &[usize]) -> (Vec<f64>, Vec<usize>) {
             multi_dim_index.push(temp_index % size);
             temp_index /= size;
         }
-        multi_dim_index.reverse();
 
         let mut new_index = 0;
         let mut stride = 1;
         for (j, &size) in new_shape.iter().rev().enumerate() {
-            let index = multi_dim_index[dims[new_shape.len() - j - 1]];
+            let index = multi_dim_index[shape.len() - 1 - dims[new_shape.len() - j - 1]];
             new_index += index * stride;
             stride *= size;
         }
