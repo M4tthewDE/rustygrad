@@ -268,7 +268,7 @@ fn pad2d(t: &Rc<UnrealizedOp>, value: &f64, padding: &[usize; 4]) -> (Vec<f64>, 
         let mut temp_index = i;
         let mut new_index = 0;
         let mut stride = 1;
-        for (j, (&size, new_size)) in shape.iter().zip(&new_shape).enumerate().rev() {
+        for (j, (&size, new_size)) in zip(&shape, &new_shape).enumerate().rev() {
             let md_idx = if j == shape.len() - 2 {
                 temp_index % size + padding[2]
             } else if j == shape.len() - 1 {
@@ -307,7 +307,7 @@ pub fn permute(t: &Rc<UnrealizedOp>, dims: &[usize]) -> (Vec<f64>, Vec<usize>) {
 
         let mut new_index = 0;
         let mut stride = 1;
-        for (&size, &dim) in new_shape.iter().zip(dims).rev() {
+        for (&size, &dim) in zip(&new_shape, dims).rev() {
             new_index += multi_dim_index[dim] * stride;
             stride *= size;
         }
