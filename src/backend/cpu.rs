@@ -257,28 +257,25 @@ fn pad2d(t: &Rc<UnrealizedOp>, value: &f64, padding: &[usize; 4]) -> (Vec<f64>, 
         panic!("Tensor must have at least 2 dimensions for 2D padding.");
     }
 
-    let last_two_dims = shape.len() - 2;
     let mut new_shape: Vec<usize> = shape.clone();
 
-    new_shape[last_two_dims] += padding[2] + padding[3]; // top + bottom
-    new_shape[last_two_dims + 1] += padding[0] + padding[1]; // left + right
+    new_shape[shape.len() - 2] += padding[2] + padding[3];
+    new_shape[shape.len() - 1] += padding[0] + padding[1];
 
     let mut new_data = vec![*value; new_shape.iter().product()];
 
     for (i, elem) in data.iter().enumerate() {
         let mut temp_index = i;
-        let mut multi_dim_index = Vec::new();
+        let mut multi_dim_index = vec![0; shape.len()];
 
-        for &size in shape.iter().rev() {
-            multi_dim_index.push(temp_index % size);
+        for (j, &size) in shape.iter().enumerate().rev() {
+            multi_dim_index[j] = temp_index % size;
             temp_index /= size;
         }
-        multi_dim_index.reverse();
 
-        // bottom and right padding is added in the initialization
         if multi_dim_index.len() >= 2 {
-            multi_dim_index[last_two_dims] += padding[2]; // top padding
-            multi_dim_index[last_two_dims + 1] += padding[0]; // left padding
+            multi_dim_index[shape.len() - 2] += padding[2];
+            multi_dim_index[shape.len() - 1] += padding[0];
         }
 
         let mut new_index = 0;
