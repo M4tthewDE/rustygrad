@@ -266,23 +266,19 @@ fn pad2d(t: &Rc<UnrealizedOp>, value: &f64, padding: &[usize; 4]) -> (Vec<f64>, 
 
     for (i, elem) in data.iter().enumerate() {
         let mut temp_index = i;
-        let mut multi_dim_index = vec![0; shape.len()];
-
-        for (j, &size) in shape.iter().enumerate().rev() {
-            multi_dim_index[j] = temp_index % size;
-            temp_index /= size;
-        }
-
-        if multi_dim_index.len() >= 2 {
-            multi_dim_index[shape.len() - 2] += padding[2];
-            multi_dim_index[shape.len() - 1] += padding[0];
-        }
-
         let mut new_index = 0;
         let mut stride = 1;
-        for (&size, &index) in new_shape.iter().zip(&multi_dim_index).rev() {
-            new_index += index * stride;
-            stride *= size;
+        for (j, (&size, new_size)) in shape.iter().zip(&new_shape).enumerate().rev() {
+            let md_idx = if j == shape.len() - 2 {
+                temp_index % size + padding[2]
+            } else if j == shape.len() - 1 {
+                temp_index % size + padding[0]
+            } else {
+                temp_index % size
+            };
+            new_index += md_idx * stride;
+            stride *= new_size;
+            temp_index /= size;
         }
 
         new_data[new_index] = *elem;
