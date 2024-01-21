@@ -304,7 +304,6 @@ pub fn permute(t: &Rc<UnrealizedOp>, dims: &[usize]) -> (Vec<f64>, Vec<usize>) {
     let new_shape: Vec<usize> = dims.iter().map(|&d| shape[d]).collect();
     let mut new_data = vec![0.0; data.len()];
 
-    // Permute the data
     for (i, item) in data.iter().enumerate() {
         let mut temp_index = i;
         let mut multi_dim_index = vec![0; shape.len()];
@@ -316,8 +315,7 @@ pub fn permute(t: &Rc<UnrealizedOp>, dims: &[usize]) -> (Vec<f64>, Vec<usize>) {
         let mut new_index = 0;
         let mut stride = 1;
         for (&size, &dim) in new_shape.iter().zip(dims).rev() {
-            let index = multi_dim_index[dim];
-            new_index += index * stride;
+            new_index += multi_dim_index[dim] * stride;
             stride *= size;
         }
 
