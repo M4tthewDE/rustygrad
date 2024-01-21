@@ -106,7 +106,7 @@ fn sum(t: &Rc<UnrealizedOp>, dims: &Vec<usize>, keepdim: &bool) -> (Vec<f64>, Ve
     for (i, elem) in data.iter().enumerate() {
         shape_pos.clear();
         let mut offset = 0;
-        for (j, _) in shape.iter().enumerate() {
+        for j in 0..shape.len() {
             let count = shape[..=j].iter().product::<usize>();
             let index = (i - offset) / (data.len() / count);
             if !dims.contains(&j) {
@@ -115,6 +115,10 @@ fn sum(t: &Rc<UnrealizedOp>, dims: &Vec<usize>, keepdim: &bool) -> (Vec<f64>, Ve
             offset += (data.len() / count) * index;
         }
 
+        // should be able to combine this with loop above.
+        // might have to set reduced dimensions to 1 so that sizes
+        // of shape and reduced_shape line up.
+        // then depending on keepdim, those dimensions can be removed afterwards.
         let mut index = 0;
         for (j, dim) in reduced_shape.iter().rev().enumerate() {
             if j == reduced_shape.len() - 1 {
