@@ -115,7 +115,6 @@ fn sum(t: &Rc<UnrealizedOp>, dims: &[usize], keepdim: &bool) -> (Vec<f64>, Vec<u
                 } else {
                     new_index += index * reduced_shape[reduced_shape.len() - reduced_shape_idx - 1];
                 }
-
                 reduced_shape_idx += 1;
             }
             offset += (data.len() / count) * index;
