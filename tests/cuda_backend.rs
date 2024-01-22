@@ -254,4 +254,32 @@ mod cuda {
         assert_eq!(data, tch_output);
         assert_eq!(shape, tch_shape);
     }
+
+    #[test]
+    fn reduce_sum_default_dims() {
+        device::set_device(Device::Cuda);
+        let input = Tensor::rand(vec![2, 4, 3, 3]);
+        let tch_input = input.to_tch();
+        let sum = input.reduce_sum(None, false);
+        let (data, shape) = sum.realize();
+        let tch_sum = tch_input.sum(None);
+        let tch_shape = util::tch_shape(&tch_sum);
+        let tch_output = util::tch_data(&tch_sum);
+        assert_eq!(shape, tch_shape);
+        util::assert_aprox_eq_vec(data, tch_output, 1e-6);
+    }
+
+    #[test]
+    fn reduce_sum() {
+        device::set_device(Device::Cuda);
+        let input = Tensor::rand(vec![2, 4, 3, 3]);
+        let tch_input = input.to_tch();
+        let sum = input.reduce_sum(Some(vec![0, 2, 3]), false);
+        let (data, shape) = sum.realize();
+        let tch_sum = tch_input.sum_dim_intlist(vec![0, 2, 3], false, None);
+        let tch_shape = util::tch_shape(&tch_sum);
+        let tch_output = util::tch_data(&tch_sum);
+        assert_eq!(shape, tch_shape);
+        util::assert_aprox_eq_vec(data, tch_output, 1e-6);
+    }
 }

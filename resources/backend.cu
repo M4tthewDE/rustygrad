@@ -382,20 +382,16 @@ __global__ void sum_kernel(double *input, int n, size_t *input_shape,
                            size_t input_shape_len, size_t *dims,
                            size_t dims_len, size_t *reduced_shape,
                            size_t reduced_shape_len, double *result) {
-  extern __shared__ double shared[];
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
 
-  int index = threadIdx.x + blockIdx.x * blockDim.x;
-  int stride = blockDim.x * gridDim.x;
-
-  // Local reduction
-  for (int i = index; i < n; i += stride) {
-    size_t offset = 0;
-    size_t reduced_shape_idx = 0;
-    size_t new_index = 0;
+  if (i < n) {
+    int offset = 0;
+    int reduced_shape_idx = 0;
+    int new_index = 0;
     for (int j = 0; j < input_shape_len; j++) {
-      size_t count = 1;
+      int count = 1;
       for (int k = 0; k <= j; k++) {
-        count += input_shape[k];
+        count *= input_shape[k];
       }
       size_t index = (i - offset) / (n / count);
 
@@ -419,61 +415,14 @@ __global__ void sum_kernel(double *input, int n, size_t *input_shape,
       offset += (n / count) * index;
     }
 
-    // FIXME: write to shared memory
-    result[new_index] += input[i];
-  }
-  __syncthreads();
-
-  // Reduction within a block
-  for (int i = blockDim.x / 2; i > 0; i >>= 1) {
-    if (threadIdx.x < i) {
-      size_t offset = 0;
-      size_t reduced_shape_idx = 0;
-      size_t new_index = 0;
-      for (int j = 0; j < input_shape_len; j++) {
-        size_t count = 1;
-        for (int k = 0; k <= j; k++) {
-          count += input_shape[k];
-        }
-        size_t index = (i - offset) / (n / count);
-
-        bool in_dims = false;
-        for (int k = 0; k < dims_len; k++) {
-          if (dims[k] == j) {
-            in_dims = true;
-            break;
-          }
-        }
-
-        if (!in_dims) {
-          if (reduced_shape_idx == reduced_shape_len - 1) {
-            new_index += index;
-          } else {
-            new_index +=
-                index *
-                reduced_shape[reduced_shape_len - reduced_shape_idx - 1];
-          }
-          reduced_shape_idx++;
-        }
-        offset += (n / count) * index;
-      }
-
-      // FIXME: write to shared memory
-      result[new_index] += input[i];
-    }
-    __syncthreads();
-  }
-
-  // First thread in each block writes the results
-  if (threadIdx.x == 0) {
-    // TODO
-    // write to output
+    atomicAdd(&result[new_index], input[i]);
   }
 }
 
-extern "C" void sum(double *input, double *result, int n, size_t *input_shape,
-                    size_t input_shape_len, size_t *dims, size_t dims_len,
-                    size_t *reduced_shape, size_t reduced_shape_len) {
+extern "C" void sum(double *input, double *result, size_t n,
+                    size_t *input_shape, size_t input_shape_len, size_t *dims,
+                    size_t dims_len, size_t *reduced_shape,
+                    size_t reduced_shape_len) {
   dim3 blockDim(256);
   dim3 gridDim((n + blockDim.x - 1) / blockDim.x);
 

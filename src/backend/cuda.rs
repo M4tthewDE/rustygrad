@@ -51,6 +51,17 @@ extern "C" {
         new_shape: *const c_void,
         dims: *const c_void,
     );
+    fn sum(
+        input: *const c_void,
+        result: *const c_void,
+        n: usize,
+        input_shape: *const c_void,
+        input_shape_len: usize,
+        dims: *const c_void,
+        dims_len: usize,
+        reduced_shape: *const c_void,
+        reduced_shape_len: usize,
+    );
 }
 
 unsafe fn error_string(code: i32) -> String {
@@ -189,7 +200,42 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             cudaFree(t_ptr);
             (result_ptr, shape)
         }
-        Op::Sum(_, _, _) => todo!(),
+        Op::Sum(t, dims, keepdim) => {
+            let (t_ptr, shape) = realize_cuda(&t.op);
+            let mut reduced_shape = shape.clone();
+            for (i, dim) in dims.iter().enumerate() {
+                reduced_shape.remove(*dim - i);
+            }
+
+            let result_size = reduced_shape.iter().product::<usize>();
+            let result_ptr = cpy_to_device(&vec![0.0; result_size]);
+            let input_shape_ptr = cpy_to_device(&shape);
+            let dims_ptr = cpy_to_device(dims);
+            let reduced_shape_ptr = cpy_to_device(&reduced_shape);
+
+            sum(
+                t_ptr,
+                result_ptr,
+                shape.iter().product(),
+                input_shape_ptr,
+                shape.len(),
+                dims_ptr,
+                dims.len(),
+                reduced_shape_ptr,
+                reduced_shape.len(),
+            );
+
+            let new_shape = if *keepdim {
+                shape
+                    .iter()
+                    .enumerate()
+                    .map(|(i, &d)| if dims.contains(&i) { 1 } else { d })
+                    .collect()
+            } else {
+                reduced_shape
+            };
+            (result_ptr, new_shape)
+        }
         Op::Pool2D(_, _, _, _, _) => todo!(),
         Op::Conv2D(_, _, _, _) => todo!(),
         Op::Pad2D(t, value, padding) => {
