@@ -4,7 +4,6 @@ use std::rc::Rc;
 use std::{cmp, env, ops};
 
 use image::DynamicImage;
-use itertools::Itertools;
 use rand::{distributions::Uniform, prelude::Distribution};
 use tracing::debug;
 
@@ -51,8 +50,9 @@ impl Tensor {
         let data: Vec<f64> = img
             .to_rgb8()
             .pixels()
-            .flat_map(|p| p.0.map(|x| x as f64))
-            .collect_vec();
+            .map(|p| p.0.map(|x| x as f64))
+            .flatten()
+            .collect();
 
         Tensor::from_op(Op::Load(data, shape.clone()), &shape)
     }
