@@ -13,7 +13,6 @@ pub struct BatchNorm2d {
 }
 
 // https://github.com/tinygrad/tinygrad/blob/master/tinygrad/nn/__init__.py
-// FIXME: I don't like these clones in here...
 impl BatchNorm2d {
     pub fn forward(&mut self, x: Tensor) -> Tensor {
         let batch_invstd = self
