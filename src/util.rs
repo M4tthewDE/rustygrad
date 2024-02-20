@@ -1,4 +1,3 @@
-use assert_approx_eq::assert_approx_eq;
 use serde_json::Value;
 use std::fs::create_dir;
 use std::fs::File;
@@ -81,8 +80,30 @@ pub fn assert_aprox_eq_vec(a: Vec<f64>, b: Vec<f64>, tolerance: f64) {
         } else if b1.is_nan() {
             assert!(a1.is_nan());
         } else {
-            assert_approx_eq!(a1, b1, tolerance);
+            assert!((a1 - b1).abs() < tolerance);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::assert_aprox_eq_vec;
+
+    #[test]
+    fn test_approx_eq_vec() {
+        let vec1 = vec![1.0, 2.0, 3.01];
+        let vec2 = vec![1.0, 2.0, 3.0];
+
+        assert_aprox_eq_vec(vec1, vec2, 0.1);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_approx_eq_vec_out_of_tolerance() {
+        let vec1 = vec![1.0, 2.0, 3.01];
+        let vec2 = vec![1.0, 2.0, 3.0];
+
+        assert_aprox_eq_vec(vec1, vec2, 0.001);
     }
 }
 
