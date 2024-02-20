@@ -6,7 +6,6 @@ use crate::op::Op;
 
 const HOST_TO_DEVICE: c_int = 1;
 const DEVICE_TO_HOST: c_int = 2;
-
 extern "C" {
     fn cudaMalloc(devPtr: *mut *mut c_void, size: usize) -> c_int;
     fn cudaMemcpy(dst: *mut c_void, src: *const c_void, count: usize, kind: c_int) -> c_int;

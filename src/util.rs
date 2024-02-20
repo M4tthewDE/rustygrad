@@ -84,6 +84,8 @@ fn get_cache_dir() -> Result<PathBuf> {
 }
 
 pub fn assert_aprox_eq_vec(a: Vec<f64>, b: Vec<f64>, tolerance: f64) {
+    assert_eq!(a.len(), b.len());
+
     for (a1, b1) in zip(a, b) {
         if a1.is_nan() {
             assert!(b1.is_nan());

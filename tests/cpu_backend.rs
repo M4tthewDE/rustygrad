@@ -256,6 +256,25 @@ mod cpu {
     }
 
     #[test]
+    fn conv2d_easy() {
+        let input = Tensor::rand(vec![1, 1, 10, 10]);
+        let tch_input = input.to_tch();
+        let kernel = Tensor::rand(vec![1, 1, 3, 3]);
+        let tch_kernel = kernel.to_tch();
+
+        let output = input.conv2d(kernel, None, None, None, None);
+        let (data, shape) = output.realize();
+        let tch_output =
+            tch_input.conv2d(&tch_kernel, None::<tch::Tensor>, vec![1], vec![0, 0], 1, 1);
+
+        let tch_shape = util::tch_shape(&tch_output);
+        let tch_output = util::tch_data(&tch_output);
+
+        assert_eq!(shape, tch_shape);
+        util::assert_aprox_eq_vec(data, tch_output, 1e-6);
+    }
+
+    #[test]
     fn conv2d_4d() {
         let input = Tensor::rand(vec![1, 3, 224, 224]);
         let tch_input = input.to_tch();
