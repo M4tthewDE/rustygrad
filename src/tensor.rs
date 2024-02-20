@@ -4,7 +4,7 @@ use std::rc::Rc;
 use std::{cmp, env, ops};
 
 use image::DynamicImage;
-use itertools::{EitherOrBoth, Itertools};
+use itertools::Itertools;
 use rand::{distributions::Uniform, prelude::Distribution};
 use tracing::debug;
 
@@ -490,18 +490,16 @@ fn broadcast_shapes(
 ) -> (Vec<usize>, Vec<usize>, Vec<usize>) {
     let mut lhs_shape = lhs_shape.to_owned();
     let mut rhs_shape = rhs_shape.to_owned();
-    let broadcastable = lhs_shape
-        .iter()
-        .rev()
-        .zip_longest(rhs_shape.iter().rev())
-        .all(|dim_pair| match dim_pair {
-            EitherOrBoth::Both(&left, &right) => left == right || left == 1 || right == 1,
-            _ => true,
-        });
+
     assert!(
-        broadcastable,
+        lhs_shape
+            .iter()
+            .rev()
+            .zip(rhs_shape.iter().rev())
+            .all(|(&left, &right)| left == right || left == 1 || right == 1),
         "{:?} and {:?} aren't broadcastable",
-        lhs_shape, rhs_shape
+        lhs_shape,
+        rhs_shape
     );
 
     let max_len = lhs_shape.len().max(rhs_shape.len());
