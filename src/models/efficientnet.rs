@@ -262,7 +262,7 @@ impl Default for Efficientnet {
         let start = Instant::now();
         info!("loading model, this might take a while...");
 
-        let model_data = util::load_torch_model(MODEL_URLS[number]).unwrap();
+        let model_data = util::load_torch_model(MODEL_URLS[number]);
         bn0.weight = Some(Tensor::from_vec_single_dim(
             util::extract_floats(&model_data["_bn0.weight"]).unwrap(),
         ));

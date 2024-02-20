@@ -1,5 +1,3 @@
-use anyhow::anyhow;
-use anyhow::Result;
 use assert_approx_eq::assert_approx_eq;
 use serde_json::Value;
 use std::fs::create_dir;
@@ -13,17 +11,14 @@ use tracing::info;
 
 use crate::tensor::Tensor;
 
-pub fn load_torch_model(url: &str) -> Result<Value> {
-    let file_name = url
-        .split('/')
-        .last()
-        .ok_or(anyhow!("no file name in url"))?;
-    let path = get_cache_dir()?.join(file_name);
+pub fn load_torch_model(url: &str) -> Value {
+    let file_name = url.split('/').last().unwrap();
+    let path = get_cache_dir().join(file_name);
 
     if path.exists() {
         info!("using cached model in {:?}", path);
     } else {
-        download_file(url, &path)?;
+        download_file(url, &path);
     }
 
     let mut json_path = path.clone();
@@ -33,54 +28,50 @@ pub fn load_torch_model(url: &str) -> Result<Value> {
         info!("using cached json of model in {:?}", json_path);
     } else {
         info!("converting pth model to json...");
-        convert_to_json(
-            path.to_str()
-                .ok_or(anyhow!("error converting path to string {:?}", path))?,
-        )?;
+        convert_to_json(path.to_str().unwrap());
     }
 
     load_model(&json_path)
 }
 
-fn load_model(path: &PathBuf) -> Result<Value> {
+fn load_model(path: &PathBuf) -> Value {
     let mut content = String::new();
-    File::open(path)?.read_to_string(&mut content)?;
-    let model_data: Value = serde_json::from_str(&content)?;
+    File::open(path)
+        .unwrap()
+        .read_to_string(&mut content)
+        .unwrap();
+    let model_data: Value = serde_json::from_str(&content).unwrap();
 
-    Ok(model_data)
+    model_data
 }
 
-fn convert_to_json(path: &str) -> Result<()> {
+fn convert_to_json(path: &str) {
     Command::new("python3")
         .args(["src/pth_to_json.py", path])
-        .output()?;
-    Ok(())
+        .output()
+        .unwrap();
 }
 
-pub fn download_file(url: &str, path: &PathBuf) -> Result<()> {
+pub fn download_file(url: &str, path: &PathBuf) {
     info!("loading torch model from {}", url);
-    let response = reqwest::blocking::get(url)?;
+    let response = reqwest::blocking::get(url).unwrap();
 
     info!("saving model in {:?}", path);
 
-    let mut dest = File::create(path.clone())?;
-    let byte_vec = response.bytes()?.to_vec();
+    let mut dest = File::create(path.clone()).unwrap();
+    let byte_vec = response.bytes().unwrap().to_vec();
     let mut bytes = byte_vec.as_slice();
-    copy(&mut bytes, &mut dest)?;
-
-    Ok(())
+    copy(&mut bytes, &mut dest).unwrap();
 }
 
-fn get_cache_dir() -> Result<PathBuf> {
-    let path = dirs::cache_dir()
-        .ok_or(anyhow!("unable to locate cache dir"))?
-        .join("rustygrad/");
+fn get_cache_dir() -> PathBuf {
+    let path = dirs::cache_dir().unwrap().join("rustygrad/");
 
     if !path.exists() {
-        create_dir(path.clone())?;
+        create_dir(path.clone()).unwrap();
     }
 
-    Ok(path)
+    path
 }
 
 pub fn assert_aprox_eq_vec(a: Vec<f64>, b: Vec<f64>, tolerance: f64) {
