@@ -85,13 +85,6 @@ impl Tensor {
         Tensor::from_op(Op::Load(data, shape.clone()), &shape)
     }
 
-    pub fn to_tch(&self) -> tch::Tensor {
-        let x = self.clone();
-        let (data, shape) = x.realize();
-        tch::Tensor::from_slice(&data)
-            .reshape(shape.iter().map(|&d| d as i64).collect::<Vec<i64>>())
-    }
-
     pub fn max(self) -> Tensor {
         Tensor::from_op(Op::Max(Rc::new(self.unrealized_op)), &[1])
     }

@@ -3,7 +3,6 @@ use std::fs::create_dir;
 use std::fs::File;
 use std::io::copy;
 use std::io::Read;
-use std::iter::zip;
 use std::path::PathBuf;
 use std::process::Command;
 use tracing::info;
@@ -71,40 +70,6 @@ fn get_cache_dir() -> PathBuf {
     }
 
     path
-}
-
-pub fn assert_aprox_eq_vec(a: Vec<f64>, b: Vec<f64>, tolerance: f64) {
-    for (a1, b1) in zip(a, b) {
-        if a1.is_nan() {
-            assert!(b1.is_nan());
-        } else if b1.is_nan() {
-            assert!(a1.is_nan());
-        } else {
-            assert!((a1 - b1).abs() < tolerance);
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::assert_aprox_eq_vec;
-
-    #[test]
-    fn test_approx_eq_vec() {
-        let vec1 = vec![1.0, 2.0, 3.01];
-        let vec2 = vec![1.0, 2.0, 3.0];
-
-        assert_aprox_eq_vec(vec1, vec2, 0.1);
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_approx_eq_vec_out_of_tolerance() {
-        let vec1 = vec![1.0, 2.0, 3.01];
-        let vec2 = vec![1.0, 2.0, 3.0];
-
-        assert_aprox_eq_vec(vec1, vec2, 0.001);
-    }
 }
 
 pub fn extract_floats(array: &Value) -> Option<Vec<f64>> {
@@ -177,17 +142,6 @@ pub fn argmax(data: &[f64]) -> usize {
     }
 
     index
-}
-
-pub fn tch_data(tch: &tch::Tensor) -> Vec<f64> {
-    tch.flatten(0, tch.size().len() as i64 - 1)
-        .iter::<f64>()
-        .unwrap()
-        .collect()
-}
-
-pub fn tch_shape(tch: &tch::Tensor) -> Vec<usize> {
-    tch.size().iter().map(|&d| d as usize).collect()
 }
 
 pub fn index_4d_to_1d(shape: &[usize], n: usize, c: usize, h: usize, w: usize) -> usize {
