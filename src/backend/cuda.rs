@@ -62,6 +62,15 @@ extern "C" {
         reduced_shape: *const c_void,
         reduced_shape_len: usize,
     );
+    fn sum_pool2d(
+        input: *const c_void,
+        result: *const c_void,
+        input_shape: *const c_void,
+        result_shape: *const c_void,
+        kernel: *const c_void,
+        init_val: f64,
+        stride: usize,
+    );
 }
 
 unsafe fn error_string(code: i32) -> String {
@@ -236,7 +245,45 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             };
             (result_ptr, new_shape)
         }
-        Op::Pool2D(_, _, _, _, _) => todo!(),
+        Op::Pool2D(t, kernel, stride, init_val, pool_op) => {
+            let (t_ptr, shape) = realize_cuda(&t.op);
+            // FIXME: remove this constraint, just reshape or something smarter
+            assert_eq!(shape.len(), 4, "only supporting 4d tensors");
+
+            let (batch, channels, height, width) = (shape[0], shape[1], shape[2], shape[3]);
+            let (kernel_height, kernel_width) = (kernel.0, kernel.1);
+
+            let output_height = ((height - kernel_height) / stride) + 1;
+            let output_width = ((width - kernel_width) / stride) + 1;
+
+            let result_shape = vec![batch, channels, output_height, output_width];
+
+            let result_ptr = cpy_to_device(&vec![0.0; result_shape.iter().product()]);
+            let kernel_ptr = cpy_to_device(&[kernel.0, kernel.1]);
+            let shape_ptr = cpy_to_device(&shape);
+            let result_shape_ptr = cpy_to_device(&result_shape);
+
+            match pool_op {
+                crate::op::PoolOp::Sum => sum_pool2d(
+                    t_ptr,
+                    result_ptr,
+                    shape_ptr,
+                    result_shape_ptr,
+                    kernel_ptr,
+                    *init_val,
+                    *stride,
+                ),
+                crate::op::PoolOp::Max => todo!(),
+            }
+            check_last_error();
+
+            cudaFree(t_ptr);
+            cudaFree(kernel_ptr);
+            cudaFree(shape_ptr);
+            cudaFree(result_shape_ptr);
+
+            (result_ptr, result_shape.to_vec())
+        }
         Op::Conv2D(_, _, _, _) => todo!(),
         Op::Pad2D(t, value, padding) => {
             let (t_ptr, shape) = realize_cuda(&t.op);

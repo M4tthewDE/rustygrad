@@ -281,3 +281,17 @@ fn reduce_sum() {
     assert_eq!(shape, tch_shape);
     util::assert_aprox_eq_vec(data, tch_output, 1e-6);
 }
+
+#[test]
+fn avg_pool_2d() {
+    device::set_device(Device::Cuda);
+    let input = Tensor::rand(vec![1, 1, 10, 10]);
+    let tch_input = util::to_tch(input.clone());
+    let output = input.avg_pool_2d((2, 2), None);
+    let (data, shape) = output.realize();
+    let tch_result = tch_input.avg_pool2d(vec![2, 2], 1, 0, false, true, None);
+    let tch_output = util::tch_data(&tch_result);
+    let tch_shape = util::tch_shape(&tch_result);
+    assert_eq!(data, tch_output);
+    assert_eq!(shape, tch_shape);
+}
