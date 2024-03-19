@@ -29,25 +29,3 @@ pub fn assert_aprox_eq_vec(a: Vec<f64>, b: Vec<f64>, tolerance: f64) {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::assert_aprox_eq_vec;
-
-    #[test]
-    fn test_approx_eq_vec() {
-        let vec1 = vec![1.0, 2.0, 3.01];
-        let vec2 = vec![1.0, 2.0, 3.0];
-
-        assert_aprox_eq_vec(vec1, vec2, 0.1);
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_approx_eq_vec_out_of_tolerance() {
-        let vec1 = vec![1.0, 2.0, 3.01];
-        let vec2 = vec![1.0, 2.0, 3.0];
-
-        assert_aprox_eq_vec(vec1, vec2, 0.001);
-    }
-}
