@@ -1,7 +1,7 @@
 #include <float.h>
 #include <stdio.h>
 
-// Rading material:
+// Reading material:
 //
 // http://users.wfu.edu/choss/CUDA/docs/Lecture%205.pdf
 // https://docs.nvidia.com/deeplearning/performance/pdf/GPU-Performance-Background-User-Guide.pdf

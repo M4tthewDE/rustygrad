@@ -4,8 +4,7 @@ fn main() {
     cc::Build::new()
         .cuda(true)
         .flag("-cudart=shared")
-        .flag("-gencode")
-        .flag("arch=compute_75,code=sm_75")
+        .flag("-gencode=arch=compute_75,code=sm_75")
         .file("resources/backend.cu")
         .compile("libbackend.a");
 
