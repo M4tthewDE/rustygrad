@@ -298,6 +298,7 @@ fn avg_pool_2d() {
 
 #[test]
 fn max_pool_2d() {
+    device::set_device(Device::Cuda);
     let input = Tensor::rand(vec![1, 1, 10, 10]);
     let tch_input = util::to_tch(input.clone());
 
@@ -309,4 +310,30 @@ fn max_pool_2d() {
 
     assert_eq!(data, tch_output);
     assert_eq!(shape, tch_shape);
+}
+
+#[test]
+fn conv2d_4d() {
+    device::set_device(Device::Cuda);
+    let input = Tensor::rand(vec![1, 3, 224, 224]);
+    let tch_input = util::to_tch(input.clone());
+    let kernel = Tensor::rand(vec![32, 3, 3, 3]);
+    let tch_kernel = util::to_tch(kernel.clone());
+
+    let output = input.conv2d(kernel, None, Some([1, 1, 1, 1]), Some((2, 2)), None);
+    let (data, shape) = output.realize();
+    let tch_output = tch_input.conv2d(
+        &tch_kernel,
+        None::<tch::Tensor>,
+        vec![2, 2],
+        vec![1, 1],
+        1,
+        1,
+    );
+
+    let tch_shape = util::tch_shape(&tch_output);
+    let tch_output = util::tch_data(&tch_output);
+
+    assert_eq!(shape, tch_shape);
+    util::assert_aprox_eq_vec(data, tch_output, 1e-6);
 }

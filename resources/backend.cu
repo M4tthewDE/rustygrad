@@ -511,3 +511,73 @@ extern "C" void max_pool2d(double *input, double *result, size_t *input_shape,
   max_pool2d_kernel<<<1, 1>>>(input, result, input_shape, result_shape, kernel,
                               init_val, stride);
 }
+
+__device__ size_t index_4d_to_1d(size_t *shape, size_t n, size_t c, size_t h,
+                                 size_t w) {
+  size_t height = shape[2];
+  size_t width = shape[3];
+  size_t channels = shape[1];
+
+  return n * (channels * height * width) + c * (height * width) + h * width + w;
+}
+
+// FIXME: parallelize
+__global__ void conv2d_kernel(double *input, double *result,
+                              size_t *input_shape, size_t *result_shape,
+                              size_t groups, size_t *kernel_shape,
+                              double *kernel, size_t *strides) {
+  size_t n = input_shape[0];
+  size_t c_in = input_shape[1];
+  size_t height = input_shape[2];
+  size_t width = input_shape[3];
+
+  size_t c_out = kernel_shape[0];
+  size_t kernel_height = kernel_shape[1];
+  size_t kernel_width = kernel_shape[2];
+
+  size_t output_height = ((height - kernel_height) / strides[0]) + 1;
+  size_t output_width = ((width - kernel_width) / strides[1]) + 1;
+
+  size_t c_in_per_group = c_in / groups;
+  size_t c_out_per_group = c_out / groups;
+
+  size_t result_idx = 0;
+  for (int n_index = 0; n_index < n; n_index++) {
+    for (int g = 0; g < groups; g++) {
+      for (int c_out_index = g * c_out_per_group;
+           c_out_index < (g + 1) * c_out_per_group; c_out_index++) {
+        for (int i = 0; i < output_height; i++) {
+          for (int j = 0; j < output_width; j++) {
+            double value = 0.0;
+            for (int c_in_index = g * c_in_per_group;
+                 c_in_index < (g + 1) * c_in_per_group; c_in_index++) {
+              for (int k_row = 0; k_row < kernel_height; k_row++) {
+                for (int k_col = 0; k_col < kernel_width; k_col++) {
+                  size_t row = i * strides[0] + k_row;
+                  size_t col = j * strides[1] + k_col;
+                  if (row < height && col < width) {
+                    value += input[index_4d_to_1d(input_shape, n_index,
+                                                  c_in_index, row, col)] *
+                             kernel[index_4d_to_1d(kernel_shape, c_out_index,
+                                                   c_in_index % c_in_per_group,
+                                                   k_row, k_col)];
+                  }
+                }
+              }
+            }
+            result[result_idx] = value;
+            result_idx++;
+          }
+        }
+      }
+    }
+  }
+}
+
+extern "C" void conv2d(double *input, double *result, size_t *input_shape,
+                       size_t *result_shape, size_t groups,
+                       size_t *kernel_shape, double *kernel, size_t *strides) {
+
+  conv2d_kernel<<<1, 1>>>(input, result, input_shape, result_shape, groups,
+                          kernel_shape, kernel, strides);
+}

@@ -80,6 +80,16 @@ extern "C" {
         init_val: f64,
         stride: usize,
     );
+    fn conv2d(
+        input: *const c_void,
+        result: *const c_void,
+        input_shape: *const c_void,
+        result_shape: *const c_void,
+        groups: usize,
+        kernel_shape: *const c_void,
+        kernel: *const c_void,
+        strides: *const c_void,
+    );
 }
 
 unsafe fn error_string(code: i32) -> String {
@@ -301,7 +311,59 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
 
             (result_ptr, result_shape.to_vec())
         }
-        Op::Conv2D(_, _, _, _) => todo!(),
+        Op::Conv2D(t, kernel, strides, groups) => {
+            let (t_ptr, shape) = realize_cuda(&t.op);
+            let (kernel_ptr, kernel_shape) = realize_cuda(&kernel.op);
+
+            assert_eq!(shape.len(), 4, "only supporting 4d tensors");
+            assert_eq!(kernel_shape.len(), 4, "only supporting 4d kernels");
+            assert_eq!(
+                shape[1] % groups,
+                0,
+                "input channels must be divisible by groups"
+            );
+            assert_eq!(
+                kernel_shape[0] % groups,
+                0,
+                "output channels must be divisible by groups"
+            );
+
+            let (n, _, height, width) = (shape[0], shape[1], shape[2], shape[3]);
+            let (c_out, kernel_height, kernel_width) =
+                (kernel_shape[0], kernel_shape[2], kernel_shape[3]);
+
+            let output_height = ((height - kernel_height) / strides.0) + 1;
+            let output_width = ((width - kernel_width) / strides.1) + 1;
+            let new_shape = vec![n, c_out, output_height, output_width];
+
+            dbg!(new_shape.iter().product::<usize>());
+            let result_ptr = cpy_to_device(&vec![0.0; new_shape.iter().product()]);
+            let shape_ptr = cpy_to_device(&shape);
+            let new_shape_ptr = cpy_to_device(&new_shape);
+            let kernel_shape_ptr = cpy_to_device(&kernel_shape);
+            let strides_ptr = cpy_to_device(&[strides.0, strides.1]);
+
+            conv2d(
+                t_ptr,
+                result_ptr,
+                shape_ptr,
+                new_shape_ptr,
+                *groups,
+                kernel_shape_ptr,
+                kernel_ptr,
+                strides_ptr,
+            );
+            check_last_error();
+
+            cudaFree(t_ptr);
+            cudaFree(shape_ptr);
+            cudaFree(new_shape_ptr);
+            cudaFree(kernel_shape_ptr);
+            cudaFree(kernel_ptr);
+            cudaFree(strides_ptr);
+
+            (result_ptr, new_shape.to_vec())
+        }
         Op::Pad2D(t, value, padding) => {
             let (t_ptr, shape) = realize_cuda(&t.op);
             if shape.len() < 2 {
@@ -433,12 +495,12 @@ pub fn realize(op: &Op) -> (Vec<f64>, Vec<usize>) {
 
     unsafe {
         let (result_ptr, shape) = realize_cuda(op);
-        let result_size = shape.iter().product();
-        let mut result = vec![0.0; result_size];
+        let mut result = vec![0.0; shape.iter().product()];
+        dbg!(op, result_ptr, result.len());
         let code = cudaMemcpy(
             result.as_mut_ptr() as *mut c_void,
             result_ptr,
-            result_size * std::mem::size_of::<f64>(),
+            std::mem::size_of_val(&result),
             DEVICE_TO_HOST,
         );
         if code != 0 {
