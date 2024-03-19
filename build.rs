@@ -1,6 +1,11 @@
+use std::env;
+
 extern crate cc;
 
 fn main() {
+    // don't redeclare -ccbin
+    env::set_var("NVCC_PREPEND_FLAGS", "");
+
     cc::Build::new()
         .cuda(true)
         .flag("-cudart=shared")
