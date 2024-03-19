@@ -7,7 +7,7 @@ use image::DynamicImage;
 use rand::{distributions::Uniform, prelude::Distribution};
 use tracing::debug;
 
-use crate::op::{Op, UnrealizedOp};
+use crate::op::{Op, PoolOp, UnrealizedOp};
 use crate::{device, graph};
 
 #[derive(Clone)]
@@ -163,9 +163,13 @@ impl Tensor {
     pub fn avg_pool_2d(self, kernel: (usize, usize), stride: Option<usize>) -> Tensor {
         let stride = stride.unwrap_or(1);
         Tensor::from_op(
-            Op::Pool2D(Rc::new(self.unrealized_op), kernel, stride, 0.0, |a, b| {
-                a + b
-            }),
+            Op::Pool2D(
+                Rc::new(self.unrealized_op),
+                kernel,
+                stride,
+                0.0,
+                PoolOp::Sum,
+            ),
             &[
                 self.shape[0],
                 self.shape[1],
@@ -183,7 +187,7 @@ impl Tensor {
                 kernel,
                 stride,
                 f64::MIN,
-                |a, b| a.max(b),
+                PoolOp::Max,
             ),
             &[
                 self.shape[0],

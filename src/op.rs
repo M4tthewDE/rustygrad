@@ -62,7 +62,11 @@ impl PartialEq for UnrealizedOp {
     }
 }
 
-pub type PoolOp = fn(lhs: f64, rhs: f64) -> f64;
+#[derive(Clone)]
+pub enum PoolOp {
+    Sum,
+    Max,
+}
 
 #[derive(Clone)]
 pub enum Op {

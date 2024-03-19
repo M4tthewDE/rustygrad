@@ -153,6 +153,11 @@ pub fn pool2d(
     let output_height = ((height - kernel_height) / stride) + 1;
     let output_width = ((width - kernel_width) / stride) + 1;
 
+    let op: fn(lhs: f64, rhs: f64) -> f64 = match pool_op {
+        PoolOp::Sum => |a, b| a + b,
+        PoolOp::Max => |a, b| a.max(b),
+    };
+
     let mut output_data = Vec::with_capacity(batch * channels * output_height * output_width);
     for n in 0..batch {
         for c in 0..channels {
@@ -167,7 +172,7 @@ pub fn pool2d(
                                 + c * (height * width)
                                 + row * width
                                 + col;
-                            result_val = (pool_op)(result_val, data[idx]);
+                            result_val = (op)(result_val, data[idx]);
                         }
                     }
                     output_data.push(result_val);
