@@ -50,8 +50,7 @@ impl Tensor {
         let data: Vec<f64> = img
             .to_rgb8()
             .pixels()
-            .map(|p| p.0.map(|x| x as f64))
-            .flatten()
+            .flat_map(|p| p.0.map(|x| x as f64))
             .collect();
 
         Tensor::from_op(Op::Load(data, shape.clone()), &shape)

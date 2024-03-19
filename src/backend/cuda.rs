@@ -87,12 +87,12 @@ unsafe fn malloc(amount: usize, size: usize) -> *mut c_void {
     ptr
 }
 
-unsafe fn cpy_to_device<T>(data: &Vec<T>) -> *mut c_void {
+unsafe fn cpy_to_device<T>(data: &[T]) -> *mut c_void {
     let ptr = malloc(data.len(), std::mem::size_of::<T>());
     let code = cudaMemcpy(
         ptr,
         data.as_ptr() as *const c_void,
-        data.len() * std::mem::size_of::<T>(),
+        std::mem::size_of_val(data),
         HOST_TO_DEVICE,
     );
     if code != 0 {
@@ -253,7 +253,7 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             let result_ptr = cpy_to_device(&vec![*value; new_shape.iter().product()]);
             let shape_ptr = cpy_to_device(&shape);
             let new_shape_ptr = cpy_to_device(&new_shape);
-            let padding_ptr = cpy_to_device(&padding.to_vec());
+            let padding_ptr = cpy_to_device(padding.as_ref());
 
             pad2d(
                 t_ptr,
