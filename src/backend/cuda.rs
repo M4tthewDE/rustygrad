@@ -71,6 +71,15 @@ extern "C" {
         init_val: f64,
         stride: usize,
     );
+    fn max_pool2d(
+        input: *const c_void,
+        result: *const c_void,
+        input_shape: *const c_void,
+        result_shape: *const c_void,
+        kernel: *const c_void,
+        init_val: f64,
+        stride: usize,
+    );
 }
 
 unsafe fn error_string(code: i32) -> String {
@@ -273,7 +282,15 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
                     *init_val,
                     *stride,
                 ),
-                crate::op::PoolOp::Max => todo!(),
+                crate::op::PoolOp::Max => max_pool2d(
+                    t_ptr,
+                    result_ptr,
+                    shape_ptr,
+                    result_shape_ptr,
+                    kernel_ptr,
+                    *init_val,
+                    *stride,
+                ),
             }
             check_last_error();
 

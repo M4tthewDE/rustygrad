@@ -295,3 +295,18 @@ fn avg_pool_2d() {
     assert_eq!(data, tch_output);
     assert_eq!(shape, tch_shape);
 }
+
+#[test]
+fn max_pool_2d() {
+    let input = Tensor::rand(vec![1, 1, 10, 10]);
+    let tch_input = util::to_tch(input.clone());
+
+    let output = input.max_pool_2d((2, 2), None);
+    let (data, shape) = output.realize();
+    let tch_result = tch_input.max_pool2d(vec![2, 2], 1, 0, 1, false);
+    let tch_output = util::tch_data(&tch_result);
+    let tch_shape = util::tch_shape(&tch_result);
+
+    assert_eq!(data, tch_output);
+    assert_eq!(shape, tch_shape);
+}
