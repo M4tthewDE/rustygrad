@@ -89,6 +89,9 @@ extern "C" {
         kernel_shape: *const c_void,
         kernel: *const c_void,
         strides: *const c_void,
+        n: usize,
+        c_out: usize,
+        total_output_elements: usize,
     );
 }
 
@@ -351,6 +354,9 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
                 kernel_shape_ptr,
                 kernel_ptr,
                 strides_ptr,
+                n,
+                c_out,
+                output_height * output_width,
             );
             check_last_error();
 
