@@ -83,6 +83,9 @@ extern "C" {
         kernel: *const c_void,
         init_val: f64,
         stride: usize,
+        output_height: usize,
+        batch: usize,
+        channels: usize,
     );
     fn conv2d(
         input: *const c_void,
@@ -311,6 +314,9 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
                     kernel_ptr,
                     *init_val,
                     *stride,
+                    output_height,
+                    batch,
+                    channels,
                 ),
             }
             check_last_error();

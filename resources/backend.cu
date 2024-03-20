@@ -488,45 +488,59 @@ extern "C" void sum_pool2d(double *input, double *result, size_t *input_shape,
       input, result, input_shape, result_shape, kernel, init_val, stride);
 }
 
-// FIXME: parallelize
 __global__ void max_pool2d_kernel(double *input, double *result,
                                   size_t *input_shape, size_t *result_shape,
                                   size_t *kernel, double init_val,
                                   size_t stride) {
   size_t batch = input_shape[0];
   size_t channels = input_shape[1];
-  size_t height = input_shape[2];
-  size_t width = input_shape[3];
+  size_t out_height = result_shape[2];
+  size_t out_width = result_shape[3];
 
-  size_t result_idx = 0;
-  for (int n = 0; n < batch; n++) {
-    for (int c = 0; c < channels; c++) {
-      for (int i = 0; i < result_shape[2]; i++) {
-        for (int j = 0; j < result_shape[3]; j++) {
-          double result_val = init_val;
-          for (int ki = 0; ki < kernel[0]; ki++) {
-            for (int kj = 0; kj < kernel[1]; kj++) {
-              size_t row = i * stride + ki;
-              size_t col = j * stride + kj;
-              size_t idx = n * (channels * height * width) +
-                           c * (height * width) + row * width + col;
+  // Calculate the indices for the current thread
+  size_t n = blockIdx.z; // One block per batch
+  size_t c = blockIdx.y; // One block per channel
+  size_t i = blockIdx.x * blockDim.x +
+             threadIdx.x; // BlockDim.x * BlockIdx.x gives starting index,
+                          // threadIdx.x offsets within the block
+  size_t j =
+      blockIdx.x * blockDim.y + threadIdx.y; // Same for j, but with y dimension
 
-              result_val = max(result_val, input[idx]);
-            }
-          }
-          result[result_idx] = result_val;
-          result_idx++;
+  // Check if the thread is within bounds
+  if (n < batch && c < channels && i < out_height && j < out_width) {
+    double result_val = init_val;
+    for (int ki = 0; ki < kernel[0]; ki++) {
+      for (int kj = 0; kj < kernel[1]; kj++) {
+        size_t row = i * stride + ki;
+        size_t col = j * stride + kj;
+        if (row < input_shape[2] &&
+            col < input_shape[3]) { // Check for boundary conditions
+          size_t idx = n * (channels * input_shape[2] * input_shape[3]) +
+                       c * (input_shape[2] * input_shape[3]) +
+                       row * input_shape[3] + col;
+          result_val = max(result_val, input[idx]);
         }
       }
     }
+    size_t result_idx = n * (channels * out_height * out_width) +
+                        c * (out_height * out_width) + i * out_width + j;
+    result[result_idx] = result_val;
   }
 }
 
 extern "C" void max_pool2d(double *input, double *result, size_t *input_shape,
                            size_t *result_shape, size_t *kernel,
-                           double init_val, size_t stride) {
-  max_pool2d_kernel<<<1, 1>>>(input, result, input_shape, result_shape, kernel,
-                              init_val, stride);
+                           double init_val, size_t stride, size_t output_height,
+                           size_t batch, size_t channels) {
+  // Compute the number of blocks and threads per block needed
+  dim3 threadsPerBlock(16, 16); // 16x16 threads per block is a common choice,
+                                // adjust based on your hardware
+  dim3 numBlocks((output_height + threadsPerBlock.x - 1) / threadsPerBlock.x,
+                 channels, // One block per channel
+                 batch);   // One block per batch in the z dimension
+
+  max_pool2d_kernel<<<numBlocks, threadsPerBlock>>>(
+      input, result, input_shape, result_shape, kernel, init_val, stride);
 }
 
 __device__ size_t index_4d_to_1d(size_t *shape, size_t n, size_t c, size_t h,
