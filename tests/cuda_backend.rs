@@ -313,6 +313,15 @@ fn max_pool_2d() {
 }
 
 #[test]
+fn rand() {
+    device::set_device(Device::Cuda);
+    let input = Tensor::rand(vec![4]);
+    let (data, shape) = input.clone().realize();
+    assert_eq!(shape, vec![4]);
+    assert_ne!(data, vec![0.0, 0.0, 0.0, 0.0]);
+}
+
+#[test]
 fn conv2d_4d() {
     device::set_device(Device::Cuda);
     let input = Tensor::rand(vec![1, 3, 224, 224]);

@@ -532,8 +532,8 @@ __global__ void conv2d_kernel(double *input, double *result,
   size_t width = input_shape[3];
 
   size_t c_out = kernel_shape[0];
-  size_t kernel_height = kernel_shape[1];
-  size_t kernel_width = kernel_shape[2];
+  size_t kernel_height = kernel_shape[2];
+  size_t kernel_width = kernel_shape[3];
 
   size_t output_height = ((height - kernel_height) / strides[0]) + 1;
   size_t output_width = ((width - kernel_width) / strides[1]) + 1;

@@ -120,7 +120,7 @@ unsafe fn cpy_to_device<T>(data: &[T]) -> *mut c_void {
     let code = cudaMemcpy(
         ptr,
         data.as_ptr() as *const c_void,
-        std::mem::size_of_val(data),
+        std::mem::size_of::<T>() * data.len(),
         HOST_TO_DEVICE,
     );
     if code != 0 {
@@ -336,7 +336,6 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             let output_width = ((width - kernel_width) / strides.1) + 1;
             let new_shape = vec![n, c_out, output_height, output_width];
 
-            dbg!(new_shape.iter().product::<usize>());
             let result_ptr = cpy_to_device(&vec![0.0; new_shape.iter().product()]);
             let shape_ptr = cpy_to_device(&shape);
             let new_shape_ptr = cpy_to_device(&new_shape);
@@ -496,11 +495,10 @@ pub fn realize(op: &Op) -> (Vec<f64>, Vec<usize>) {
     unsafe {
         let (result_ptr, shape) = realize_cuda(op);
         let mut result = vec![0.0; shape.iter().product()];
-        dbg!(op, result_ptr, result.len());
         let code = cudaMemcpy(
             result.as_mut_ptr() as *mut c_void,
             result_ptr,
-            std::mem::size_of_val(&result),
+            std::mem::size_of::<f64>() * result.len(),
             DEVICE_TO_HOST,
         );
         if code != 0 {
