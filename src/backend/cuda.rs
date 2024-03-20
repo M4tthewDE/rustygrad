@@ -1,11 +1,23 @@
-use std::ffi::{c_int, c_void, CStr};
+use lazy_static::lazy_static;
+use std::{
+    collections::HashMap,
+    ffi::{c_int, c_void, CStr},
+    sync::Mutex,
+};
 
 use tracing::trace;
 
-use crate::op::Op;
+use crate::op::{Op, UnrealizedOp};
 
 const HOST_TO_DEVICE: c_int = 1;
 const DEVICE_TO_HOST: c_int = 2;
+
+type OpCache = Mutex<HashMap<usize, (Vec<f64>, Vec<usize>)>>;
+
+lazy_static! {
+    static ref USE_CACHE: bool = std::env::var("NO_CACHE").is_err();
+    static ref OP_CACHE: OpCache = Mutex::new(HashMap::new());
+}
 
 extern "C" {
     fn cudaMalloc(devPtr: *mut *mut c_void, size: usize) -> c_int;
@@ -139,107 +151,140 @@ unsafe fn cpy_to_device<T>(data: &[T]) -> *mut c_void {
     ptr
 }
 
-unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
-    match op {
+unsafe fn cpy_from_device(ptr: *mut c_void, shape: &[usize]) -> Vec<f64> {
+    let mut result = vec![0.0; shape.iter().product()];
+    let code = cudaMemcpy(
+        result.as_mut_ptr() as *mut c_void,
+        ptr,
+        std::mem::size_of::<f64>() * result.len(),
+        DEVICE_TO_HOST,
+    );
+    if code != 0 {
+        panic!("{}", error_string(code));
+    }
+
+    cudaFree(ptr);
+    result
+}
+
+unsafe fn realize_cuda(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
+    trace!("realizing {:?}", unrealized_op);
+
+    match &unrealized_op.op {
         Op::Add(lhs, rhs) => {
-            let (lhs_ptr, shape) = realize_cuda(&lhs.op);
-            let (rhs_ptr, _) = realize_cuda(&rhs.op);
+            let (lhs, shape) = realize(&lhs);
+            let (rhs, _) = realize(&rhs);
+            let lhs_ptr = cpy_to_device(&lhs);
+            let rhs_ptr = cpy_to_device(&rhs);
             let result_size = shape.iter().product::<usize>();
             let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
             add(lhs_ptr, rhs_ptr, result_ptr, result_size);
             check_last_error();
             cudaFree(lhs_ptr);
             cudaFree(rhs_ptr);
-            (result_ptr, shape)
+            (cpy_from_device(result_ptr, &shape), shape)
         }
         Op::Sub(lhs, rhs) => {
-            let (lhs_ptr, shape) = realize_cuda(&lhs.op);
-            let (rhs_ptr, _) = realize_cuda(&rhs.op);
+            let (lhs, shape) = realize(&lhs);
+            let (rhs, _) = realize(&rhs);
+            let lhs_ptr = cpy_to_device(&lhs);
+            let rhs_ptr = cpy_to_device(&rhs);
             let result_size = shape.iter().product::<usize>();
             let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
             sub(lhs_ptr, rhs_ptr, result_ptr, result_size);
             check_last_error();
             cudaFree(lhs_ptr);
             cudaFree(rhs_ptr);
-            (result_ptr, shape)
+            (cpy_from_device(result_ptr, &shape), shape)
         }
         Op::Mul(lhs, rhs) => {
-            let (lhs_ptr, shape) = realize_cuda(&lhs.op);
-            let (rhs_ptr, _) = realize_cuda(&rhs.op);
+            let (lhs, shape) = realize(&lhs);
+            let (rhs, _) = realize(&rhs);
+            let lhs_ptr = cpy_to_device(&lhs);
+            let rhs_ptr = cpy_to_device(&rhs);
             let result_size = shape.iter().product::<usize>();
             let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
             mul(lhs_ptr, rhs_ptr, result_ptr, result_size);
             check_last_error();
             cudaFree(lhs_ptr);
             cudaFree(rhs_ptr);
-            (result_ptr, shape)
+            (cpy_from_device(result_ptr, &shape), shape)
         }
         Op::Div(lhs, rhs) => {
-            let (lhs_ptr, shape) = realize_cuda(&lhs.op);
-            let (rhs_ptr, _) = realize_cuda(&rhs.op);
+            let (lhs, shape) = realize(&lhs);
+            let (rhs, _) = realize(&rhs);
+            let lhs_ptr = cpy_to_device(&lhs);
+            let rhs_ptr = cpy_to_device(&rhs);
             let result_size = shape.iter().product::<usize>();
             let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
             division(lhs_ptr, rhs_ptr, result_ptr, result_size);
             check_last_error();
             cudaFree(lhs_ptr);
             cudaFree(rhs_ptr);
-            (result_ptr, shape)
+            (cpy_from_device(result_ptr, &shape), shape)
         }
         Op::Max(t) => {
-            let (t_ptr, shape) = realize_cuda(&t.op);
+            let (t, shape) = realize_cuda(&t);
+            let t_ptr = cpy_to_device(&t);
             let result_ptr = malloc(1, std::mem::size_of::<f64>());
             rusty_max(t_ptr, result_ptr, shape.iter().product());
             check_last_error();
             cudaFree(t_ptr);
-            (result_ptr, vec![])
+            (cpy_from_device(result_ptr, &vec![]), vec![])
         }
         Op::Min(t) => {
-            let (t_ptr, shape) = realize_cuda(&t.op);
+            let (t, shape) = realize_cuda(&t);
+            let t_ptr = cpy_to_device(&t);
             let result_ptr = malloc(1, std::mem::size_of::<f64>());
             rusty_min(t_ptr, result_ptr, shape.iter().product());
             check_last_error();
             cudaFree(t_ptr);
-            (result_ptr, vec![])
+            (cpy_from_device(result_ptr, &vec![]), vec![])
         }
         Op::Sqrt(t) => {
-            let (t_ptr, shape) = realize_cuda(&t.op);
+            let (t, shape) = realize_cuda(&t);
+            let t_ptr = cpy_to_device(&t);
             let result_size = shape.iter().product::<usize>();
             let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
-            rusty_sqrt(t_ptr, result_ptr, result_size);
+            rusty_sqrt(t_ptr, result_ptr, shape.iter().product());
             check_last_error();
             cudaFree(t_ptr);
-            (result_ptr, shape)
+            (cpy_from_device(result_ptr, &shape), shape)
         }
         Op::Log(t) => {
-            let (t_ptr, shape) = realize_cuda(&t.op);
+            let (t, shape) = realize_cuda(&t);
+            let t_ptr = cpy_to_device(&t);
             let result_size = shape.iter().product::<usize>();
             let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
-            rusty_log(t_ptr, result_ptr, result_size);
+            rusty_log(t_ptr, result_ptr, shape.iter().product());
             check_last_error();
             cudaFree(t_ptr);
-            (result_ptr, shape)
+            (cpy_from_device(result_ptr, &shape), shape)
         }
-        Op::Load(data, shape) => (cpy_to_device(data), shape.to_vec()),
+        Op::Load(data, shape) => (data.to_vec(), shape.to_vec()),
         Op::Sigmoid(t) => {
-            let (t_ptr, shape) = realize_cuda(&t.op);
+            let (t, shape) = realize_cuda(&t);
+            let t_ptr = cpy_to_device(&t);
             let result_size = shape.iter().product::<usize>();
             let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
-            sigmoid(t_ptr, result_ptr, result_size);
+            sigmoid(t_ptr, result_ptr, shape.iter().product());
             check_last_error();
             cudaFree(t_ptr);
-            (result_ptr, shape)
+            (cpy_from_device(result_ptr, &shape), shape)
         }
         Op::Relu(t) => {
-            let (t_ptr, shape) = realize_cuda(&t.op);
+            let (t, shape) = realize_cuda(&t);
+            let t_ptr = cpy_to_device(&t);
             let result_size = shape.iter().product::<usize>();
             let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
-            relu(t_ptr, result_ptr, result_size);
+            relu(t_ptr, result_ptr, shape.iter().product());
             check_last_error();
             cudaFree(t_ptr);
-            (result_ptr, shape)
+            (cpy_from_device(result_ptr, &shape), shape)
         }
         Op::Sum(t, dims, keepdim) => {
-            let (t_ptr, shape) = realize_cuda(&t.op);
+            let (t, shape) = realize_cuda(&t);
+            let t_ptr = cpy_to_device(&t);
             let mut reduced_shape = shape.clone();
             for (i, dim) in dims.iter().enumerate() {
                 reduced_shape.remove(*dim - i);
@@ -248,7 +293,7 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             let result_size = reduced_shape.iter().product::<usize>();
             let result_ptr = cpy_to_device(&vec![0.0; result_size]);
             let input_shape_ptr = cpy_to_device(&shape);
-            let dims_ptr = cpy_to_device(dims);
+            let dims_ptr = cpy_to_device(&dims);
             let reduced_shape_ptr = cpy_to_device(&reduced_shape);
 
             sum(
@@ -272,10 +317,11 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             } else {
                 reduced_shape
             };
-            (result_ptr, new_shape)
+            (cpy_from_device(result_ptr, &new_shape), new_shape)
         }
         Op::Pool2D(t, kernel, stride, init_val, pool_op) => {
-            let (t_ptr, shape) = realize_cuda(&t.op);
+            let (t, shape) = realize_cuda(&t);
+            let t_ptr = cpy_to_device(&t);
             // FIXME: remove this constraint, just reshape or something smarter
             assert_eq!(shape.len(), 4, "only supporting 4d tensors");
 
@@ -326,11 +372,13 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             cudaFree(shape_ptr);
             cudaFree(result_shape_ptr);
 
-            (result_ptr, result_shape.to_vec())
+            (cpy_from_device(result_ptr, &result_shape), result_shape)
         }
         Op::Conv2D(t, kernel, strides, groups) => {
-            let (t_ptr, shape) = realize_cuda(&t.op);
-            let (kernel_ptr, kernel_shape) = realize_cuda(&kernel.op);
+            let (t, shape) = realize_cuda(&t);
+            let t_ptr = cpy_to_device(&t);
+            let (kernel, kernel_shape) = realize_cuda(&kernel);
+            let kernel_ptr = cpy_to_device(&kernel);
 
             assert_eq!(shape.len(), 4, "only supporting 4d tensors");
             assert_eq!(kernel_shape.len(), 4, "only supporting 4d kernels");
@@ -381,10 +429,11 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             cudaFree(kernel_ptr);
             cudaFree(strides_ptr);
 
-            (result_ptr, new_shape.to_vec())
+            (cpy_from_device(result_ptr, &new_shape), new_shape)
         }
         Op::Pad2D(t, value, padding) => {
-            let (t_ptr, shape) = realize_cuda(&t.op);
+            let (t, shape) = realize_cuda(&t);
+            let t_ptr = cpy_to_device(&t);
             if shape.len() < 2 {
                 panic!("Tensor must have at least 2 dimensions for 2D padding.");
             }
@@ -416,14 +465,15 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             cudaFree(new_shape_ptr);
             cudaFree(padding_ptr);
 
-            (result_ptr, new_shape.to_vec())
+            (cpy_from_device(result_ptr, &new_shape), new_shape)
         }
         Op::Reshape(t, shape) => {
-            let (t_ptr, _) = realize_cuda(&t.op);
+            let (t_ptr, _) = realize_cuda(&t);
             (t_ptr, shape.to_vec())
         }
         Op::Permute(t, dims) => {
-            let (t_ptr, shape) = realize_cuda(&t.op);
+            let (t, shape) = realize_cuda(&t);
+            let t_ptr = cpy_to_device(&t);
             if shape.len() < 2 {
                 panic!("Tensor must have at least 2 dimensions for 2D padding.");
             }
@@ -450,10 +500,11 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             cudaFree(new_shape_ptr);
             cudaFree(dims_ptr);
 
-            (result_ptr, new_shape.to_vec())
+            (cpy_from_device(result_ptr, &new_shape), new_shape)
         }
         Op::Expand(t, new_shape) => {
-            let (t_ptr, old_shape) = realize_cuda(&t.op);
+            let (t, old_shape) = realize_cuda(&t);
+            let t_ptr = cpy_to_device(&t);
             assert_eq!(
                 old_shape.len(),
                 new_shape.len(),
@@ -469,7 +520,7 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             let result_size = new_shape.iter().product::<usize>();
             let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
             let old_shape_ptr = cpy_to_device(&old_shape);
-            let new_shape_ptr = cpy_to_device(new_shape);
+            let new_shape_ptr = cpy_to_device(&new_shape);
             expand(
                 t_ptr,
                 result_ptr,
@@ -480,11 +531,13 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             );
             cudaFree(t_ptr);
             check_last_error();
-            (result_ptr, new_shape.to_vec())
+            (cpy_from_device(result_ptr, new_shape), new_shape.to_vec())
         }
         Op::MatMul(lhs, rhs) => {
-            let (lhs_ptr, lhs_shape) = realize_cuda(&lhs.op);
-            let (rhs_ptr, rhs_shape) = realize_cuda(&rhs.op);
+            let (lhs, lhs_shape) = realize_cuda(&lhs);
+            let lhs_ptr = cpy_to_device(&lhs);
+            let (rhs, rhs_shape) = realize_cuda(&rhs);
+            let rhs_ptr = cpy_to_device(&rhs);
             assert!(
                 lhs_shape.len() == 2 && rhs_shape.len() == 2,
                 "only supporting 2d tensors for now"
@@ -504,27 +557,28 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
             check_last_error();
             cudaFree(lhs_ptr);
             cudaFree(rhs_ptr);
-            (result_ptr, vec![lhs_shape[0], rhs_shape[1]])
+            let new_shape = vec![lhs_shape[0], rhs_shape[1]];
+            (cpy_from_device(result_ptr, &new_shape), new_shape.to_vec())
         }
     }
 }
 
-pub fn realize(op: &Op) -> (Vec<f64>, Vec<usize>) {
-    trace!("Realizing {:?}", op);
-
-    unsafe {
-        let (result_ptr, shape) = realize_cuda(op);
-        let mut result = vec![0.0; shape.iter().product()];
-        let code = cudaMemcpy(
-            result.as_mut_ptr() as *mut c_void,
-            result_ptr,
-            std::mem::size_of::<f64>() * result.len(),
-            DEVICE_TO_HOST,
-        );
-        if code != 0 {
-            panic!("{}", error_string(code));
+pub fn realize(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
+    if *USE_CACHE {
+        {
+            let cache = OP_CACHE.lock().unwrap();
+            if let Some(result) = cache.get(&unrealized_op.id) {
+                return result.clone();
+            }
         }
-        cudaFree(result_ptr);
-        (result, shape)
+    }
+    unsafe {
+        let result = realize_cuda(unrealized_op);
+        if *USE_CACHE {
+            let mut cache = OP_CACHE.lock().unwrap();
+            cache.insert(unrealized_op.id, result.clone());
+        }
+
+        result
     }
 }
