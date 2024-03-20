@@ -70,6 +70,10 @@ extern "C" {
         kernel: *const c_void,
         init_val: f64,
         stride: usize,
+        batch: usize,
+        channels: usize,
+        output_height: usize,
+        output_width: usize,
     );
     fn max_pool2d(
         input: *const c_void,
@@ -294,6 +298,10 @@ unsafe fn realize_cuda(op: &Op) -> (*mut c_void, Vec<usize>) {
                     kernel_ptr,
                     *init_val,
                     *stride,
+                    shape[0],
+                    shape[1],
+                    output_height,
+                    output_width,
                 ),
                 crate::op::PoolOp::Max => max_pool2d(
                     t_ptr,

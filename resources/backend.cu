@@ -431,7 +431,6 @@ extern "C" void sum(double *input, double *result, size_t n,
                                     reduced_shape_len, result);
 }
 
-// FIXME: parallelize
 __global__ void sum_pool2d_kernel(double *input, double *result,
                                   size_t *input_shape, size_t *result_shape,
                                   size_t *kernel, double init_val,
@@ -441,34 +440,52 @@ __global__ void sum_pool2d_kernel(double *input, double *result,
   size_t height = input_shape[2];
   size_t width = input_shape[3];
 
-  size_t result_idx = 0;
-  for (int n = 0; n < batch; n++) {
-    for (int c = 0; c < channels; c++) {
-      for (int i = 0; i < result_shape[2]; i++) {
-        for (int j = 0; j < result_shape[3]; j++) {
-          double result_val = init_val;
-          for (int ki = 0; ki < kernel[0]; ki++) {
-            for (int kj = 0; kj < kernel[1]; kj++) {
-              size_t row = i * stride + ki;
-              size_t col = j * stride + kj;
-              size_t idx = n * (channels * height * width) +
-                           c * (height * width) + row * width + col;
-              result_val += input[idx];
-            }
-          }
-          result[result_idx] = result_val;
-          result_idx++;
-        }
+  size_t n = blockIdx.z; // One block per batch element
+  size_t c = blockIdx.y; // One block per channel
+  size_t i =
+      blockIdx.x * blockDim.x + threadIdx.x; // Cover the width of the output
+  size_t j =
+      blockIdx.x * blockDim.y + threadIdx.y; // Cover the height of the output
+
+  if (n >= batch || c >= channels || i >= result_shape[2] ||
+      j >= result_shape[3])
+    return;
+
+  double result_val = init_val;
+  for (int ki = 0; ki < kernel[0]; ki++) {
+    for (int kj = 0; kj < kernel[1]; kj++) {
+      size_t row = i * stride + ki;
+      size_t col = j * stride + kj;
+      if (row < height && col < width) { // Check boundaries
+        size_t idx = n * (channels * height * width) + c * (height * width) +
+                     row * width + col;
+        result_val += input[idx];
       }
     }
   }
+
+  size_t result_idx = n * (channels * result_shape[2] * result_shape[3]) +
+                      c * (result_shape[2] * result_shape[3]) +
+                      i * result_shape[3] + j;
+  result[result_idx] = result_val;
 }
 
 extern "C" void sum_pool2d(double *input, double *result, size_t *input_shape,
                            size_t *result_shape, size_t *kernel,
-                           double init_val, size_t stride) {
-  sum_pool2d_kernel<<<1, 1>>>(input, result, input_shape, result_shape, kernel,
-                              init_val, stride);
+                           double init_val, size_t stride, size_t batch,
+                           size_t channels, size_t output_height,
+                           size_t output_width) {
+  // Calculate grid and block sizes
+  dim3 threadsPerBlock(
+      16,
+      16); // 16x16 threads per block is a common choice, adjust as necessary
+  dim3 numBlocks((output_height + threadsPerBlock.x - 1) / threadsPerBlock.x,
+                 (output_width + threadsPerBlock.y - 1) / threadsPerBlock.y,
+                 batch * channels); // One block per element in the batch and
+                                    // channel dimensions
+
+  sum_pool2d_kernel<<<numBlocks, threadsPerBlock>>>(
+      input, result, input_shape, result_shape, kernel, init_val, stride);
 }
 
 // FIXME: parallelize
