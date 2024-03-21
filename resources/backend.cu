@@ -67,7 +67,7 @@ extern "C" void division(double *a, double *b, double *c, int n) {
 __global__ void sqrt_kernel(double *a, double *c, int n) {
   int i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < n) {
-    c[i] = sqrtf(a[i]);
+    c[i] = sqrt(a[i]);
   }
 }
 
@@ -95,7 +95,7 @@ extern "C" void rusty_log(double *a, double *c, int n) {
 __global__ void relu_kernel(double *a, double *c, int n) {
   int i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i < n) {
-    c[i] = fmaxf(a[i], 0.0);
+    c[i] = fmax(a[i], 0.0);
   }
 }
 
@@ -518,7 +518,7 @@ __global__ void max_pool2d_kernel(double *input, double *result,
           size_t idx = n * (channels * input_shape[2] * input_shape[3]) +
                        c * (input_shape[2] * input_shape[3]) +
                        row * input_shape[3] + col;
-          result_val = max(result_val, input[idx]);
+          result_val = fmax(result_val, input[idx]);
         }
       }
     }

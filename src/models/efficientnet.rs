@@ -163,6 +163,9 @@ impl MBConvBlock {
 impl MBConvBlock {
     fn call(self, input: Tensor) -> Tensor {
         let mut x = input.clone();
+        let (data, _) = x.clone().realize();
+        let argmax = util::argmax(&data);
+        println!("-1: {}", argmax);
         if let Some(expand_conv) = self.expand_conv {
             x = self
                 .bn0
@@ -171,6 +174,9 @@ impl MBConvBlock {
                 .forward(x.conv2d(expand_conv, None, None, None, None))
                 .swish();
         }
+        let (data, _) = x.clone().realize();
+        let argmax = util::argmax(&data);
+        println!("0: {}", argmax);
         let shape = self.depthwise_conv.shape.clone();
         x = x.conv2d(
             self.depthwise_conv,
@@ -179,7 +185,13 @@ impl MBConvBlock {
             Some(self.strides),
             Some(shape[0]),
         );
+        let (data, _) = x.clone().realize();
+        let argmax = util::argmax(&data);
+        println!("1: {}", argmax);
         x = self.bn1.clone().forward(x).swish();
+        let (data, _) = x.clone().realize();
+        let argmax = util::argmax(&data);
+        println!("2: {}", argmax);
 
         let shape = x.shape.clone();
         let old_x = x.clone();
@@ -191,15 +203,25 @@ impl MBConvBlock {
         x_squeezed = x_squeezed.conv2d(self.se_expand, Some(self.se_expand_bias), None, None, None);
 
         x = old_x * x_squeezed.sigmoid();
+        let (data, _) = x.clone().realize();
+        let argmax = util::argmax(&data);
+        println!("3: {}", argmax);
         x = self
             .bn2
             .clone()
             .forward(x.conv2d(self.project_conv, None, None, None, None));
+        let (data, _) = x.clone().realize();
+        let argmax = util::argmax(&data);
+        println!("4: {}", argmax);
 
         if x.shape == input.shape {
             x = x + input;
         }
 
+        let (data, _) = x.clone().realize();
+        let argmax = util::argmax(&data);
+        println!("5: {}", argmax);
+        println!("----------------------------------------");
         x
     }
 }
@@ -386,16 +408,35 @@ impl Default for Efficientnet {
 
 impl Efficientnet {
     pub fn forward(&mut self, x: Tensor) -> Tensor {
-        let mut x = self
-            .bn0
-            .forward(x.conv2d(
-                self.conv_stem.clone(),
-                None,
-                Some([0, 1, 0, 1]),
-                Some((2, 2)),
-                None,
-            ))
-            .swish();
+        let (data, _) = x.clone().realize();
+        let argmax = util::argmax(&data);
+        let max = data
+            .into_iter()
+            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .expect("no min value found");
+        println!("e-1 {argmax} {max}");
+        let test = x.conv2d(
+            self.conv_stem.clone(),
+            None,
+            Some([0, 1, 0, 1]),
+            Some((2, 2)),
+            None,
+        );
+        let (data, _) = test.clone().realize();
+        let argmax = util::argmax(&data);
+        let max = data
+            .into_iter()
+            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .expect("no min value found");
+        println!("e0 {argmax} {max}");
+        let mut x = self.bn0.forward(test).swish();
+        let (data, _) = x.clone().realize();
+        let argmax = util::argmax(&data);
+        let max = data
+            .into_iter()
+            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .expect("no min value found");
+        println!("e1 {argmax} {max}");
 
         for block in &self.blocks {
             x = block.clone().call(x);

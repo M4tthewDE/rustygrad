@@ -1,6 +1,6 @@
 use std::ops::Add;
 
-use crate::tensor::Tensor;
+use crate::{tensor::Tensor, util};
 
 #[derive(Debug, Clone)]
 pub struct BatchNorm2d {
@@ -15,20 +15,50 @@ pub struct BatchNorm2d {
 // https://github.com/tinygrad/tinygrad/blob/master/tinygrad/nn/__init__.py
 impl BatchNorm2d {
     pub fn forward(&mut self, x: Tensor) -> Tensor {
-        let batch_invstd = self
+        let expanded = self
             .running_var
             .clone()
             .reshape(vec![1, self.num_features, 1, 1])
-            .expand(x.shape.clone())
-            .add(self.eps)
-            .rsqrt();
+            .expand(x.shape.clone());
+        let (data, _) = expanded.clone().realize();
+        let argmax = util::argmax(&data);
+        let max = data
+            .into_iter()
+            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .expect("no min value found");
+        println!("bn0 {argmax} {max}");
+        let added = expanded.add(self.eps);
+        let (data, _) = added.clone().realize();
+        let argmax = util::argmax(&data);
+        let max = data
+            .into_iter()
+            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .expect("no min value found");
+        println!("bn1 {argmax} {max}");
+        let batch_invstd = added.rsqrt();
+        let (data, _) = batch_invstd.clone().realize();
+        let argmax = util::argmax(&data);
+        let max = data
+            .into_iter()
+            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .expect("no min value found");
+        println!("bn2 {argmax} {max}");
 
-        x.batchnorm(
+        let test = x.batchnorm(
             self.weight.clone(),
             self.bias.clone(),
             self.running_mean.clone(),
             batch_invstd,
-        )
+        );
+
+        let (data, _) = test.clone().realize();
+        let argmax = util::argmax(&data);
+        let max = data
+            .into_iter()
+            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .expect("no min value found");
+        println!("bn3 {argmax} {max}");
+        test
     }
 }
 
