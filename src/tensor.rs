@@ -7,14 +7,16 @@ use image::DynamicImage;
 use rand::{distributions::Uniform, prelude::Distribution};
 use tracing::debug;
 
+use crate::device::Device;
 use crate::op::{Op, PoolOp, UnrealizedOp};
-use crate::{device, graph, util};
+use crate::{graph, util};
 
 #[derive(Clone)]
 pub struct Tensor {
     pub unrealized_op: UnrealizedOp,
     pub data: Option<Vec<f64>>,
     pub shape: Vec<usize>,
+    pub device: Device,
 }
 
 impl Debug for Tensor {
@@ -26,9 +28,10 @@ impl Debug for Tensor {
 impl Tensor {
     fn from_op(op: Op, shape: &[usize]) -> Tensor {
         Tensor {
-            unrealized_op: UnrealizedOp::new(op, device::get_device()),
+            unrealized_op: UnrealizedOp::new(op),
             data: None,
             shape: shape.to_owned(),
+            device: Device::default(),
         }
     }
 
@@ -220,6 +223,7 @@ impl Tensor {
         } else {
             self
         };
+
         let (data, _) = x.clone().realize();
         let argmax = util::argmax(&data);
         let max = data
@@ -227,6 +231,7 @@ impl Tensor {
             .max_by(|a, b| a.partial_cmp(b).unwrap())
             .expect("no min value found");
         println!("conv2d1 {argmax} {max}");
+
         let res = Tensor::from_op(
             Op::Conv2D(
                 Rc::new(x.unrealized_op),
@@ -241,6 +246,7 @@ impl Tensor {
                 ((x.shape[3] - kernel.shape[3]) / strides.unwrap_or((1, 1)).1) + 1,
             ],
         );
+
         let (data, _) = res.clone().realize();
         let argmax = util::argmax(&data);
         let max = data
@@ -357,7 +363,7 @@ impl Tensor {
         }
 
         debug!("realizing tensor");
-        self.unrealized_op.realize()
+        self.unrealized_op.realize(self.device)
     }
 }
 

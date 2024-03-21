@@ -19,18 +19,18 @@ lazy_static! {
 pub struct UnrealizedOp {
     pub id: usize,
     pub op: Op,
-    pub device: Device,
 }
 
 impl UnrealizedOp {
-    pub fn new(op: Op, device: Device) -> UnrealizedOp {
+    pub fn new(op: Op) -> UnrealizedOp {
         let id = OP_COUNTER.fetch_add(1, Ordering::Relaxed);
 
-        UnrealizedOp { id, op, device }
+        UnrealizedOp { id, op }
     }
 
-    pub fn realize(&self) -> (Vec<f64>, Vec<usize>) {
-        match self.device {
+    pub fn realize(&self, device: Device) -> (Vec<f64>, Vec<usize>) {
+        dbg!(&device);
+        match device {
             Device::Cpu => cpu::realize(self),
             Device::Cuda => cuda::realize(self),
         }
