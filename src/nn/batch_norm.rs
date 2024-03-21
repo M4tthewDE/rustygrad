@@ -1,6 +1,6 @@
 use std::ops::Add;
 
-use crate::{tensor::Tensor, util};
+use crate::tensor::Tensor;
 
 #[derive(Debug, Clone)]
 pub struct BatchNorm2d {
@@ -20,45 +20,14 @@ impl BatchNorm2d {
             .clone()
             .reshape(vec![1, self.num_features, 1, 1])
             .expand(x.shape.clone());
-        let (data, _) = expanded.clone().realize();
-        let argmax = util::argmax(&data);
-        let max = data
-            .into_iter()
-            .max_by(|a, b| a.partial_cmp(b).unwrap())
-            .expect("no min value found");
-        println!("bn0 {argmax} {max}");
-        let added = expanded.add(self.eps);
-        let (data, _) = added.clone().realize();
-        let argmax = util::argmax(&data);
-        let max = data
-            .into_iter()
-            .max_by(|a, b| a.partial_cmp(b).unwrap())
-            .expect("no min value found");
-        println!("bn1 {argmax} {max}");
-        let batch_invstd = added.rsqrt();
-        let (data, _) = batch_invstd.clone().realize();
-        let argmax = util::argmax(&data);
-        let max = data
-            .into_iter()
-            .max_by(|a, b| a.partial_cmp(b).unwrap())
-            .expect("no min value found");
-        println!("bn2 {argmax} {max}");
+        let batch_invstd = expanded.add(self.eps).rsqrt();
 
-        let test = x.batchnorm(
+        x.batchnorm(
             self.weight.clone(),
             self.bias.clone(),
             self.running_mean.clone(),
             batch_invstd,
-        );
-
-        let (data, _) = test.clone().realize();
-        let argmax = util::argmax(&data);
-        let max = data
-            .into_iter()
-            .max_by(|a, b| a.partial_cmp(b).unwrap())
-            .expect("no min value found");
-        println!("bn3 {argmax} {max}");
-        test
+        )
     }
 }
 

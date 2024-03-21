@@ -8,8 +8,8 @@ use rand::{distributions::Uniform, prelude::Distribution};
 use tracing::debug;
 
 use crate::device::Device;
+use crate::graph;
 use crate::op::{Op, PoolOp, UnrealizedOp};
-use crate::{graph, util};
 
 #[derive(Clone)]
 pub struct Tensor {
@@ -224,14 +224,6 @@ impl Tensor {
             self
         };
 
-        let (data, _) = x.clone().realize();
-        let argmax = util::argmax(&data);
-        let max = data
-            .into_iter()
-            .max_by(|a, b| a.partial_cmp(b).unwrap())
-            .expect("no min value found");
-        println!("conv2d1 {argmax} {max}");
-
         let res = Tensor::from_op(
             Op::Conv2D(
                 Rc::new(x.unrealized_op),
@@ -246,14 +238,6 @@ impl Tensor {
                 ((x.shape[3] - kernel.shape[3]) / strides.unwrap_or((1, 1)).1) + 1,
             ],
         );
-
-        let (data, _) = res.clone().realize();
-        let argmax = util::argmax(&data);
-        let max = data
-            .into_iter()
-            .max_by(|a, b| a.partial_cmp(b).unwrap())
-            .expect("no min value found");
-        println!("conv2d2 {argmax} {max}");
 
         if let Some(bias) = bias {
             res + bias
@@ -297,22 +281,8 @@ impl Tensor {
         mean: Tensor,
         invstd: Tensor,
     ) -> Tensor {
-        let (data, _) = self.clone().realize();
-        let argmax = util::argmax(&data);
-        let max = data
-            .into_iter()
-            .max_by(|a, b| a.partial_cmp(b).unwrap())
-            .expect("no min value found");
-        println!("batchnorm-1 {argmax} {max}");
         let mean_shape = mean.shape.clone();
         let x = self.clone() - mean.reshape(vec![1, mean_shape[0], 1, 1]);
-        let (data, _) = x.clone().realize();
-        let argmax = util::argmax(&data);
-        let max = data
-            .into_iter()
-            .max_by(|a, b| a.partial_cmp(b).unwrap())
-            .expect("no min value found");
-        println!("batchnorm0 {argmax} {max}");
         let x = if let Some(weight) = weight {
             let shape = weight.shape.clone();
             x * weight.reshape(vec![1, shape[0], 1, 1])
@@ -320,27 +290,12 @@ impl Tensor {
             x
         };
 
-        let (data, _) = x.clone().realize();
-        let argmax = util::argmax(&data);
-        let max = data
-            .into_iter()
-            .max_by(|a, b| a.partial_cmp(b).unwrap())
-            .expect("no min value found");
-        println!("batchnorm1 {argmax} {max}");
-
         let ret = if invstd.shape.len() == 1 {
             let shape = invstd.shape.clone();
             x * (invstd.reshape(vec![1, shape[1], 1, 1]))
         } else {
             x * invstd
         };
-        let (data, _) = ret.clone().realize();
-        let argmax = util::argmax(&data);
-        let max = data
-            .into_iter()
-            .max_by(|a, b| a.partial_cmp(b).unwrap())
-            .expect("no min value found");
-        println!("batchnorm2 {argmax} {max}");
 
         if let Some(bias) = bias {
             let shape = bias.shape.clone();
