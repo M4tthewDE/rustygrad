@@ -29,7 +29,6 @@ impl UnrealizedOp {
     }
 
     pub fn realize(&self, device: Device) -> (Vec<f64>, Vec<usize>) {
-        dbg!(&device);
         match device {
             Device::Cpu => cpu::realize(self),
             Device::Cuda => cuda::realize(self),

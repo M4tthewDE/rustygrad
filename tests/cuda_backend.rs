@@ -1,13 +1,10 @@
-use rustygrad::{
-    device::{self, Device},
-    tensor::Tensor,
-};
+use rustygrad::{device::Device, tensor::Tensor};
 
 mod util;
 
 #[test]
 fn load() {
-    device::set_device(Device::Cuda);
+    std::env::set_var("CUDA", "1");
 
     let a = Tensor::from_scalar(2.0);
     let (data, shape) = a.realize();
@@ -18,7 +15,7 @@ fn load() {
 
 #[test]
 fn addition() {
-    device::set_device(Device::Cuda);
+    std::env::set_var("CUDA", "1");
 
     let a = Tensor::from_scalar(2.0);
     let b = Tensor::from_scalar(3.0);
@@ -30,7 +27,7 @@ fn addition() {
 
 #[test]
 fn addition_broadcasting() {
-    device::set_device(Device::Cuda);
+    std::env::set_var("CUDA", "1");
 
     let a = Tensor::from_vec(vec![2.0; 100 * 100], vec![100, 100]);
     let b = Tensor::from_scalar(3.0);
@@ -42,7 +39,7 @@ fn addition_broadcasting() {
 
 #[test]
 fn sub() {
-    device::set_device(Device::Cuda);
+    std::env::set_var("CUDA", "1");
 
     let a = Tensor::from_scalar(2.0);
     let b = Tensor::from_scalar(3.0);
@@ -54,7 +51,7 @@ fn sub() {
 
 #[test]
 fn mul() {
-    device::set_device(Device::Cuda);
+    std::env::set_var("CUDA", "1");
 
     let a = Tensor::from_scalar(2.0);
     let b = Tensor::from_scalar(3.0);
@@ -66,7 +63,7 @@ fn mul() {
 
 #[test]
 fn div() {
-    device::set_device(Device::Cuda);
+    std::env::set_var("CUDA", "1");
 
     let a = Tensor::from_scalar(2.0);
     let b = Tensor::from_scalar(3.0);
@@ -78,7 +75,7 @@ fn div() {
 
 #[test]
 fn sqrt() {
-    device::set_device(Device::Cuda);
+    std::env::set_var("CUDA", "1");
 
     let input = Tensor::rand(vec![100, 100]);
     let tch_input = util::to_tch(input.clone());
@@ -95,7 +92,7 @@ fn sqrt() {
 
 #[test]
 fn log() {
-    device::set_device(Device::Cuda);
+    std::env::set_var("CUDA", "1");
 
     let input = Tensor::rand(vec![100, 100]);
     let tch_input = util::to_tch(input.clone());
@@ -112,7 +109,7 @@ fn log() {
 
 #[test]
 fn relu() {
-    device::set_device(Device::Cuda);
+    std::env::set_var("CUDA", "1");
     let input = Tensor::rand(vec![100, 100]);
     let tch_input = util::to_tch(input.clone());
 
@@ -128,7 +125,7 @@ fn relu() {
 
 #[test]
 fn max() {
-    device::set_device(Device::Cuda);
+    std::env::set_var("CUDA", "1");
     let input = Tensor::rand(vec![100, 100]);
     let tch_input = util::to_tch(input.clone());
 
@@ -144,7 +141,7 @@ fn max() {
 
 #[test]
 fn min() {
-    device::set_device(Device::Cuda);
+    std::env::set_var("CUDA", "1");
     let input = Tensor::rand(vec![100, 100]);
     let tch_input = util::to_tch(input.clone());
 
@@ -160,7 +157,7 @@ fn min() {
 
 #[test]
 fn matmul() {
-    device::set_device(Device::Cuda);
+    std::env::set_var("CUDA", "1");
     let a = Tensor::rand(vec![100, 100]);
     let b = Tensor::rand(vec![100, 100]);
     let tch_a = util::to_tch(a.clone());
@@ -178,7 +175,7 @@ fn matmul() {
 
 #[test]
 fn expand() {
-    device::set_device(Device::Cuda);
+    std::env::set_var("CUDA", "1");
     let input = Tensor::rand(vec![10, 1]);
     let tch_input = util::to_tch(input.clone());
 
@@ -194,7 +191,7 @@ fn expand() {
 
 #[test]
 fn pad_2d_cuda() {
-    device::set_device(Device::Cuda);
+    std::env::set_var("CUDA", "1");
     let input = Tensor::rand(vec![1, 1, 3, 3]);
     let tch_input = util::to_tch(input.clone());
     let output = input.pad_2d(0., [1, 1, 1, 1]);
@@ -209,7 +206,7 @@ fn pad_2d_cuda() {
 
 #[test]
 fn pad_2d_weird_padding() {
-    device::set_device(Device::Cuda);
+    std::env::set_var("CUDA", "1");
     let input = Tensor::rand(vec![1, 3, 16, 16]);
     let tch_input = util::to_tch(input.clone());
     let output = input.pad_2d(0., [1, 2, 3, 4]);
@@ -224,7 +221,7 @@ fn pad_2d_weird_padding() {
 
 #[test]
 fn permute() {
-    device::set_device(Device::Cuda);
+    std::env::set_var("CUDA", "1");
     let input = Tensor::rand(vec![5, 15]);
     let tch_input = util::to_tch(input.clone());
 
@@ -240,7 +237,7 @@ fn permute() {
 
 #[test]
 fn permute_harder() {
-    device::set_device(Device::Cuda);
+    std::env::set_var("CUDA", "1");
     let input = Tensor::rand(vec![224, 224, 3]);
     let tch_input = util::to_tch(input.clone());
 
@@ -256,7 +253,7 @@ fn permute_harder() {
 
 #[test]
 fn reduce_sum_default_dims() {
-    device::set_device(Device::Cuda);
+    std::env::set_var("CUDA", "1");
     let input = Tensor::rand(vec![2, 4, 3, 3]);
     let tch_input = util::to_tch(input.clone());
     let sum = input.reduce_sum(None, false);
@@ -270,7 +267,7 @@ fn reduce_sum_default_dims() {
 
 #[test]
 fn reduce_sum() {
-    device::set_device(Device::Cuda);
+    std::env::set_var("CUDA", "1");
     let input = Tensor::rand(vec![2, 4, 3, 3]);
     let tch_input = util::to_tch(input.clone());
     let sum = input.reduce_sum(Some(vec![0, 2, 3]), false);
@@ -284,8 +281,8 @@ fn reduce_sum() {
 
 #[test]
 fn avg_pool_2d() {
-    device::set_device(Device::Cuda);
-    let input = Tensor::rand(vec![1, 1, 10, 10]);
+    std::env::set_var("CUDA", "1");
+    let input = Tensor::rand(vec![1, 3, 3, 3]);
     let tch_input = util::to_tch(input.clone());
     let output = input.avg_pool_2d((2, 2), None);
     let (data, shape) = output.realize();
@@ -298,8 +295,8 @@ fn avg_pool_2d() {
 
 #[test]
 fn max_pool_2d() {
-    device::set_device(Device::Cuda);
-    let input = Tensor::rand(vec![1, 1, 10, 10]);
+    std::env::set_var("CUDA", "1");
+    let input = Tensor::rand(vec![1, 3, 3, 3]);
     let tch_input = util::to_tch(input.clone());
 
     let output = input.max_pool_2d((2, 2), None);
@@ -314,7 +311,7 @@ fn max_pool_2d() {
 
 #[test]
 fn rand() {
-    device::set_device(Device::Cuda);
+    std::env::set_var("CUDA", "1");
     let input = Tensor::rand(vec![4]);
     let (data, shape) = input.clone().realize();
     assert_eq!(shape, vec![4]);
@@ -323,7 +320,7 @@ fn rand() {
 
 #[test]
 fn conv2d_4d() {
-    device::set_device(Device::Cuda);
+    std::env::set_var("CUDA", "1");
     let input = Tensor::rand(vec![1, 3, 224, 224]);
     let tch_input = util::to_tch(input.clone());
     let kernel = Tensor::rand(vec![32, 3, 3, 3]);
@@ -345,4 +342,21 @@ fn conv2d_4d() {
 
     assert_eq!(shape, tch_shape);
     util::assert_aprox_eq_vec(data, tch_output, 1e-6);
+}
+
+#[test]
+fn conv2d_4d_vs_torch() {
+    std::env::set_var("CUDA", "1");
+    let input = Tensor::rand(vec![1, 3, 224, 224]);
+    let kernel = Tensor::rand(vec![32, 3, 3, 3]);
+
+    let input_cpu = input.clone();
+    let kernel_cpu = kernel.clone();
+
+    let output = input.conv2d(kernel, None, Some([1, 1, 1, 1]), Some((2, 2)), None);
+    let mut output_cpu = input_cpu.conv2d(kernel_cpu, None, Some([1, 1, 1, 1]), Some((2, 2)), None);
+    output_cpu.device = Device::Cpu;
+    let cuda_out = output.realize();
+    let cpu_out = output_cpu.realize();
+    util::assert_aprox_eq_vec(cuda_out.0, cpu_out.0, 1e-15);
 }
