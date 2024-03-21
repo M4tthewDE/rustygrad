@@ -85,7 +85,6 @@ extern "C" {
         batch: usize,
         channels: usize,
         output_height: usize,
-        output_width: usize,
     );
     fn max_pool2d(
         input: *const c_void,
@@ -350,7 +349,6 @@ unsafe fn realize_cuda(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
                     shape[0],
                     shape[1],
                     output_height,
-                    output_width,
                 ),
                 crate::op::PoolOp::Max => max_pool2d(
                     t_ptr,

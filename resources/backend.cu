@@ -474,8 +474,7 @@ __global__ void sum_pool2d_kernel(double *input, double *result,
 extern "C" void sum_pool2d(double *input, double *result, size_t *input_shape,
                            size_t *result_shape, size_t *kernel,
                            double init_val, size_t stride, size_t batch,
-                           size_t channels, size_t output_height,
-                           size_t output_width) {
+                           size_t channels, size_t output_height) {
   dim3 threadsPerBlock(16, 16);
   dim3 numBlocks((output_height + threadsPerBlock.x - 1) / threadsPerBlock.x,
                  channels, batch);
