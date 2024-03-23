@@ -18,7 +18,7 @@ pub fn build_graph(t: &Tensor) {
     let mut seen_ops: HashSet<UnrealizedOp> = HashSet::new();
     let mut node_indeces: HashMap<UnrealizedOp, NodeIndex> = HashMap::new();
     let mut g = Graph::<Rc<UnrealizedOp>, ()>::new();
-    let node_index = g.add_node(Rc::new(t.unrealized_op.clone()));
+    let node_index = g.add_node(t.unrealized_op.clone());
     graph_op(
         &mut seen_ops,
         &t.unrealized_op,
