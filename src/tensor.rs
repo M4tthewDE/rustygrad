@@ -295,7 +295,7 @@ impl Tensor {
         }
     }
 
-    pub fn linear(&self, weight: &Tensor, bias: Option<Tensor>) -> Tensor {
+    pub fn linear(&self, weight: &Tensor, bias: Option<&Tensor>) -> Tensor {
         match bias {
             Some(bias) => self.matmul(weight) + bias,
             None => self.matmul(weight),
