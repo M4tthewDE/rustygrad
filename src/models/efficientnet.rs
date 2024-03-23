@@ -160,7 +160,7 @@ impl MBConvBlock {
 }
 
 impl MBConvBlock {
-    fn call(&self, input: Tensor) -> Tensor {
+    fn call(&self, input: &Tensor) -> Tensor {
         let mut x = input.clone();
         if let Some(expand_conv) = &self.expand_conv {
             if let Some(bn0) = &self.bn0 {
@@ -408,7 +408,7 @@ impl Efficientnet {
             .swish();
 
         for block in &self.blocks {
-            x = block.call(x);
+            x = block.call(&x);
         }
 
         x = self
