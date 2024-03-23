@@ -393,35 +393,33 @@ pub fn realize(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
     }
 
     trace!("Realizing {:?}", unrealized_op);
-    stacker::maybe_grow(32 * 1024, 1024 * 1024, || {
-        let result = match &unrealized_op.op {
-            Op::Add(lhs, rhs) => add(lhs, rhs),
-            Op::Sub(lhs, rhs) => sub(lhs, rhs),
-            Op::Mul(lhs, rhs) => mul(lhs, rhs),
-            Op::Div(lhs, rhs) => div(lhs, rhs),
-            Op::Sqrt(t) => sqrt(t),
-            Op::Log(t) => log(t),
-            Op::Sigmoid(t) => sigmoid(t),
-            Op::Relu(t) => relu(t),
-            Op::Max(t) => max(t),
-            Op::Min(t) => min(t),
-            Op::Sum(t, dims, keepdim) => sum(t, dims, keepdim),
-            Op::Pool2D(t, kernel, stride, init_val, pool_op) => {
-                pool2d(t, kernel, stride, init_val, pool_op)
-            }
-            Op::Conv2D(t, kernel, strides, groups) => conv2d(t, kernel, strides, groups),
-            Op::Pad2D(t, value, padding) => pad2d(t, value, padding),
-            Op::Reshape(t, shape) => reshape(t, shape),
-            Op::Permute(t, dims) => permute(t, dims),
-            Op::Expand(t, new_shape) => expand(t, new_shape),
-            Op::MatMul(lhs, rhs) => matmul(lhs, rhs),
-            Op::Load(data, shape) => load(data, shape),
-        };
-        if *USE_CACHE {
-            let mut cache = OP_CACHE.lock().unwrap();
-            cache.insert(unrealized_op.id, result.clone());
+    let result = match &unrealized_op.op {
+        Op::Add(lhs, rhs) => add(lhs, rhs),
+        Op::Sub(lhs, rhs) => sub(lhs, rhs),
+        Op::Mul(lhs, rhs) => mul(lhs, rhs),
+        Op::Div(lhs, rhs) => div(lhs, rhs),
+        Op::Sqrt(t) => sqrt(t),
+        Op::Log(t) => log(t),
+        Op::Sigmoid(t) => sigmoid(t),
+        Op::Relu(t) => relu(t),
+        Op::Max(t) => max(t),
+        Op::Min(t) => min(t),
+        Op::Sum(t, dims, keepdim) => sum(t, dims, keepdim),
+        Op::Pool2D(t, kernel, stride, init_val, pool_op) => {
+            pool2d(t, kernel, stride, init_val, pool_op)
         }
+        Op::Conv2D(t, kernel, strides, groups) => conv2d(t, kernel, strides, groups),
+        Op::Pad2D(t, value, padding) => pad2d(t, value, padding),
+        Op::Reshape(t, shape) => reshape(t, shape),
+        Op::Permute(t, dims) => permute(t, dims),
+        Op::Expand(t, new_shape) => expand(t, new_shape),
+        Op::MatMul(lhs, rhs) => matmul(lhs, rhs),
+        Op::Load(data, shape) => load(data, shape),
+    };
+    if *USE_CACHE {
+        let mut cache = OP_CACHE.lock().unwrap();
+        cache.insert(unrealized_op.id, result.clone());
+    }
 
-        result
-    })
+    result
 }
