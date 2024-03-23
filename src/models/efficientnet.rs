@@ -320,7 +320,7 @@ impl Default for Efficientnet {
             block.se_reduce_bias = Tensor::from_vec(
                 util::extract_floats(&model_data[format!("_blocks.{}._se_reduce.bias", i)])
                     .unwrap(),
-                block.se_reduce_bias.clone().shape,
+                block.se_reduce_bias.shape.clone(),
             );
 
             block.se_expand =
@@ -329,7 +329,7 @@ impl Default for Efficientnet {
             block.se_expand_bias = Tensor::from_vec(
                 util::extract_floats(&model_data[format!("_blocks.{}._se_expand.bias", i)])
                     .unwrap(),
-                block.se_expand_bias.clone().shape,
+                block.se_expand_bias.shape.clone(),
             );
 
             for j in 0..3 {
