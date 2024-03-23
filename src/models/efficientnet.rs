@@ -160,28 +160,28 @@ impl MBConvBlock {
 }
 
 impl MBConvBlock {
-    fn call(&self, input: &Tensor) -> Tensor {
-        let mut x = input.clone();
-        if let (Some(expand_conv), Some(bn0)) = (&self.expand_conv, &self.bn0) {
-            x = bn0
-                .forward(&x.conv2d(expand_conv, None, None, None, None))
-                .swish();
-        }
+    fn call(&self, input: Tensor) -> Tensor {
+        let x = if let (Some(expand_conv), Some(bn0)) = (&self.expand_conv, &self.bn0) {
+            bn0.forward(&input.conv2d(expand_conv, None, None, None, None))
+                .swish()
+        } else {
+            input.clone()
+        };
 
         let shape = self.depthwise_conv.shape.clone();
-        x = x.conv2d(
+        let x = x.conv2d(
             &self.depthwise_conv,
             None,
             Some(self.pad),
             Some(self.strides),
             Some(shape[0]),
         );
-        x = self.bn1.forward(&x).swish();
+        let x = self.bn1.forward(&x).swish();
 
         let shape = x.shape.clone();
         let old_x = &x;
-        let mut x_squeezed = x.avg_pool_2d((shape[2], shape[3]), None);
-        x_squeezed = x_squeezed
+        let x_squeezed = x.avg_pool_2d((shape[2], shape[3]), None);
+        let x_squeezed = x_squeezed
             .conv2d(
                 &self.se_reduce,
                 Some(&self.se_reduce_bias),
@@ -190,8 +190,7 @@ impl MBConvBlock {
                 None,
             )
             .swish();
-
-        x_squeezed = x_squeezed.conv2d(
+        let x_squeezed = x_squeezed.conv2d(
             &self.se_expand,
             Some(&self.se_expand_bias),
             None,
@@ -199,8 +198,8 @@ impl MBConvBlock {
             None,
         );
 
-        x = old_x * x_squeezed.sigmoid();
-        x = self
+        let x = old_x * x_squeezed.sigmoid();
+        let x = self
             .bn2
             .forward(&x.conv2d(&self.project_conv, None, None, None, None));
 
@@ -406,7 +405,7 @@ impl Efficientnet {
             .swish();
 
         for block in &self.blocks {
-            x = block.call(&x);
+            x = block.call(x);
         }
 
         x = self
