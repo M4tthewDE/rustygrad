@@ -308,7 +308,7 @@ impl Tensor {
 
     pub fn realize(&self) -> (Vec<f64>, Vec<usize>) {
         if env::var("GRAPH").is_ok() {
-            graph::build_graph(&self);
+            graph::build_graph(self);
         }
 
         debug!("realizing tensor");

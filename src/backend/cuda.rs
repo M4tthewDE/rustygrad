@@ -141,7 +141,7 @@ unsafe fn cpy_to_device<T>(data: &[T]) -> *mut c_void {
     let code = cudaMemcpy(
         ptr,
         data.as_ptr() as *const c_void,
-        std::mem::size_of::<T>() * data.len(),
+        std::mem::size_of_val(data),
         HOST_TO_DEVICE,
     );
     if code != 0 {
@@ -171,8 +171,8 @@ unsafe fn realize_cuda(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
 
     match &unrealized_op.op {
         Op::Add(lhs, rhs) => {
-            let (lhs, shape) = realize(&lhs);
-            let (rhs, _) = realize(&rhs);
+            let (lhs, shape) = realize(lhs);
+            let (rhs, _) = realize(rhs);
             let lhs_ptr = cpy_to_device(&lhs);
             let rhs_ptr = cpy_to_device(&rhs);
             let result_size = shape.iter().product::<usize>();
@@ -184,8 +184,8 @@ unsafe fn realize_cuda(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
             (cpy_from_device(result_ptr, &shape), shape)
         }
         Op::Sub(lhs, rhs) => {
-            let (lhs, shape) = realize(&lhs);
-            let (rhs, _) = realize(&rhs);
+            let (lhs, shape) = realize(lhs);
+            let (rhs, _) = realize(rhs);
             let lhs_ptr = cpy_to_device(&lhs);
             let rhs_ptr = cpy_to_device(&rhs);
             let result_size = shape.iter().product::<usize>();
@@ -197,8 +197,8 @@ unsafe fn realize_cuda(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
             (cpy_from_device(result_ptr, &shape), shape)
         }
         Op::Mul(lhs, rhs) => {
-            let (lhs, shape) = realize(&lhs);
-            let (rhs, _) = realize(&rhs);
+            let (lhs, shape) = realize(lhs);
+            let (rhs, _) = realize(rhs);
             let lhs_ptr = cpy_to_device(&lhs);
             let rhs_ptr = cpy_to_device(&rhs);
             let result_size = shape.iter().product::<usize>();
@@ -210,8 +210,8 @@ unsafe fn realize_cuda(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
             (cpy_from_device(result_ptr, &shape), shape)
         }
         Op::Div(lhs, rhs) => {
-            let (lhs, shape) = realize(&lhs);
-            let (rhs, _) = realize(&rhs);
+            let (lhs, shape) = realize(lhs);
+            let (rhs, _) = realize(rhs);
             let lhs_ptr = cpy_to_device(&lhs);
             let rhs_ptr = cpy_to_device(&rhs);
             let result_size = shape.iter().product::<usize>();
@@ -223,25 +223,25 @@ unsafe fn realize_cuda(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
             (cpy_from_device(result_ptr, &shape), shape)
         }
         Op::Max(t) => {
-            let (t, shape) = realize_cuda(&t);
+            let (t, shape) = realize_cuda(t);
             let t_ptr = cpy_to_device(&t);
             let result_ptr = malloc(1, std::mem::size_of::<f64>());
             rusty_max(t_ptr, result_ptr, shape.iter().product());
             check_last_error();
             cudaFree(t_ptr);
-            (cpy_from_device(result_ptr, &vec![]), vec![])
+            (cpy_from_device(result_ptr, &[]), vec![])
         }
         Op::Min(t) => {
-            let (t, shape) = realize_cuda(&t);
+            let (t, shape) = realize_cuda(t);
             let t_ptr = cpy_to_device(&t);
             let result_ptr = malloc(1, std::mem::size_of::<f64>());
             rusty_min(t_ptr, result_ptr, shape.iter().product());
             check_last_error();
             cudaFree(t_ptr);
-            (cpy_from_device(result_ptr, &vec![]), vec![])
+            (cpy_from_device(result_ptr, &[]), vec![])
         }
         Op::Sqrt(t) => {
-            let (t, shape) = realize_cuda(&t);
+            let (t, shape) = realize_cuda(t);
             let t_ptr = cpy_to_device(&t);
             let result_size = shape.iter().product::<usize>();
             let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
@@ -251,7 +251,7 @@ unsafe fn realize_cuda(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
             (cpy_from_device(result_ptr, &shape), shape)
         }
         Op::Log(t) => {
-            let (t, shape) = realize_cuda(&t);
+            let (t, shape) = realize_cuda(t);
             let t_ptr = cpy_to_device(&t);
             let result_size = shape.iter().product::<usize>();
             let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
@@ -262,7 +262,7 @@ unsafe fn realize_cuda(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
         }
         Op::Load(data, shape) => (data.to_vec(), shape.to_vec()),
         Op::Sigmoid(t) => {
-            let (t, shape) = realize_cuda(&t);
+            let (t, shape) = realize_cuda(t);
             let t_ptr = cpy_to_device(&t);
             let result_size = shape.iter().product::<usize>();
             let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
@@ -272,7 +272,7 @@ unsafe fn realize_cuda(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
             (cpy_from_device(result_ptr, &shape), shape)
         }
         Op::Relu(t) => {
-            let (t, shape) = realize_cuda(&t);
+            let (t, shape) = realize_cuda(t);
             let t_ptr = cpy_to_device(&t);
             let result_size = shape.iter().product::<usize>();
             let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
@@ -282,7 +282,7 @@ unsafe fn realize_cuda(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
             (cpy_from_device(result_ptr, &shape), shape)
         }
         Op::Sum(t, dims, keepdim) => {
-            let (t, shape) = realize_cuda(&t);
+            let (t, shape) = realize_cuda(t);
             let t_ptr = cpy_to_device(&t);
             let mut reduced_shape = shape.clone();
             for (i, dim) in dims.iter().enumerate() {
@@ -292,7 +292,7 @@ unsafe fn realize_cuda(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
             let result_size = reduced_shape.iter().product::<usize>();
             let result_ptr = cpy_to_device(&vec![0.0; result_size]);
             let input_shape_ptr = cpy_to_device(&shape);
-            let dims_ptr = cpy_to_device(&dims);
+            let dims_ptr = cpy_to_device(dims);
             let reduced_shape_ptr = cpy_to_device(&reduced_shape);
 
             sum(
@@ -319,7 +319,7 @@ unsafe fn realize_cuda(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
             (cpy_from_device(result_ptr, &new_shape), new_shape)
         }
         Op::Pool2D(t, kernel, stride, init_val, pool_op) => {
-            let (t, shape) = realize_cuda(&t);
+            let (t, shape) = realize_cuda(t);
             let t_ptr = cpy_to_device(&t);
             // FIXME: remove this constraint, just reshape or something smarter
             assert_eq!(shape.len(), 4, "only supporting 4d tensors");
@@ -373,9 +373,9 @@ unsafe fn realize_cuda(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
             (cpy_from_device(result_ptr, &result_shape), result_shape)
         }
         Op::Conv2D(t, kernel, strides, groups) => {
-            let (t, shape) = realize_cuda(&t);
+            let (t, shape) = realize_cuda(t);
             let t_ptr = cpy_to_device(&t);
-            let (kernel, kernel_shape) = realize_cuda(&kernel);
+            let (kernel, kernel_shape) = realize_cuda(kernel);
             let kernel_ptr = cpy_to_device(&kernel);
 
             assert_eq!(shape.len(), 4, "only supporting 4d tensors");
@@ -430,7 +430,7 @@ unsafe fn realize_cuda(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
             (cpy_from_device(result_ptr, &new_shape), new_shape)
         }
         Op::Pad2D(t, value, padding) => {
-            let (t, shape) = realize_cuda(&t);
+            let (t, shape) = realize_cuda(t);
             let t_ptr = cpy_to_device(&t);
             if shape.len() < 2 {
                 panic!("Tensor must have at least 2 dimensions for 2D padding.");
@@ -466,11 +466,11 @@ unsafe fn realize_cuda(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
             (cpy_from_device(result_ptr, &new_shape), new_shape)
         }
         Op::Reshape(t, shape) => {
-            let (t_ptr, _) = realize_cuda(&t);
+            let (t_ptr, _) = realize_cuda(t);
             (t_ptr, shape.to_vec())
         }
         Op::Permute(t, dims) => {
-            let (t, shape) = realize_cuda(&t);
+            let (t, shape) = realize_cuda(t);
             let t_ptr = cpy_to_device(&t);
             if shape.len() < 2 {
                 panic!("Tensor must have at least 2 dimensions for 2D padding.");
@@ -501,7 +501,7 @@ unsafe fn realize_cuda(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
             (cpy_from_device(result_ptr, &new_shape), new_shape)
         }
         Op::Expand(t, new_shape) => {
-            let (t, old_shape) = realize_cuda(&t);
+            let (t, old_shape) = realize_cuda(t);
             let t_ptr = cpy_to_device(&t);
             assert_eq!(
                 old_shape.len(),
@@ -518,7 +518,7 @@ unsafe fn realize_cuda(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
             let result_size = new_shape.iter().product::<usize>();
             let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
             let old_shape_ptr = cpy_to_device(&old_shape);
-            let new_shape_ptr = cpy_to_device(&new_shape);
+            let new_shape_ptr = cpy_to_device(new_shape);
             expand(
                 t_ptr,
                 result_ptr,
@@ -532,9 +532,9 @@ unsafe fn realize_cuda(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
             (cpy_from_device(result_ptr, new_shape), new_shape.to_vec())
         }
         Op::MatMul(lhs, rhs) => {
-            let (lhs, lhs_shape) = realize_cuda(&lhs);
+            let (lhs, lhs_shape) = realize_cuda(lhs);
             let lhs_ptr = cpy_to_device(&lhs);
-            let (rhs, rhs_shape) = realize_cuda(&rhs);
+            let (rhs, rhs_shape) = realize_cuda(rhs);
             let rhs_ptr = cpy_to_device(&rhs);
             assert!(
                 lhs_shape.len() == 2 && rhs_shape.len() == 2,
