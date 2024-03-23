@@ -69,7 +69,6 @@ fn graph_op(
     for child in children {
         if let Some(i) = node_indeces.get(child) {
             g.add_edge(node_index, *i, ());
-            continue;
         }
 
         let child_index = g.add_node(child.clone().to_owned());
