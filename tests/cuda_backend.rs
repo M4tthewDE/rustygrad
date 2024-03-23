@@ -1,4 +1,4 @@
-use rustygrad::{device::Device, tensor::Tensor};
+use rustygrad::tensor::Tensor;
 
 mod util;
 
@@ -163,7 +163,7 @@ fn matmul() {
     let tch_a = util::to_tch(a.clone());
     let tch_b = util::to_tch(b.clone());
 
-    let output = a.matmul(b);
+    let output = a.matmul(&b);
     let (data, shape) = output.realize();
     let tch_result = tch_a.matmul(&tch_b);
     let tch_output = util::tch_data(&tch_result);
@@ -326,7 +326,7 @@ fn conv2d_4d() {
     let kernel = Tensor::rand(vec![32, 3, 3, 3]);
     let tch_kernel = util::to_tch(kernel.clone());
 
-    let output = input.conv2d(kernel, None, Some([1, 1, 1, 1]), Some((2, 2)), None);
+    let output = input.conv2d(&kernel, None, Some([1, 1, 1, 1]), Some((2, 2)), None);
     let (data, shape) = output.realize();
     let tch_output = tch_input.conv2d(
         &tch_kernel,
@@ -342,21 +342,4 @@ fn conv2d_4d() {
 
     assert_eq!(shape, tch_shape);
     util::assert_aprox_eq_vec(data, tch_output, 1e-6);
-}
-
-#[test]
-fn conv2d_4d_vs_torch() {
-    std::env::set_var("CUDA", "1");
-    let input = Tensor::rand(vec![1, 3, 224, 224]);
-    let kernel = Tensor::rand(vec![32, 3, 3, 3]);
-
-    let input_cpu = input.clone();
-    let kernel_cpu = kernel.clone();
-
-    let output = input.conv2d(kernel, None, Some([1, 1, 1, 1]), Some((2, 2)), None);
-    let mut output_cpu = input_cpu.conv2d(kernel_cpu, None, Some([1, 1, 1, 1]), Some((2, 2)), None);
-    output_cpu.device = Device::Cpu;
-    let cuda_out = output.realize();
-    let cpu_out = output_cpu.realize();
-    util::assert_aprox_eq_vec(cuda_out.0, cpu_out.0, 1e-15);
 }

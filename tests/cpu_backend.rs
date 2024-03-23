@@ -262,7 +262,7 @@ fn conv2d_4d() {
     let kernel = Tensor::rand(vec![32, 3, 3, 3]);
     let tch_kernel = util::to_tch(kernel.clone());
 
-    let output = input.conv2d(kernel, None, Some([1, 1, 1, 1]), Some((2, 2)), None);
+    let output = input.conv2d(&kernel, None, Some([1, 1, 1, 1]), Some((2, 2)), None);
     let (data, shape) = output.realize();
     let tch_output = tch_input.conv2d(
         &tch_kernel,
@@ -287,7 +287,7 @@ fn conv2d_shape_before_realize() {
     let kernel = Tensor::rand(vec![32, 3, 3, 3]);
     let tch_kernel = util::to_tch(kernel.clone());
 
-    let output = input.conv2d(kernel, None, Some([0, 1, 0, 1]), Some((2, 2)), None);
+    let output = input.conv2d(&kernel, None, Some([0, 1, 0, 1]), Some((2, 2)), None);
     assert_eq!(output.shape, vec![1, 32, 112, 112]);
     let (data, shape) = output.realize();
     let tch_input = tch_input.zero_pad2d(0, 1, 0, 1);
@@ -462,7 +462,7 @@ fn matmul() {
     let tch_input1 = util::to_tch(input1.clone());
     let tch_input2 = util::to_tch(input2.clone());
 
-    let (output_data, shape) = input1.matmul(input2).realize();
+    let (output_data, shape) = input1.matmul(&input2).realize();
     let tch_result = tch_input1.matmul(&tch_input2);
     let tch_output = util::tch_data(&tch_result);
     let tch_shape = util::tch_shape(&tch_result);

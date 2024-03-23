@@ -87,39 +87,39 @@ impl Tensor {
         Tensor::from_op(Op::Load(data, shape.clone()), &shape)
     }
 
-    pub fn max(self) -> Tensor {
-        Tensor::from_op(Op::Max(self.unrealized_op), &[1])
+    pub fn max(&self) -> Tensor {
+        Tensor::from_op(Op::Max(self.unrealized_op.clone()), &[1])
     }
 
-    pub fn min(self) -> Tensor {
-        Tensor::from_op(Op::Min(self.unrealized_op), &[1])
+    pub fn min(&self) -> Tensor {
+        Tensor::from_op(Op::Min(self.unrealized_op.clone()), &[1])
     }
 
-    pub fn sqrt(self) -> Tensor {
-        Tensor::from_op(Op::Sqrt(self.unrealized_op), &self.shape)
+    pub fn sqrt(&self) -> Tensor {
+        Tensor::from_op(Op::Sqrt(self.unrealized_op.clone()), &self.shape)
     }
 
-    pub fn rsqrt(self) -> Tensor {
+    pub fn rsqrt(&self) -> Tensor {
         1.0 / self.sqrt()
     }
 
-    pub fn log(self) -> Tensor {
-        Tensor::from_op(Op::Log(self.unrealized_op), &self.shape)
+    pub fn log(&self) -> Tensor {
+        Tensor::from_op(Op::Log(self.unrealized_op.clone()), &self.shape)
     }
 
-    pub fn sigmoid(self) -> Tensor {
-        Tensor::from_op(Op::Sigmoid(self.unrealized_op), &self.shape)
+    pub fn sigmoid(&self) -> Tensor {
+        Tensor::from_op(Op::Sigmoid(self.unrealized_op.clone()), &self.shape)
     }
 
-    pub fn swish(self) -> Tensor {
+    pub fn swish(&self) -> Tensor {
         self.clone() * self.sigmoid()
     }
 
-    pub fn relu(self) -> Tensor {
-        Tensor::from_op(Op::Relu(self.unrealized_op), &self.shape)
+    pub fn relu(&self) -> Tensor {
+        Tensor::from_op(Op::Relu(self.unrealized_op.clone()), &self.shape)
     }
 
-    pub fn reduce_sum(self, dims: Option<Vec<usize>>, keepdim: bool) -> Tensor {
+    pub fn reduce_sum(&self, dims: Option<Vec<usize>>, keepdim: bool) -> Tensor {
         let dims = dims.unwrap_or((0..self.shape.len()).collect());
         let shape = if keepdim {
             self.shape
@@ -135,7 +135,7 @@ impl Tensor {
 
             reduced_shape
         };
-        Tensor::from_op(Op::Sum(self.unrealized_op, dims, keepdim), &shape)
+        Tensor::from_op(Op::Sum(self.unrealized_op.clone(), dims, keepdim), &shape)
     }
 
     // 0 0 0 0 0
@@ -162,10 +162,10 @@ impl Tensor {
     // [16, 1]
     // then just reshape to [4, 4] ?
 
-    pub fn avg_pool_2d(self, kernel: (usize, usize), stride: Option<usize>) -> Tensor {
+    pub fn avg_pool_2d(&self, kernel: (usize, usize), stride: Option<usize>) -> Tensor {
         let stride = stride.unwrap_or(1);
         Tensor::from_op(
-            Op::Pool2D(self.unrealized_op, kernel, stride, 0.0, PoolOp::Sum),
+            Op::Pool2D(self.unrealized_op.clone(), kernel, stride, 0.0, PoolOp::Sum),
             &[
                 self.shape[0],
                 self.shape[1],
@@ -175,10 +175,16 @@ impl Tensor {
         ) / (kernel.0 * kernel.1) as f64
     }
 
-    pub fn max_pool_2d(self, kernel: (usize, usize), stride: Option<usize>) -> Tensor {
+    pub fn max_pool_2d(&self, kernel: (usize, usize), stride: Option<usize>) -> Tensor {
         let stride = stride.unwrap_or(1);
         Tensor::from_op(
-            Op::Pool2D(self.unrealized_op, kernel, stride, f64::MIN, PoolOp::Max),
+            Op::Pool2D(
+                self.unrealized_op.clone(),
+                kernel,
+                stride,
+                f64::MIN,
+                PoolOp::Max,
+            ),
             &[
                 self.shape[0],
                 self.shape[1],
@@ -188,16 +194,19 @@ impl Tensor {
         )
     }
 
-    pub fn pad_2d(self, value: f64, padding: [usize; 4]) -> Tensor {
+    pub fn pad_2d(&self, value: f64, padding: [usize; 4]) -> Tensor {
         let mut new_shape: Vec<usize> = self.shape.clone();
         new_shape[self.shape.len() - 2] += padding[2] + padding[3];
         new_shape[self.shape.len() - 1] += padding[0] + padding[1];
-        Tensor::from_op(Op::Pad2D(self.unrealized_op, value, padding), &new_shape)
+        Tensor::from_op(
+            Op::Pad2D(self.unrealized_op.clone(), value, padding),
+            &new_shape,
+        )
     }
 
     pub fn conv2d(
-        self,
-        kernel: Tensor,
+        &self,
+        kernel: &Tensor,
         bias: Option<Tensor>,
         padding: Option<[usize; 4]>,
         strides: Option<(usize, usize)>,
@@ -206,13 +215,13 @@ impl Tensor {
         let x = if let Some(padding) = padding {
             self.pad_2d(0.0, padding)
         } else {
-            self
+            self.clone()
         };
 
         let res = Tensor::from_op(
             Op::Conv2D(
                 x.unrealized_op,
-                kernel.unrealized_op,
+                kernel.unrealized_op.clone(),
                 strides.unwrap_or((1, 1)),
                 groups.unwrap_or(1),
             ),
@@ -231,30 +240,36 @@ impl Tensor {
         }
     }
 
-    pub fn reshape(self, shape: Vec<usize>) -> Tensor {
-        Tensor::from_op(Op::Reshape(self.unrealized_op, shape.clone()), &shape)
+    pub fn reshape(&self, shape: Vec<usize>) -> Tensor {
+        Tensor::from_op(
+            Op::Reshape(self.unrealized_op.clone(), shape.clone()),
+            &shape,
+        )
     }
 
-    pub fn permute(self, dims: Vec<usize>) -> Tensor {
+    pub fn permute(&self, dims: Vec<usize>) -> Tensor {
         Tensor::from_op(
-            Op::Permute(self.unrealized_op, dims.clone()),
+            Op::Permute(self.unrealized_op.clone(), dims.clone()),
             &dims.iter().map(|&d| self.shape[d]).collect::<Vec<usize>>(),
         )
     }
 
-    pub fn expand(self, shape: Vec<usize>) -> Tensor {
-        Tensor::from_op(Op::Expand(self.unrealized_op, shape.clone()), &shape)
+    pub fn expand(&self, shape: Vec<usize>) -> Tensor {
+        Tensor::from_op(
+            Op::Expand(self.unrealized_op.clone(), shape.clone()),
+            &shape,
+        )
     }
 
-    pub fn matmul(self, rhs: Tensor) -> Tensor {
+    pub fn matmul(&self, rhs: &Tensor) -> Tensor {
         Tensor::from_op(
-            Op::MatMul(self.unrealized_op, rhs.unrealized_op),
+            Op::MatMul(self.unrealized_op.clone(), rhs.unrealized_op.clone()),
             &[self.shape[0], rhs.shape[1]],
         )
     }
 
     pub fn batchnorm(
-        self,
+        &self,
         weight: Option<Tensor>,
         bias: Option<Tensor>,
         mean: Tensor,
@@ -284,20 +299,20 @@ impl Tensor {
         }
     }
 
-    pub fn linear(self, weight: Tensor, bias: Option<Tensor>) -> Tensor {
+    pub fn linear(&self, weight: &Tensor, bias: Option<Tensor>) -> Tensor {
         match bias {
             Some(bias) => self.matmul(weight) + bias.clone(),
             None => self.matmul(weight),
         }
     }
 
-    pub fn realize(self) -> (Vec<f64>, Vec<usize>) {
+    pub fn realize(&self) -> (Vec<f64>, Vec<usize>) {
         if env::var("GRAPH").is_ok() {
             graph::build_graph(&self);
         }
 
         debug!("realizing tensor");
-        self.unrealized_op.realize(self.device)
+        self.unrealized_op.realize(&self.device)
     }
 }
 
