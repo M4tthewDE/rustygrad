@@ -370,6 +370,25 @@ impl ops::Add<&Tensor> for Tensor {
     }
 }
 
+impl ops::Add<&Tensor> for &Tensor {
+    type Output = Tensor;
+    fn add(self, rhs: &Tensor) -> Self::Output {
+        let (l, r, shape) = broadcast_shapes(&self.shape, &rhs.shape);
+        let lhs = if l != shape {
+            self.reshape(l).expand(shape.clone())
+        } else {
+            self.reshape(l)
+        };
+        let rhs = if r != shape {
+            rhs.reshape(r).expand(shape.clone())
+        } else {
+            rhs.reshape(r)
+        };
+
+        Tensor::from_op(Op::Add(lhs.unrealized_op, rhs.unrealized_op), &shape)
+    }
+}
+
 impl ops::Sub<f64> for Tensor {
     type Output = Tensor;
 
@@ -488,6 +507,26 @@ impl ops::Mul<&Tensor> for Tensor {
     type Output = Tensor;
 
     fn mul(self, rhs: &Tensor) -> Self::Output {
+        let (l, r, shape) = broadcast_shapes(&self.shape, &rhs.shape);
+        let lhs = if l != shape {
+            self.reshape(l).expand(shape.clone())
+        } else {
+            self.reshape(l)
+        };
+        let rhs = if r != shape {
+            rhs.reshape(r).expand(shape.clone())
+        } else {
+            rhs.reshape(r)
+        };
+
+        Tensor::from_op(Op::Mul(lhs.unrealized_op, rhs.unrealized_op), &shape)
+    }
+}
+
+impl ops::Mul<Tensor> for &Tensor {
+    type Output = Tensor;
+
+    fn mul(self, rhs: Tensor) -> Self::Output {
         let (l, r, shape) = broadcast_shapes(&self.shape, &rhs.shape);
         let lhs = if l != shape {
             self.reshape(l).expand(shape.clone())

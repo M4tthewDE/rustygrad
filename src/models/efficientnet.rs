@@ -162,12 +162,10 @@ impl MBConvBlock {
 impl MBConvBlock {
     fn call(&self, input: &Tensor) -> Tensor {
         let mut x = input.clone();
-        if let Some(expand_conv) = &self.expand_conv {
-            if let Some(bn0) = &self.bn0 {
-                x = bn0
-                    .forward(&x.conv2d(expand_conv, None, None, None, None))
-                    .swish();
-            }
+        if let (Some(expand_conv), Some(bn0)) = (&self.expand_conv, &self.bn0) {
+            x = bn0
+                .forward(&x.conv2d(expand_conv, None, None, None, None))
+                .swish();
         }
 
         let shape = self.depthwise_conv.shape.clone();
@@ -181,7 +179,7 @@ impl MBConvBlock {
         x = self.bn1.forward(&x).swish();
 
         let shape = x.shape.clone();
-        let old_x = x.clone();
+        let old_x = &x;
         let mut x_squeezed = x.avg_pool_2d((shape[2], shape[3]), None);
         x_squeezed = x_squeezed
             .conv2d(
@@ -207,10 +205,10 @@ impl MBConvBlock {
             .forward(&x.conv2d(&self.project_conv, None, None, None, None));
 
         if x.shape == input.shape {
-            x = x + input;
+            x + input
+        } else {
+            x
         }
-
-        x
     }
 }
 

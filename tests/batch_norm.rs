@@ -13,7 +13,7 @@ fn test_batchnorm2d_no_training() {
 
     let input = Tensor::rand(vec![2, num_features, 3, 3]);
     let tch_input = util::to_tch(input.clone());
-    let out = bn.forward(input);
+    let out = bn.forward(&input);
     let (data, shape) = out.realize();
     let tch_weight = util::to_tch(bn.weight.unwrap());
     let tch_bias = util::to_tch(bn.bias.unwrap());
