@@ -207,7 +207,7 @@ impl Tensor {
     pub fn conv2d(
         &self,
         kernel: &Tensor,
-        bias: Option<Tensor>,
+        bias: Option<&Tensor>,
         padding: Option<[usize; 4]>,
         strides: Option<(usize, usize)>,
         groups: Option<usize>,
@@ -331,6 +331,29 @@ impl ops::Add<Tensor> for f64 {
 impl ops::Add<Tensor> for Tensor {
     type Output = Tensor;
     fn add(self, rhs: Tensor) -> Self::Output {
+        // FIXME: these reshapes shouldn't be necessary all the time,
+        // but running into hard to track down bug without them
+        // (shape gets wrong, maybe shape tracking is off somewhere)
+        // one fix should solve all binary ops
+        let (l, r, shape) = broadcast_shapes(&self.shape, &rhs.shape);
+        let lhs = if l != shape {
+            self.reshape(l).expand(shape.clone())
+        } else {
+            self.reshape(l)
+        };
+        let rhs = if r != shape {
+            rhs.reshape(r).expand(shape.clone())
+        } else {
+            rhs.reshape(r)
+        };
+
+        Tensor::from_op(Op::Add(lhs.unrealized_op, rhs.unrealized_op), &shape)
+    }
+}
+
+impl ops::Add<&Tensor> for Tensor {
+    type Output = Tensor;
+    fn add(self, rhs: &Tensor) -> Self::Output {
         // FIXME: these reshapes shouldn't be necessary all the time,
         // but running into hard to track down bug without them
         // (shape gets wrong, maybe shape tracking is off somewhere)

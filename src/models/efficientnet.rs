@@ -83,7 +83,6 @@ impl BlockArgs {
     }
 }
 
-#[derive(Clone, Debug)]
 pub struct MBConvBlock {
     pub expand_conv: Option<Tensor>,
     pub bn0: Option<BatchNorm2d>,
@@ -161,14 +160,14 @@ impl MBConvBlock {
 }
 
 impl MBConvBlock {
-    fn call(self, input: Tensor) -> Tensor {
+    fn call(&self, input: Tensor) -> Tensor {
         let mut x = input.clone();
-        if let Some(expand_conv) = self.expand_conv {
+        if let Some(expand_conv) = &self.expand_conv {
             x = self
                 .bn0
                 .clone()
                 .unwrap()
-                .forward(x.conv2d(&expand_conv, None, None, None, None))
+                .forward(x.conv2d(expand_conv, None, None, None, None))
                 .swish();
         }
 
@@ -186,11 +185,22 @@ impl MBConvBlock {
         let old_x = x.clone();
         let mut x_squeezed = x.avg_pool_2d((shape[2], shape[3]), None);
         x_squeezed = x_squeezed
-            .conv2d(&self.se_reduce, Some(self.se_reduce_bias), None, None, None)
+            .conv2d(
+                &self.se_reduce,
+                Some(&self.se_reduce_bias),
+                None,
+                None,
+                None,
+            )
             .swish();
 
-        x_squeezed =
-            x_squeezed.conv2d(&self.se_expand, Some(self.se_expand_bias), None, None, None);
+        x_squeezed = x_squeezed.conv2d(
+            &self.se_expand,
+            Some(&self.se_expand_bias),
+            None,
+            None,
+            None,
+        );
 
         x = old_x * x_squeezed.sigmoid();
         x = self
@@ -400,7 +410,7 @@ impl Efficientnet {
             .swish();
 
         for block in &self.blocks {
-            x = block.clone().call(x);
+            x = block.call(x);
         }
 
         x = self
