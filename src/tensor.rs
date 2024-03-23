@@ -112,7 +112,7 @@ impl Tensor {
     }
 
     pub fn swish(&self) -> Tensor {
-        self.clone() * self.sigmoid()
+        self.sigmoid() * self
     }
 
     pub fn relu(&self) -> Tensor {
@@ -272,7 +272,7 @@ impl Tensor {
         invstd: Tensor,
     ) -> Tensor {
         let mean_shape = mean.shape.clone();
-        let x = self.clone() - mean.reshape(vec![1, mean_shape[0], 1, 1]);
+        let x = self - &mean.reshape(vec![1, mean_shape[0], 1, 1]);
         let x = if let Some(weight) = weight {
             let shape = weight.shape.clone();
             x * weight.reshape(vec![1, shape[0], 1, 1])
@@ -297,7 +297,7 @@ impl Tensor {
 
     pub fn linear(&self, weight: &Tensor, bias: Option<Tensor>) -> Tensor {
         match bias {
-            Some(bias) => self.matmul(weight) + bias.clone(),
+            Some(bias) => self.matmul(weight) + bias,
             None => self.matmul(weight),
         }
     }
@@ -354,10 +354,6 @@ impl ops::Add<Tensor> for Tensor {
 impl ops::Add<&Tensor> for Tensor {
     type Output = Tensor;
     fn add(self, rhs: &Tensor) -> Self::Output {
-        // FIXME: these reshapes shouldn't be necessary all the time,
-        // but running into hard to track down bug without them
-        // (shape gets wrong, maybe shape tracking is off somewhere)
-        // one fix should solve all binary ops
         let (l, r, shape) = broadcast_shapes(&self.shape, &rhs.shape);
         let lhs = if l != shape {
             self.reshape(l).expand(shape.clone())
@@ -411,6 +407,46 @@ impl ops::Sub<Tensor> for Tensor {
     }
 }
 
+impl ops::Sub<&Tensor> for Tensor {
+    type Output = Tensor;
+
+    fn sub(self, rhs: &Tensor) -> Self::Output {
+        let (l, r, shape) = broadcast_shapes(&self.shape, &rhs.shape);
+        let lhs = if l != shape {
+            self.reshape(l).expand(shape.clone())
+        } else {
+            self.reshape(l)
+        };
+        let rhs = if r != shape {
+            rhs.reshape(r).expand(shape.clone())
+        } else {
+            rhs.reshape(r)
+        };
+
+        Tensor::from_op(Op::Sub(lhs.unrealized_op, rhs.unrealized_op), &shape)
+    }
+}
+
+impl ops::Sub<&Tensor> for &Tensor {
+    type Output = Tensor;
+
+    fn sub(self, rhs: &Tensor) -> Self::Output {
+        let (l, r, shape) = broadcast_shapes(&self.shape, &rhs.shape);
+        let lhs = if l != shape {
+            self.reshape(l).expand(shape.clone())
+        } else {
+            self.reshape(l)
+        };
+        let rhs = if r != shape {
+            rhs.reshape(r).expand(shape.clone())
+        } else {
+            rhs.reshape(r)
+        };
+
+        Tensor::from_op(Op::Sub(lhs.unrealized_op, rhs.unrealized_op), &shape)
+    }
+}
+
 impl ops::Mul<f64> for Tensor {
     type Output = Tensor;
 
@@ -432,6 +468,26 @@ impl ops::Mul<Tensor> for Tensor {
     type Output = Tensor;
 
     fn mul(self, rhs: Tensor) -> Self::Output {
+        let (l, r, shape) = broadcast_shapes(&self.shape, &rhs.shape);
+        let lhs = if l != shape {
+            self.reshape(l).expand(shape.clone())
+        } else {
+            self.reshape(l)
+        };
+        let rhs = if r != shape {
+            rhs.reshape(r).expand(shape.clone())
+        } else {
+            rhs.reshape(r)
+        };
+
+        Tensor::from_op(Op::Mul(lhs.unrealized_op, rhs.unrealized_op), &shape)
+    }
+}
+
+impl ops::Mul<&Tensor> for Tensor {
+    type Output = Tensor;
+
+    fn mul(self, rhs: &Tensor) -> Self::Output {
         let (l, r, shape) = broadcast_shapes(&self.shape, &rhs.shape);
         let lhs = if l != shape {
             self.reshape(l).expand(shape.clone())
