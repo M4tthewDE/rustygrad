@@ -212,11 +212,7 @@ impl Tensor {
         strides: Option<(usize, usize)>,
         groups: Option<usize>,
     ) -> Tensor {
-        let x = if let Some(padding) = padding {
-            self.pad_2d(0.0, padding)
-        } else {
-            self.clone()
-        };
+        let x = self.pad_2d(0.0, padding.unwrap_or_default());
 
         let res = Tensor::from_op(
             Op::Conv2D(
