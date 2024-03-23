@@ -160,7 +160,7 @@ impl MBConvBlock {
 }
 
 impl MBConvBlock {
-    fn call(&self, input: Tensor) -> Tensor {
+    fn call(&self, input: &Tensor) -> Tensor {
         let x = if let (Some(expand_conv), Some(bn0)) = (&self.expand_conv, &self.bn0) {
             bn0.forward(&input.conv2d(expand_conv, None, None, None, None))
                 .swish()
@@ -178,27 +178,27 @@ impl MBConvBlock {
         );
         let x = self.bn1.forward(&x).swish();
 
-        let shape = x.shape.clone();
+        //let shape = x.shape.clone();
         let old_x = &x;
-        let x_squeezed = x.avg_pool_2d((shape[2], shape[3]), None);
-        let x_squeezed = x_squeezed
-            .conv2d(
-                &self.se_reduce,
-                Some(&self.se_reduce_bias),
-                None,
-                None,
-                None,
-            )
-            .swish();
-        let x_squeezed = x_squeezed.conv2d(
-            &self.se_expand,
-            Some(&self.se_expand_bias),
-            None,
-            None,
-            None,
-        );
+        //let x_squeezed = x.avg_pool_2d((shape[2], shape[3]), None);
+        // let x_squeezed = x_squeezed
+        //     .conv2d(
+        //         &self.se_reduce,
+        //         Some(&self.se_reduce_bias),
+        //         None,
+        //         None,
+        //         None,
+        //     )
+        //     .swish();
+        // let x_squeezed = x_squeezed.conv2d(
+        //     &self.se_expand,
+        //     Some(&self.se_expand_bias),
+        //     None,
+        //     None,
+        //     None,
+        // );
 
-        let x = old_x * x_squeezed.sigmoid();
+        let x = old_x * x.sigmoid();
         let x = self
             .bn2
             .forward(&x.conv2d(&self.project_conv, None, None, None, None));
@@ -393,7 +393,7 @@ impl Default for Efficientnet {
 
 impl Efficientnet {
     pub fn forward(&mut self, x: Tensor) -> Tensor {
-        let mut x = self
+        let x = self
             .bn0
             .forward(&x.conv2d(
                 &self.conv_stem,
@@ -404,18 +404,20 @@ impl Efficientnet {
             ))
             .swish();
 
-        for block in &self.blocks {
-            x = block.call(x);
-        }
+        // FIXME: this creates quadratic speed increase
+        // the cache remedies it, but it would be nice to
+        let x = self.blocks[0].call(&x);
+        let x = self.blocks[1].call(&x);
+        let x = self.blocks[2].call(&x);
 
-        x = self
+        let x = self
             .bn1
             .forward(&x.conv2d(&self.conv_head, None, None, None, None))
             .swish();
         let shape = x.shape.clone();
-        x = x.avg_pool_2d((shape[2], shape[3]), None);
+        let x = x.avg_pool_2d((shape[2], shape[3]), None);
         let shape = x.shape.clone();
-        x = x.reshape(vec![1, shape[1]]);
+        let x = x.reshape(vec![1, shape[1]]);
         x.linear(&self.fc, Some(&self.fc_bias))
     }
 }
