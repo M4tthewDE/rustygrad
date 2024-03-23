@@ -163,12 +163,11 @@ impl MBConvBlock {
     fn call(&self, input: Tensor) -> Tensor {
         let mut x = input.clone();
         if let Some(expand_conv) = &self.expand_conv {
-            x = self
-                .bn0
-                .clone()
-                .unwrap()
-                .forward(x.conv2d(expand_conv, None, None, None, None))
-                .swish();
+            if let Some(bn0) = &self.bn0 {
+                x = bn0
+                    .forward(&x.conv2d(expand_conv, None, None, None, None))
+                    .swish();
+            }
         }
 
         let shape = self.depthwise_conv.shape.clone();
@@ -179,7 +178,7 @@ impl MBConvBlock {
             Some(self.strides),
             Some(shape[0]),
         );
-        x = self.bn1.clone().forward(x).swish();
+        x = self.bn1.forward(&x).swish();
 
         let shape = x.shape.clone();
         let old_x = x.clone();
@@ -205,8 +204,7 @@ impl MBConvBlock {
         x = old_x * x_squeezed.sigmoid();
         x = self
             .bn2
-            .clone()
-            .forward(x.conv2d(&self.project_conv, None, None, None, None));
+            .forward(&x.conv2d(&self.project_conv, None, None, None, None));
 
         if x.shape == input.shape {
             x = x + input;
@@ -400,7 +398,7 @@ impl Efficientnet {
     pub fn forward(&mut self, x: Tensor) -> Tensor {
         let mut x = self
             .bn0
-            .forward(x.conv2d(
+            .forward(&x.conv2d(
                 &self.conv_stem,
                 None,
                 Some([0, 1, 0, 1]),
@@ -415,8 +413,7 @@ impl Efficientnet {
 
         x = self
             .bn1
-            .clone()
-            .forward(x.conv2d(&self.conv_head, None, None, None, None))
+            .forward(&x.conv2d(&self.conv_head, None, None, None, None))
             .swish();
         let shape = x.shape.clone();
         x = x.avg_pool_2d((shape[2], shape[3]), None);

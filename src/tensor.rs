@@ -266,9 +266,9 @@ impl Tensor {
 
     pub fn batchnorm(
         &self,
-        weight: Option<Tensor>,
-        bias: Option<Tensor>,
-        mean: Tensor,
+        weight: Option<&Tensor>,
+        bias: Option<&Tensor>,
+        mean: &Tensor,
         invstd: Tensor,
     ) -> Tensor {
         let mean_shape = mean.shape.clone();

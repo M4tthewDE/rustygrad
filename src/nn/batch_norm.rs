@@ -2,7 +2,7 @@ use std::ops::Add;
 
 use crate::tensor::Tensor;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct BatchNorm2d {
     pub num_features: usize,
     pub running_mean: Tensor,
@@ -14,18 +14,17 @@ pub struct BatchNorm2d {
 
 // https://github.com/tinygrad/tinygrad/blob/master/tinygrad/nn/__init__.py
 impl BatchNorm2d {
-    pub fn forward(&mut self, x: Tensor) -> Tensor {
+    pub fn forward(&self, x: &Tensor) -> Tensor {
         let expanded = self
             .running_var
-            .clone()
             .reshape(vec![1, self.num_features, 1, 1])
             .expand(x.shape.clone());
         let batch_invstd = expanded.add(self.eps).rsqrt();
 
         x.batchnorm(
-            self.weight.clone(),
-            self.bias.clone(),
-            self.running_mean.clone(),
+            self.weight.as_ref(),
+            self.bias.as_ref(),
+            &self.running_mean,
             batch_invstd,
         )
     }
