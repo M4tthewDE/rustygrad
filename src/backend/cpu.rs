@@ -1,81 +1,89 @@
-use lazy_static::lazy_static;
-use std::{collections::HashMap, env, f64::consts::E, iter::zip, rc::Rc, sync::Mutex};
+use std::{f64::consts::E, iter::zip, rc::Rc};
 
 use tracing::trace;
 
 use crate::{
-    op::{Op, PoolOp, UnrealizedOp},
+    op::{Op, OpCache, PoolOp, UnrealizedOp},
     util,
 };
 
-type OpCache = Mutex<HashMap<usize, (Vec<f64>, Vec<usize>)>>;
-
-lazy_static! {
-    static ref USE_CACHE: bool = env::var("NO_CACHE").is_err();
-    static ref OP_CACHE: OpCache = Mutex::new(HashMap::new());
-}
-
-fn add(lhs: &Rc<UnrealizedOp>, rhs: &Rc<UnrealizedOp>) -> (Vec<f64>, Vec<usize>) {
-    let (lhs_data, lhs_shape) = realize(lhs);
-    let (rhs_data, _) = realize(rhs);
+fn add(
+    lhs: &Rc<UnrealizedOp>,
+    rhs: &Rc<UnrealizedOp>,
+    cache: &mut OpCache,
+) -> (Vec<f64>, Vec<usize>) {
+    let (lhs_data, lhs_shape) = realize(lhs, cache);
+    let (rhs_data, _) = realize(rhs, cache);
 
     let result = zip(lhs_data, rhs_data).map(|(l, r)| l + r).collect();
 
     (result, lhs_shape)
 }
 
-fn sub(lhs: &Rc<UnrealizedOp>, rhs: &Rc<UnrealizedOp>) -> (Vec<f64>, Vec<usize>) {
-    let (lhs_data, lhs_shape) = realize(lhs);
-    let (rhs_data, _) = realize(rhs);
+fn sub(
+    lhs: &Rc<UnrealizedOp>,
+    rhs: &Rc<UnrealizedOp>,
+    cache: &mut OpCache,
+) -> (Vec<f64>, Vec<usize>) {
+    let (lhs_data, lhs_shape) = realize(lhs, cache);
+    let (rhs_data, _) = realize(rhs, cache);
 
     let result = zip(lhs_data, rhs_data).map(|(l, r)| l - r).collect();
 
     (result, lhs_shape)
 }
 
-fn mul(lhs: &Rc<UnrealizedOp>, rhs: &Rc<UnrealizedOp>) -> (Vec<f64>, Vec<usize>) {
-    let (lhs_data, lhs_shape) = realize(lhs);
-    let (rhs_data, _) = realize(rhs);
+fn mul(
+    lhs: &Rc<UnrealizedOp>,
+    rhs: &Rc<UnrealizedOp>,
+    cache: &mut OpCache,
+) -> (Vec<f64>, Vec<usize>) {
+    let (lhs_data, lhs_shape) = realize(lhs, cache);
+    let (rhs_data, _) = realize(rhs, cache);
 
     let result = zip(lhs_data, rhs_data).map(|(l, r)| l * r).collect();
 
     (result, lhs_shape)
 }
 
-fn div(lhs: &Rc<UnrealizedOp>, rhs: &Rc<UnrealizedOp>) -> (Vec<f64>, Vec<usize>) {
-    let (lhs_data, lhs_shape) = realize(lhs);
-    let (rhs_data, _) = realize(rhs);
+fn div(
+    lhs: &Rc<UnrealizedOp>,
+    rhs: &Rc<UnrealizedOp>,
+    cache: &mut OpCache,
+) -> (Vec<f64>, Vec<usize>) {
+    let (lhs_data, lhs_shape) = realize(lhs, cache);
+    let (rhs_data, _) = realize(rhs, cache);
 
     let result = zip(lhs_data, rhs_data).map(|(l, r)| l / r).collect();
 
     (result, lhs_shape)
 }
 
-fn sqrt(t: &Rc<UnrealizedOp>) -> (Vec<f64>, Vec<usize>) {
-    let (data, shape) = realize(t);
+fn sqrt(t: &Rc<UnrealizedOp>, cache: &mut OpCache) -> (Vec<f64>, Vec<usize>) {
+    let (data, shape) = realize(t, cache);
     (data.iter().map(|x| x.sqrt()).collect(), shape)
 }
 
-fn log(t: &Rc<UnrealizedOp>) -> (Vec<f64>, Vec<usize>) {
-    let (data, shape) = realize(t);
+fn log(t: &Rc<UnrealizedOp>, cache: &mut OpCache) -> (Vec<f64>, Vec<usize>) {
+    let (data, shape) = realize(t, cache);
     (data.iter().map(|x| x.log2()).collect(), shape)
 }
 
-fn sigmoid(t: &Rc<UnrealizedOp>) -> (Vec<f64>, Vec<usize>) {
-    let (data, shape) = realize(t);
+fn sigmoid(t: &Rc<UnrealizedOp>, cache: &mut OpCache) -> (Vec<f64>, Vec<usize>) {
+    let (data, shape) = realize(t, cache);
     (
         data.iter().map(|x| (1.0 / (1.0 + E.powf(-x)))).collect(),
         shape,
     )
 }
 
-fn relu(t: &Rc<UnrealizedOp>) -> (Vec<f64>, Vec<usize>) {
-    let (data, shape) = realize(t);
+fn relu(t: &Rc<UnrealizedOp>, cache: &mut OpCache) -> (Vec<f64>, Vec<usize>) {
+    let (data, shape) = realize(t, cache);
     (data.iter().map(|&x| x.max(0.0)).collect(), shape)
 }
 
-fn max(t: &Rc<UnrealizedOp>) -> (Vec<f64>, Vec<usize>) {
-    let (data, _) = realize(t);
+fn max(t: &Rc<UnrealizedOp>, cache: &mut OpCache) -> (Vec<f64>, Vec<usize>) {
+    let (data, _) = realize(t, cache);
     let val = data
         .into_iter()
         .max_by(|a, b| a.partial_cmp(b).unwrap())
@@ -83,8 +91,8 @@ fn max(t: &Rc<UnrealizedOp>) -> (Vec<f64>, Vec<usize>) {
     (vec![val], vec![])
 }
 
-fn min(t: &Rc<UnrealizedOp>) -> (Vec<f64>, Vec<usize>) {
-    let (data, _) = realize(t);
+fn min(t: &Rc<UnrealizedOp>, cache: &mut OpCache) -> (Vec<f64>, Vec<usize>) {
+    let (data, _) = realize(t, cache);
     let val = data
         .into_iter()
         .min_by(|a, b| a.partial_cmp(b).unwrap())
@@ -92,8 +100,13 @@ fn min(t: &Rc<UnrealizedOp>) -> (Vec<f64>, Vec<usize>) {
     (vec![val], vec![])
 }
 
-fn sum(t: &Rc<UnrealizedOp>, dims: &[usize], keepdim: &bool) -> (Vec<f64>, Vec<usize>) {
-    let (data, shape) = realize(t);
+fn sum(
+    t: &Rc<UnrealizedOp>,
+    dims: &[usize],
+    keepdim: &bool,
+    cache: &mut OpCache,
+) -> (Vec<f64>, Vec<usize>) {
+    let (data, shape) = realize(t, cache);
 
     let mut reduced_shape = shape.clone();
     for (i, dim) in dims.iter().enumerate() {
@@ -142,8 +155,9 @@ pub fn pool2d(
     stride: &usize,
     init_val: &f64,
     pool_op: &PoolOp,
+    cache: &mut OpCache,
 ) -> (Vec<f64>, Vec<usize>) {
-    let (data, shape) = realize(t);
+    let (data, shape) = realize(t, cache);
     // FIXME: remove this constraint, just reshape or something smarter
     assert_eq!(shape.len(), 4, "only supporting 4d tensors");
 
@@ -190,9 +204,10 @@ pub fn conv2d(
     kernel: &Rc<UnrealizedOp>,
     strides: &(usize, usize),
     groups: &usize,
+    cache: &mut OpCache,
 ) -> (Vec<f64>, Vec<usize>) {
-    let (data, shape) = realize(t);
-    let (kernel_data, kernel_shape) = realize(kernel);
+    let (data, shape) = realize(t, cache);
+    let (kernel_data, kernel_shape) = realize(kernel, cache);
     assert_eq!(shape.len(), 4, "only supporting 4d tensors");
     assert_eq!(kernel_shape.len(), 4, "only supporting 4d kernels");
 
@@ -252,8 +267,13 @@ pub fn conv2d(
     (output_data, vec![n, c_out, output_height, output_width])
 }
 
-fn pad2d(t: &Rc<UnrealizedOp>, value: &f64, padding: &[usize; 4]) -> (Vec<f64>, Vec<usize>) {
-    let (data, shape) = realize(t);
+fn pad2d(
+    t: &Rc<UnrealizedOp>,
+    value: &f64,
+    padding: &[usize; 4],
+    cache: &mut OpCache,
+) -> (Vec<f64>, Vec<usize>) {
+    let (data, shape) = realize(t, cache);
     if shape.len() < 2 {
         panic!("Tensor must have at least 2 dimensions for 2D padding.");
     }
@@ -288,13 +308,21 @@ fn pad2d(t: &Rc<UnrealizedOp>, value: &f64, padding: &[usize; 4]) -> (Vec<f64>, 
     (new_data, new_shape)
 }
 
-pub fn reshape(t: &Rc<UnrealizedOp>, shape: &Vec<usize>) -> (Vec<f64>, Vec<usize>) {
-    let (data, _) = realize(t);
+pub fn reshape(
+    t: &Rc<UnrealizedOp>,
+    shape: &Vec<usize>,
+    cache: &mut OpCache,
+) -> (Vec<f64>, Vec<usize>) {
+    let (data, _) = realize(t, cache);
     (data, shape.to_owned())
 }
 
-pub fn permute(t: &Rc<UnrealizedOp>, dims: &[usize]) -> (Vec<f64>, Vec<usize>) {
-    let (data, shape) = realize(t);
+pub fn permute(
+    t: &Rc<UnrealizedOp>,
+    dims: &[usize],
+    cache: &mut OpCache,
+) -> (Vec<f64>, Vec<usize>) {
+    let (data, shape) = realize(t, cache);
     let new_shape: Vec<usize> = dims.iter().map(|&d| shape[d]).collect();
     let mut new_data = vec![0.0; data.len()];
 
@@ -319,8 +347,12 @@ pub fn permute(t: &Rc<UnrealizedOp>, dims: &[usize]) -> (Vec<f64>, Vec<usize>) {
     (new_data, new_shape)
 }
 
-pub fn expand(t: &Rc<UnrealizedOp>, new_shape: &Vec<usize>) -> (Vec<f64>, Vec<usize>) {
-    let (input_data, shape) = realize(t);
+pub fn expand(
+    t: &Rc<UnrealizedOp>,
+    new_shape: &Vec<usize>,
+    cache: &mut OpCache,
+) -> (Vec<f64>, Vec<usize>) {
+    let (input_data, shape) = realize(t, cache);
     assert_eq!(
         shape.len(),
         new_shape.len(),
@@ -358,9 +390,13 @@ pub fn expand(t: &Rc<UnrealizedOp>, new_shape: &Vec<usize>) -> (Vec<f64>, Vec<us
     }
 }
 
-fn matmul(lhs: &Rc<UnrealizedOp>, rhs: &Rc<UnrealizedOp>) -> (Vec<f64>, Vec<usize>) {
-    let (lhs_data, lhs_shape) = realize(lhs);
-    let (rhs_data, rhs_shape) = realize(rhs);
+fn matmul(
+    lhs: &Rc<UnrealizedOp>,
+    rhs: &Rc<UnrealizedOp>,
+    cache: &mut OpCache,
+) -> (Vec<f64>, Vec<usize>) {
+    let (lhs_data, lhs_shape) = realize(lhs, cache);
+    let (rhs_data, rhs_shape) = realize(rhs, cache);
     assert!(
         lhs_shape.len() == 2 && rhs_shape.len() == 2,
         "only supporting 2d tensors for now"
@@ -382,44 +418,37 @@ pub fn load(data: &[f64], shape: &[usize]) -> (Vec<f64>, Vec<usize>) {
     (data.to_owned(), shape.to_owned())
 }
 
-pub fn realize(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
-    if *USE_CACHE {
-        {
-            let cache = OP_CACHE.lock().unwrap();
-            if let Some(result) = cache.get(&unrealized_op.id) {
-                return result.clone();
-            }
-        }
+pub fn realize(unrealized_op: &UnrealizedOp, cache: &mut OpCache) -> (Vec<f64>, Vec<usize>) {
+    if let Some(result) = cache.get(&unrealized_op.id) {
+        return result.clone();
     }
 
     trace!("Realizing {:?}", unrealized_op);
     let result = match &unrealized_op.op {
-        Op::Add(lhs, rhs) => add(lhs, rhs),
-        Op::Sub(lhs, rhs) => sub(lhs, rhs),
-        Op::Mul(lhs, rhs) => mul(lhs, rhs),
-        Op::Div(lhs, rhs) => div(lhs, rhs),
-        Op::Sqrt(t) => sqrt(t),
-        Op::Log(t) => log(t),
-        Op::Sigmoid(t) => sigmoid(t),
-        Op::Relu(t) => relu(t),
-        Op::Max(t) => max(t),
-        Op::Min(t) => min(t),
-        Op::Sum(t, dims, keepdim) => sum(t, dims, keepdim),
+        Op::Add(lhs, rhs) => add(lhs, rhs, cache),
+        Op::Sub(lhs, rhs) => sub(lhs, rhs, cache),
+        Op::Mul(lhs, rhs) => mul(lhs, rhs, cache),
+        Op::Div(lhs, rhs) => div(lhs, rhs, cache),
+        Op::Sqrt(t) => sqrt(t, cache),
+        Op::Log(t) => log(t, cache),
+        Op::Sigmoid(t) => sigmoid(t, cache),
+        Op::Relu(t) => relu(t, cache),
+        Op::Max(t) => max(t, cache),
+        Op::Min(t) => min(t, cache),
+        Op::Sum(t, dims, keepdim) => sum(t, dims, keepdim, cache),
         Op::Pool2D(t, kernel, stride, init_val, pool_op) => {
-            pool2d(t, kernel, stride, init_val, pool_op)
+            pool2d(t, kernel, stride, init_val, pool_op, cache)
         }
-        Op::Conv2D(t, kernel, strides, groups) => conv2d(t, kernel, strides, groups),
-        Op::Pad2D(t, value, padding) => pad2d(t, value, padding),
-        Op::Reshape(t, shape) => reshape(t, shape),
-        Op::Permute(t, dims) => permute(t, dims),
-        Op::Expand(t, new_shape) => expand(t, new_shape),
-        Op::MatMul(lhs, rhs) => matmul(lhs, rhs),
+        Op::Conv2D(t, kernel, strides, groups) => conv2d(t, kernel, strides, groups, cache),
+        Op::Pad2D(t, value, padding) => pad2d(t, value, padding, cache),
+        Op::Reshape(t, shape) => reshape(t, shape, cache),
+        Op::Permute(t, dims) => permute(t, dims, cache),
+        Op::Expand(t, new_shape) => expand(t, new_shape, cache),
+        Op::MatMul(lhs, rhs) => matmul(lhs, rhs, cache),
         Op::Load(data, shape) => load(data, shape),
     };
-    if *USE_CACHE {
-        let mut cache = OP_CACHE.lock().unwrap();
-        cache.insert(unrealized_op.id, result.clone());
-    }
+
+    cache.insert(unrealized_op.id, result.clone());
 
     result
 }
