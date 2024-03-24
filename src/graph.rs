@@ -19,34 +19,26 @@ pub fn build_graph(t: &Tensor) {
     let mut node_indeces: HashMap<UnrealizedOp, NodeIndex> = HashMap::new();
     let mut g = Graph::<Rc<UnrealizedOp>, ()>::new();
     let node_index = g.add_node(t.unrealized_op.clone());
-    let mut depth = 0;
     graph_op(
         &mut seen_ops,
         &t.unrealized_op,
         &mut g,
         node_index,
         &mut node_indeces,
-        &mut depth,
     );
 
     debug!("writing graph");
     fs::write("graph.dot", format!("{:?}", Dot::new(&g))).unwrap();
 }
 
+// FIXME: graph is wrong for examples/loop.rs
 fn graph_op(
     seen_ops: &mut HashSet<UnrealizedOp>,
     unrealized_op: &UnrealizedOp,
     g: &mut Graph<Rc<UnrealizedOp>, ()>,
     node_index: NodeIndex,
     node_indeces: &mut HashMap<UnrealizedOp, NodeIndex>,
-    depth: &mut usize,
 ) {
-    *depth += 1;
-
-    if *depth > 35000 {
-        return;
-    }
-
     let children = match &unrealized_op.op {
         Op::Add(lhs, rhs) => vec![lhs, rhs],
         Op::Sub(lhs, rhs) => vec![lhs, rhs],
@@ -69,13 +61,11 @@ fn graph_op(
         Op::MatMul(lhs, rhs) => vec![lhs, rhs],
     };
 
-    /*
     if seen_ops.contains(unrealized_op) {
         return;
     }
 
     seen_ops.insert(unrealized_op.clone());
-    */
 
     for child in children {
         if let Some(i) = node_indeces.get(child) {
@@ -85,6 +75,6 @@ fn graph_op(
         let child_index = g.add_node(child.clone().to_owned());
         node_indeces.insert(unrealized_op.clone(), child_index);
         g.add_edge(node_index, child_index, ());
-        graph_op(seen_ops, child, g, child_index, node_indeces, depth);
+        graph_op(seen_ops, child, g, child_index, node_indeces);
     }
 }
