@@ -1,23 +1,10 @@
-use lazy_static::lazy_static;
-use std::{
-    collections::HashMap,
-    ffi::{c_int, c_void, CStr},
-    sync::Mutex,
-};
-
+use std::ffi::{c_int, c_void, CStr};
 use tracing::trace;
 
-use crate::op::{Op, UnrealizedOp};
+use crate::op::{Op, OpCache, UnrealizedOp};
 
 const HOST_TO_DEVICE: c_int = 1;
 const DEVICE_TO_HOST: c_int = 2;
-
-type OpCache = Mutex<HashMap<usize, (Vec<f64>, Vec<usize>)>>;
-
-lazy_static! {
-    static ref USE_CACHE: bool = std::env::var("NO_CACHE").is_err();
-    static ref OP_CACHE: OpCache = Mutex::new(HashMap::new());
-}
 
 extern "C" {
     fn cudaMalloc(devPtr: *mut *mut c_void, size: usize) -> c_int;
@@ -166,13 +153,16 @@ unsafe fn cpy_from_device(ptr: *mut c_void, shape: &[usize]) -> Vec<f64> {
     result
 }
 
-unsafe fn realize_cuda(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
+unsafe fn realize_cuda(
+    unrealized_op: &UnrealizedOp,
+    cache: &mut OpCache,
+) -> (Vec<f64>, Vec<usize>) {
     trace!("realizing {:?}", unrealized_op);
 
     match &unrealized_op.op {
         Op::Add(lhs, rhs) => {
-            let (lhs, shape) = realize(lhs);
-            let (rhs, _) = realize(rhs);
+            let (lhs, shape) = realize(lhs, cache);
+            let (rhs, _) = realize(rhs, cache);
             let lhs_ptr = cpy_to_device(&lhs);
             let rhs_ptr = cpy_to_device(&rhs);
             let result_size = shape.iter().product::<usize>();
@@ -184,8 +174,8 @@ unsafe fn realize_cuda(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
             (cpy_from_device(result_ptr, &shape), shape)
         }
         Op::Sub(lhs, rhs) => {
-            let (lhs, shape) = realize(lhs);
-            let (rhs, _) = realize(rhs);
+            let (lhs, shape) = realize(lhs, cache);
+            let (rhs, _) = realize(rhs, cache);
             let lhs_ptr = cpy_to_device(&lhs);
             let rhs_ptr = cpy_to_device(&rhs);
             let result_size = shape.iter().product::<usize>();
@@ -197,8 +187,8 @@ unsafe fn realize_cuda(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
             (cpy_from_device(result_ptr, &shape), shape)
         }
         Op::Mul(lhs, rhs) => {
-            let (lhs, shape) = realize(lhs);
-            let (rhs, _) = realize(rhs);
+            let (lhs, shape) = realize(lhs, cache);
+            let (rhs, _) = realize(rhs, cache);
             let lhs_ptr = cpy_to_device(&lhs);
             let rhs_ptr = cpy_to_device(&rhs);
             let result_size = shape.iter().product::<usize>();
@@ -210,8 +200,8 @@ unsafe fn realize_cuda(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
             (cpy_from_device(result_ptr, &shape), shape)
         }
         Op::Div(lhs, rhs) => {
-            let (lhs, shape) = realize(lhs);
-            let (rhs, _) = realize(rhs);
+            let (lhs, shape) = realize(lhs, cache);
+            let (rhs, _) = realize(rhs, cache);
             let lhs_ptr = cpy_to_device(&lhs);
             let rhs_ptr = cpy_to_device(&rhs);
             let result_size = shape.iter().product::<usize>();
@@ -223,7 +213,7 @@ unsafe fn realize_cuda(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
             (cpy_from_device(result_ptr, &shape), shape)
         }
         Op::Max(t) => {
-            let (t, shape) = realize_cuda(t);
+            let (t, shape) = realize_cuda(t, cache);
             let t_ptr = cpy_to_device(&t);
             let result_ptr = malloc(1, std::mem::size_of::<f64>());
             rusty_max(t_ptr, result_ptr, shape.iter().product());
@@ -232,7 +222,7 @@ unsafe fn realize_cuda(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
             (cpy_from_device(result_ptr, &[]), vec![])
         }
         Op::Min(t) => {
-            let (t, shape) = realize_cuda(t);
+            let (t, shape) = realize_cuda(t, cache);
             let t_ptr = cpy_to_device(&t);
             let result_ptr = malloc(1, std::mem::size_of::<f64>());
             rusty_min(t_ptr, result_ptr, shape.iter().product());
@@ -241,7 +231,7 @@ unsafe fn realize_cuda(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
             (cpy_from_device(result_ptr, &[]), vec![])
         }
         Op::Sqrt(t) => {
-            let (t, shape) = realize_cuda(t);
+            let (t, shape) = realize_cuda(t, cache);
             let t_ptr = cpy_to_device(&t);
             let result_size = shape.iter().product::<usize>();
             let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
@@ -251,7 +241,7 @@ unsafe fn realize_cuda(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
             (cpy_from_device(result_ptr, &shape), shape)
         }
         Op::Log(t) => {
-            let (t, shape) = realize_cuda(t);
+            let (t, shape) = realize_cuda(t, cache);
             let t_ptr = cpy_to_device(&t);
             let result_size = shape.iter().product::<usize>();
             let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
@@ -262,7 +252,7 @@ unsafe fn realize_cuda(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
         }
         Op::Load(data, shape) => (data.to_vec(), shape.to_vec()),
         Op::Sigmoid(t) => {
-            let (t, shape) = realize_cuda(t);
+            let (t, shape) = realize_cuda(t, cache);
             let t_ptr = cpy_to_device(&t);
             let result_size = shape.iter().product::<usize>();
             let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
@@ -272,7 +262,7 @@ unsafe fn realize_cuda(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
             (cpy_from_device(result_ptr, &shape), shape)
         }
         Op::Relu(t) => {
-            let (t, shape) = realize_cuda(t);
+            let (t, shape) = realize_cuda(t, cache);
             let t_ptr = cpy_to_device(&t);
             let result_size = shape.iter().product::<usize>();
             let result_ptr = malloc(result_size, std::mem::size_of::<f64>());
@@ -282,7 +272,7 @@ unsafe fn realize_cuda(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
             (cpy_from_device(result_ptr, &shape), shape)
         }
         Op::Sum(t, dims, keepdim) => {
-            let (t, shape) = realize_cuda(t);
+            let (t, shape) = realize_cuda(t, cache);
             let t_ptr = cpy_to_device(&t);
             let mut reduced_shape = shape.clone();
             for (i, dim) in dims.iter().enumerate() {
@@ -319,7 +309,7 @@ unsafe fn realize_cuda(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
             (cpy_from_device(result_ptr, &new_shape), new_shape)
         }
         Op::Pool2D(t, kernel, stride, init_val, pool_op) => {
-            let (t, shape) = realize_cuda(t);
+            let (t, shape) = realize_cuda(t, cache);
             let t_ptr = cpy_to_device(&t);
             // FIXME: remove this constraint, just reshape or something smarter
             assert_eq!(shape.len(), 4, "only supporting 4d tensors");
@@ -373,9 +363,9 @@ unsafe fn realize_cuda(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
             (cpy_from_device(result_ptr, &result_shape), result_shape)
         }
         Op::Conv2D(t, kernel, strides, groups) => {
-            let (t, shape) = realize_cuda(t);
+            let (t, shape) = realize_cuda(t, cache);
             let t_ptr = cpy_to_device(&t);
-            let (kernel, kernel_shape) = realize_cuda(kernel);
+            let (kernel, kernel_shape) = realize_cuda(kernel, cache);
             let kernel_ptr = cpy_to_device(&kernel);
 
             assert_eq!(shape.len(), 4, "only supporting 4d tensors");
@@ -430,7 +420,7 @@ unsafe fn realize_cuda(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
             (cpy_from_device(result_ptr, &new_shape), new_shape)
         }
         Op::Pad2D(t, value, padding) => {
-            let (t, shape) = realize_cuda(t);
+            let (t, shape) = realize_cuda(t, cache);
             let t_ptr = cpy_to_device(&t);
             if shape.len() < 2 {
                 panic!("Tensor must have at least 2 dimensions for 2D padding.");
@@ -466,11 +456,11 @@ unsafe fn realize_cuda(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
             (cpy_from_device(result_ptr, &new_shape), new_shape)
         }
         Op::Reshape(t, shape) => {
-            let (t_ptr, _) = realize_cuda(t);
+            let (t_ptr, _) = realize_cuda(t, cache);
             (t_ptr, shape.to_vec())
         }
         Op::Permute(t, dims) => {
-            let (t, shape) = realize_cuda(t);
+            let (t, shape) = realize_cuda(t, cache);
             let t_ptr = cpy_to_device(&t);
             if shape.len() < 2 {
                 panic!("Tensor must have at least 2 dimensions for 2D padding.");
@@ -501,7 +491,7 @@ unsafe fn realize_cuda(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
             (cpy_from_device(result_ptr, &new_shape), new_shape)
         }
         Op::Expand(t, new_shape) => {
-            let (t, old_shape) = realize_cuda(t);
+            let (t, old_shape) = realize_cuda(t, cache);
             let t_ptr = cpy_to_device(&t);
             assert_eq!(
                 old_shape.len(),
@@ -532,9 +522,9 @@ unsafe fn realize_cuda(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
             (cpy_from_device(result_ptr, new_shape), new_shape.to_vec())
         }
         Op::MatMul(lhs, rhs) => {
-            let (lhs, lhs_shape) = realize_cuda(lhs);
+            let (lhs, lhs_shape) = realize_cuda(lhs, cache);
             let lhs_ptr = cpy_to_device(&lhs);
-            let (rhs, rhs_shape) = realize_cuda(rhs);
+            let (rhs, rhs_shape) = realize_cuda(rhs, cache);
             let rhs_ptr = cpy_to_device(&rhs);
             assert!(
                 lhs_shape.len() == 2 && rhs_shape.len() == 2,
@@ -561,21 +551,13 @@ unsafe fn realize_cuda(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
     }
 }
 
-pub fn realize(unrealized_op: &UnrealizedOp) -> (Vec<f64>, Vec<usize>) {
-    if *USE_CACHE {
-        {
-            let cache = OP_CACHE.lock().unwrap();
-            if let Some(result) = cache.get(&unrealized_op.id) {
-                return result.clone();
-            }
-        }
+pub fn realize(unrealized_op: &UnrealizedOp, cache: &mut OpCache) -> (Vec<f64>, Vec<usize>) {
+    if let Some(result) = cache.get(&unrealized_op.id) {
+        return result.clone();
     }
     unsafe {
-        let result = realize_cuda(unrealized_op);
-        if *USE_CACHE {
-            let mut cache = OP_CACHE.lock().unwrap();
-            cache.insert(unrealized_op.id, result.clone());
-        }
+        let result = realize_cuda(unrealized_op, cache);
+        cache.insert(unrealized_op.id, result.clone());
 
         result
     }
