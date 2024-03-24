@@ -178,27 +178,27 @@ impl MBConvBlock {
         );
         let x = self.bn1.forward(&x).swish();
 
-        //let shape = x.shape.clone();
+        let shape = x.shape.clone();
         let old_x = &x;
-        //let x_squeezed = x.avg_pool_2d((shape[2], shape[3]), None);
-        // let x_squeezed = x_squeezed
-        //     .conv2d(
-        //         &self.se_reduce,
-        //         Some(&self.se_reduce_bias),
-        //         None,
-        //         None,
-        //         None,
-        //     )
-        //     .swish();
-        // let x_squeezed = x_squeezed.conv2d(
-        //     &self.se_expand,
-        //     Some(&self.se_expand_bias),
-        //     None,
-        //     None,
-        //     None,
-        // );
+        let x_squeezed = x.avg_pool_2d((shape[2], shape[3]), None);
+        let x_squeezed = x_squeezed
+            .conv2d(
+                &self.se_reduce,
+                Some(&self.se_reduce_bias),
+                None,
+                None,
+                None,
+            )
+            .swish();
+        let x_squeezed = x_squeezed.conv2d(
+            &self.se_expand,
+            Some(&self.se_expand_bias),
+            None,
+            None,
+            None,
+        );
 
-        let x = old_x * x.sigmoid();
+        let x = old_x * x_squeezed.sigmoid();
         let x = self
             .bn2
             .forward(&x.conv2d(&self.project_conv, None, None, None, None));
@@ -393,7 +393,7 @@ impl Default for Efficientnet {
 
 impl Efficientnet {
     pub fn forward(&mut self, x: Tensor) -> Tensor {
-        let x = self
+        let mut x = self
             .bn0
             .forward(&x.conv2d(
                 &self.conv_stem,
@@ -404,11 +404,9 @@ impl Efficientnet {
             ))
             .swish();
 
-        // FIXME: this creates quadratic speed increase
-        // the cache remedies it, but it would be nice to
-        let x = self.blocks[0].call(&x);
-        let x = self.blocks[1].call(&x);
-        let x = self.blocks[2].call(&x);
+        for block in &self.blocks {
+            x = block.call(&x);
+        }
 
         let x = self
             .bn1
