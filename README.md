@@ -1,13 +1,13 @@
-# Tinygrad, but in rust
+# Deep learning library
 
-Because I got tired of using python.
+Inspired by [tinygrad](https://github.com/tinygrad/tinygrad)
 
-## Useful commands
+## Examples
 
-Build using local pytorch
+`cargo run --release --example efficientnet static/chicken.jpg`
 
-`LIBTORCH_USE_PYTORCH=1 cargo build --release --example efficientnet`
+## Environment variables
 
-Run efficientnet
-
-`LD_LIBRARY_PATH=/path/to/python/venv/lib/python3.11/site-packages/torch/lib ./target/release/examples/efficientnet static/chicken.jpg`
+* RUST_LOG to adjust log level (ERROR, INFO, DEBUG, TRACE)
+* CUDA=1 to enable cuda backend
+* GRAPH=1 to output compute graph (graph.dot)
