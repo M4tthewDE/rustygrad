@@ -1,12 +1,9 @@
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
-use rustygrad::{
-    device::{self, Device},
-    tensor::Tensor,
-};
+use rustygrad::tensor::Tensor;
 
 fn criterion_benchmark(c: &mut Criterion) {
-    std::env::set_var("NO_CACHE", "1");
-    device::set_device(Device::Cuda);
+    std::env::set_var("CUDA", "1");
+
     let t = Tensor::rand(vec![100, 100, 1]).expand(vec![100, 100, 100]);
 
     c.bench_function("expand_cuda", move |b| {
