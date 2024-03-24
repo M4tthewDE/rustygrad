@@ -1,5 +1,6 @@
 use lazy_static::lazy_static;
 use std::{
+    collections::HashMap,
     fmt::{Debug, Display},
     hash::Hash,
     rc::Rc,
@@ -15,6 +16,8 @@ lazy_static! {
     static ref OP_COUNTER: AtomicUsize = AtomicUsize::new(0);
 }
 
+pub type OpCache = HashMap<usize, (Vec<f64>, Vec<usize>)>;
+
 #[derive(Clone)]
 pub struct UnrealizedOp {
     pub id: usize,
@@ -29,8 +32,9 @@ impl UnrealizedOp {
     }
 
     pub fn realize(&self, device: &Device) -> (Vec<f64>, Vec<usize>) {
+        let mut cache = OpCache::new();
         match device {
-            Device::Cpu => cpu::realize(self),
+            Device::Cpu => cpu::realize(self, &mut cache),
             Device::Cuda => cuda::realize(self),
         }
     }
