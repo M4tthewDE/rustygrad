@@ -1,6 +1,10 @@
 use std::{collections::HashMap, fs, rc::Rc};
 
-use petgraph::{dot::Dot, stable_graph::NodeIndex, Graph};
+use petgraph::{
+    dot::{Config, Dot},
+    stable_graph::NodeIndex,
+    Graph,
+};
 use tracing::debug;
 
 use crate::{
@@ -17,7 +21,11 @@ pub fn build_graph(t: &Tensor) {
     graph_op(&t.unrealized_op, &mut g, node_index, &mut node_indeces);
 
     debug!("writing graph");
-    fs::write("graph.dot", format!("{:?}", Dot::new(&g))).unwrap();
+    fs::write(
+        "graph.dot",
+        format!("{:?}", Dot::with_config(&g, &[Config::EdgeNoLabel])),
+    )
+    .unwrap();
 }
 
 fn graph_op(
