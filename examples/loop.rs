@@ -3,7 +3,7 @@ use std::time::Instant;
 use rustygrad::tensor::Tensor;
 
 fn main() {
-    let mut x = Tensor::rand(vec![3, 3, 128, 128]);
+    let mut x = Tensor::rand(vec![128, 128]);
 
     for _ in 0..2 {
         x = test(x);
@@ -18,5 +18,5 @@ fn test(t: Tensor) -> Tensor {
     let old = &t;
 
     let a = t.sigmoid();
-    a - old
+    a.matmul(old)
 }
