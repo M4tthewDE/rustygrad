@@ -35,7 +35,7 @@ impl UnrealizedOp {
         let mut cache = OpCache::new();
         match device {
             Device::Cpu => cpu::realize(self, &mut cache),
-            Device::Cuda => cuda::realize(self),
+            Device::Cuda => cuda::realize(self, &mut cache),
         }
     }
 }
