@@ -1,8 +1,4 @@
-use std::{
-    collections::{HashMap, HashSet},
-    fs,
-    rc::Rc,
-};
+use std::{collections::HashMap, fs, rc::Rc};
 
 use petgraph::{dot::Dot, stable_graph::NodeIndex, Graph};
 use tracing::debug;
@@ -15,29 +11,20 @@ use crate::{
 pub fn build_graph(t: &Tensor) {
     debug!("building graph");
 
-    let mut seen_ops: HashSet<UnrealizedOp> = HashSet::new();
-    let mut node_indeces: HashMap<UnrealizedOp, NodeIndex> = HashMap::new();
+    let mut node_indeces: HashMap<Rc<UnrealizedOp>, NodeIndex> = HashMap::new();
     let mut g = Graph::<Rc<UnrealizedOp>, ()>::new();
     let node_index = g.add_node(t.unrealized_op.clone());
-    graph_op(
-        &mut seen_ops,
-        &t.unrealized_op,
-        &mut g,
-        node_index,
-        &mut node_indeces,
-    );
+    graph_op(&t.unrealized_op, &mut g, node_index, &mut node_indeces);
 
     debug!("writing graph");
     fs::write("graph.dot", format!("{:?}", Dot::new(&g))).unwrap();
 }
 
-// FIXME: graph is wrong for examples/loop.rs
 fn graph_op(
-    seen_ops: &mut HashSet<UnrealizedOp>,
     unrealized_op: &UnrealizedOp,
     g: &mut Graph<Rc<UnrealizedOp>, ()>,
     node_index: NodeIndex,
-    node_indeces: &mut HashMap<UnrealizedOp, NodeIndex>,
+    node_indeces: &mut HashMap<Rc<UnrealizedOp>, NodeIndex>,
 ) {
     let children = match &unrealized_op.op {
         Op::Add(lhs, rhs) => vec![lhs, rhs],
@@ -61,20 +48,16 @@ fn graph_op(
         Op::MatMul(lhs, rhs) => vec![lhs, rhs],
     };
 
-    if seen_ops.contains(unrealized_op) {
-        return;
-    }
-
-    seen_ops.insert(unrealized_op.clone());
-
     for child in children {
         if let Some(i) = node_indeces.get(child) {
             g.add_edge(node_index, *i, ());
+            continue;
         }
 
         let child_index = g.add_node(child.clone().to_owned());
-        node_indeces.insert(unrealized_op.clone(), child_index);
+        node_indeces.insert(child.clone(), child_index);
         g.add_edge(node_index, child_index, ());
-        graph_op(seen_ops, child, g, child_index, node_indeces);
+
+        graph_op(child, g, child_index, node_indeces);
     }
 }
