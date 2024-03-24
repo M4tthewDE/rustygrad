@@ -2,8 +2,6 @@ use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use rustygrad::tensor::Tensor;
 
 fn criterion_benchmark(c: &mut Criterion) {
-    std::env::set_var("NO_CACHE", "1");
-
     let t = Tensor::rand(vec![1, 3, 100, 100]);
     let kernel = Tensor::rand(vec![1, 3, 10, 10]);
     let t = t.conv2d(&kernel, None, None, None, None);
