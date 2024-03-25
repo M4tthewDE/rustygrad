@@ -6,7 +6,7 @@ const SCALE: [f64; 3] = [0.229, 0.224, 0.225];
 
 #[test]
 fn efficientnet() {
-    let mut model = Efficientnet::default();
+    let mut model = Efficientnet::from_model();
     let mut image = Reader::open("static/chicken.jpg".to_string())
         .unwrap()
         .decode()

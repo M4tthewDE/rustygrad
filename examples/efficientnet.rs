@@ -9,7 +9,7 @@ use tracing::info;
 fn main() {
     tracing_subscriber::fmt::init();
 
-    let efficientnet = Efficientnet::default();
+    let efficientnet = Efficientnet::from_model();
     let img_name = env::args().nth(1).unwrap();
     let img = Reader::open(img_name).unwrap().decode().unwrap();
 

@@ -90,10 +90,10 @@ pub struct MBConvBlock {
     pub pad: [usize; 4],
     pub bn1: BatchNorm2d,
     pub depthwise_conv: Tensor,
-    pub se_reduce: Tensor,
-    pub se_reduce_bias: Tensor,
-    pub se_expand: Tensor,
-    pub se_expand_bias: Tensor,
+    pub se_reduce: Option<Tensor>,
+    pub se_reduce_bias: Option<Tensor>,
+    pub se_expand: Option<Tensor>,
+    pub se_expand_bias: Option<Tensor>,
     pub project_conv: Tensor,
     pub bn2: BatchNorm2d,
 }
@@ -106,6 +106,7 @@ impl MBConvBlock {
         input_filters: usize,
         output_filters: usize,
         se_ratio: f64,
+        has_se: bool,
     ) -> MBConvBlock {
         let oup = expand_ratio * input_filters;
 
@@ -128,33 +129,61 @@ impl MBConvBlock {
 
         let depthwise_conv = Tensor::glorot_uniform(vec![oup, 1, kernel_size, kernel_size]);
         let bn1 = BatchNorm2dBuilder::new(oup).build();
-
-        // we always have se!
-        let num_squeezed_channels = ((input_filters as f64 * se_ratio) as usize).max(1);
-        let se_reduce = Tensor::glorot_uniform(vec![num_squeezed_channels, oup, 1, 1]);
-        let se_reduce_bias = Tensor::from_vec(
-            vec![0.0; num_squeezed_channels],
-            vec![1, num_squeezed_channels, 1, 1],
-        );
-        let se_expand = Tensor::glorot_uniform(vec![oup, num_squeezed_channels, 1, 1]);
-        let se_expand_bias = Tensor::from_vec(vec![0.0; oup], vec![1, oup, 1, 1]);
-
         let project_conv = Tensor::glorot_uniform(vec![output_filters, oup, 1, 1]);
         let bn2 = BatchNorm2dBuilder::new(output_filters).build();
 
-        MBConvBlock {
-            expand_conv,
-            bn0,
-            strides,
-            pad,
-            bn1,
-            depthwise_conv,
-            se_reduce,
-            se_reduce_bias,
-            se_expand,
-            se_expand_bias,
-            project_conv,
-            bn2,
+        if has_se {
+            let num_squeezed_channels = ((input_filters as f64 * se_ratio) as usize).max(1);
+            let se_reduce = Some(Tensor::glorot_uniform(vec![
+                num_squeezed_channels,
+                oup,
+                1,
+                1,
+            ]));
+            let se_reduce_bias = Some(Tensor::from_vec(
+                vec![0.0; num_squeezed_channels],
+                vec![1, num_squeezed_channels, 1, 1],
+            ));
+            let se_expand = Some(Tensor::glorot_uniform(vec![
+                oup,
+                num_squeezed_channels,
+                1,
+                1,
+            ]));
+            let se_expand_bias = Some(Tensor::from_vec(vec![0.0; oup], vec![1, oup, 1, 1]));
+
+            MBConvBlock {
+                expand_conv,
+                bn0,
+                strides,
+                pad,
+                bn1,
+                depthwise_conv,
+                se_reduce,
+                se_reduce_bias,
+                se_expand,
+                se_expand_bias,
+                project_conv,
+                bn2,
+            }
+        } else {
+            let project_conv = Tensor::glorot_uniform(vec![output_filters, oup, 1, 1]);
+            let bn2 = BatchNorm2dBuilder::new(output_filters).build();
+
+            MBConvBlock {
+                expand_conv,
+                bn0,
+                strides,
+                pad,
+                bn1,
+                depthwise_conv,
+                se_reduce: None,
+                se_reduce_bias: None,
+                se_expand: None,
+                se_expand_bias: None,
+                project_conv,
+                bn2,
+            }
         }
     }
 }
@@ -183,16 +212,16 @@ impl MBConvBlock {
         let x_squeezed = x.avg_pool_2d((shape[2], shape[3]), None);
         let x_squeezed = x_squeezed
             .conv2d(
-                &self.se_reduce,
-                Some(&self.se_reduce_bias),
+                &self.se_reduce.clone().unwrap(),
+                Some(&self.se_reduce_bias.clone().unwrap()),
                 None,
                 None,
                 None,
             )
             .swish();
         let x_squeezed = x_squeezed.conv2d(
-            &self.se_expand,
-            Some(&self.se_expand_bias),
+            &self.se_expand.clone().unwrap(),
+            Some(&self.se_expand_bias.clone().unwrap()),
             None,
             None,
             None,
@@ -223,26 +252,73 @@ pub struct Efficientnet {
     fc_bias: Tensor,
 }
 
-impl Default for Efficientnet {
-    fn default() -> Self {
+impl Efficientnet {
+    pub fn new(num: usize, classes: usize, has_se: bool) -> Efficientnet {
+        let input_channels = 3;
+        let global_params = get_global_params(num);
+        let out_channels = round_filters(32.0, &global_params);
+        let conv_stem = Tensor::glorot_uniform(vec![out_channels, input_channels, 3, 3]);
+        let bn0 = BatchNorm2dBuilder::new(out_channels).build();
+
+        let blocks_args = BLOCKS_ARGS.map(BlockArgs::from_tuple).to_vec();
+        let mut blocks = Vec::new();
+
+        for block_arg in &blocks_args {
+            let (mut input_filters, output_filters) = (
+                round_filters(block_arg.input_filters as f64, &global_params),
+                round_filters(block_arg.output_filters as f64, &global_params),
+            );
+
+            let mut strides = block_arg.stride;
+            for _ in 0..round_repeats(block_arg.num_repeat, global_params.depth_coefficient) {
+                blocks.push(MBConvBlock::new(
+                    block_arg.kernel_size,
+                    strides,
+                    block_arg.expand_ratio,
+                    input_filters,
+                    output_filters,
+                    block_arg.se_ratio,
+                    has_se,
+                ));
+
+                strides = (1, 1);
+                input_filters = output_filters;
+            }
+        }
+
+        let in_channels = round_filters(320.0, &global_params);
+        let out_channels = round_filters(1280.0, &global_params);
+        let conv_head = Tensor::glorot_uniform(vec![out_channels, in_channels, 1, 1]);
+        let bn1 = BatchNorm2dBuilder::new(out_channels).build();
+        let fc = Tensor::glorot_uniform(vec![out_channels, classes]);
+        let fc_bias = Tensor::zeros(classes);
+
+        Efficientnet {
+            global_params,
+            blocks_args,
+            blocks,
+            conv_stem,
+            conv_head,
+            bn0,
+            bn1,
+            fc,
+            fc_bias,
+        }
+    }
+
+    pub fn from_model() -> Efficientnet {
         let number = 0;
         let global_params = get_global_params(number);
         let blocks_args = BLOCKS_ARGS.map(BlockArgs::from_tuple).to_vec();
 
-        let out_channels = round_filters(32., global_params.width_coefficient);
+        let out_channels = round_filters(32., &global_params);
         let mut bn0 = BatchNorm2dBuilder::new(out_channels).build();
 
         let mut blocks: Vec<MBConvBlock> = Vec::new();
         for block_arg in &blocks_args {
             let filters = (
-                round_filters(
-                    block_arg.input_filters as f64,
-                    global_params.width_coefficient,
-                ),
-                round_filters(
-                    block_arg.output_filters as f64,
-                    global_params.width_coefficient,
-                ),
+                round_filters(block_arg.input_filters as f64, &global_params),
+                round_filters(block_arg.output_filters as f64, &global_params),
             );
 
             let mut input_filters = filters.0;
@@ -256,6 +332,7 @@ impl Default for Efficientnet {
                     input_filters,
                     filters.1,
                     block_arg.se_ratio,
+                    true,
                 ));
 
                 strides = (1, 1);
@@ -263,7 +340,7 @@ impl Default for Efficientnet {
             }
         }
 
-        let out_channels = round_filters(1280.0, global_params.width_coefficient);
+        let out_channels = round_filters(1280.0, &global_params);
         let mut bn1 = BatchNorm2dBuilder::new(out_channels).build();
 
         let start = Instant::now();
@@ -313,23 +390,25 @@ impl Default for Efficientnet {
                 util::extract_4d_tensor(&model_data[format!("_blocks.{}._project_conv.weight", i)])
                     .unwrap();
 
-            block.se_reduce =
+            block.se_reduce = Some(
                 util::extract_4d_tensor(&model_data[format!("_blocks.{}._se_reduce.weight", i)])
-                    .unwrap();
-            block.se_reduce_bias = Tensor::from_vec(
+                    .unwrap(),
+            );
+            block.se_reduce_bias = Some(Tensor::from_vec(
                 util::extract_floats(&model_data[format!("_blocks.{}._se_reduce.bias", i)])
                     .unwrap(),
-                block.se_reduce_bias.shape.clone(),
-            );
+                block.se_reduce_bias.clone().unwrap().shape.clone(),
+            ));
 
-            block.se_expand =
+            block.se_expand = Some(
                 util::extract_4d_tensor(&model_data[format!("_blocks.{}._se_expand.weight", i)])
-                    .unwrap();
-            block.se_expand_bias = Tensor::from_vec(
+                    .unwrap(),
+            );
+            block.se_expand_bias = Some(Tensor::from_vec(
                 util::extract_floats(&model_data[format!("_blocks.{}._se_expand.bias", i)])
                     .unwrap(),
-                block.se_expand_bias.shape.clone(),
-            );
+                block.se_expand_bias.clone().unwrap().shape.clone(),
+            ));
 
             for j in 0..3 {
                 // this works right?
@@ -377,7 +456,7 @@ impl Default for Efficientnet {
 
         info!("loaded model in {:?}", start.elapsed());
 
-        Self {
+        Efficientnet {
             global_params,
             blocks_args,
             blocks,
@@ -437,9 +516,9 @@ fn get_global_params(number: usize) -> GlobalParams {
     }
 }
 
-fn round_filters(mut filters: f64, multiplier: f64) -> usize {
+fn round_filters(mut filters: f64, global_params: &GlobalParams) -> usize {
     let divisor = 8.0;
-    filters *= multiplier;
+    filters *= global_params.width_coefficient;
 
     let mut new_filters = f64::max(
         divisor,
