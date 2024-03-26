@@ -137,12 +137,12 @@ unsafe fn cpy_to_device<T>(data: &[T]) -> *mut c_void {
     ptr
 }
 
-unsafe fn cpy_from_device(ptr: *mut c_void, shape: &[usize]) -> Vec<f64> {
-    let mut result = vec![0.0; shape.iter().product()];
+unsafe fn cpy_from_device<T: Default + Clone>(ptr: *mut c_void, shape: &[usize]) -> Vec<T> {
+    let mut result = vec![T::default(); shape.iter().product()];
     let code = cudaMemcpy(
         result.as_mut_ptr() as *mut c_void,
         ptr,
-        std::mem::size_of::<f64>() * result.len(),
+        std::mem::size_of::<T>() * result.len(),
         DEVICE_TO_HOST,
     );
     if code != 0 {
