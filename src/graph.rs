@@ -58,13 +58,13 @@ fn graph_op(
 
     for child in children {
         if let Some(i) = node_indeces.get(child) {
-            g.add_edge(node_index, *i, ());
+            g.add_edge(*i, node_index, ());
             continue;
         }
 
         let child_index = g.add_node(child.clone().to_owned());
         node_indeces.insert(child.clone(), child_index);
-        g.add_edge(node_index, child_index, ());
+        g.add_edge(child_index, node_index, ());
 
         graph_op(child, g, child_index, node_indeces);
     }
