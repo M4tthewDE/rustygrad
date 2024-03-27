@@ -31,11 +31,9 @@ struct GlobalParams {
 
 impl Default for GlobalParams {
     fn default() -> GlobalParams {
-        let (width, depth) = PARAMS;
-
         GlobalParams {
-            width_coefficient: width,
-            depth_coefficient: depth,
+            width_coefficient: PARAMS.0,
+            depth_coefficient: PARAMS.1,
         }
     }
 }
@@ -108,35 +106,24 @@ impl MBConvBlock {
             [((kernel_size as f64 - 1.0) / 2.0).floor() as usize; 4]
         };
 
-        let depthwise_conv = Tensor::glorot_uniform(vec![oup, 1, kernel_size, kernel_size]);
-        let bn1 = BatchNorm2dBuilder::new(oup).build();
-
-        // we always have se!
         let num_squeezed_channels = ((input_filters as f64 * se_ratio) as usize).max(1);
-        let se_reduce = Tensor::glorot_uniform(vec![num_squeezed_channels, oup, 1, 1]);
-        let se_reduce_bias = Tensor::from_vec(
-            vec![0.0; num_squeezed_channels],
-            vec![1, num_squeezed_channels, 1, 1],
-        );
-        let se_expand = Tensor::glorot_uniform(vec![oup, num_squeezed_channels, 1, 1]);
-        let se_expand_bias = Tensor::from_vec(vec![0.0; oup], vec![1, oup, 1, 1]);
-
-        let project_conv = Tensor::glorot_uniform(vec![output_filters, oup, 1, 1]);
-        let bn2 = BatchNorm2dBuilder::new(output_filters).build();
 
         MBConvBlock {
             expand_conv,
             bn0,
             strides,
             pad,
-            bn1,
-            depthwise_conv,
-            se_reduce,
-            se_reduce_bias,
-            se_expand,
-            se_expand_bias,
-            project_conv,
-            bn2,
+            bn1: BatchNorm2dBuilder::new(oup).build(),
+            depthwise_conv: Tensor::glorot_uniform(vec![oup, 1, kernel_size, kernel_size]),
+            se_reduce: Tensor::glorot_uniform(vec![num_squeezed_channels, oup, 1, 1]),
+            se_reduce_bias: Tensor::from_vec(
+                vec![0.0; num_squeezed_channels],
+                vec![1, num_squeezed_channels, 1, 1],
+            ),
+            se_expand: Tensor::glorot_uniform(vec![oup, num_squeezed_channels, 1, 1]),
+            se_expand_bias: Tensor::from_vec(vec![0.0; oup], vec![1, oup, 1, 1]),
+            project_conv: Tensor::glorot_uniform(vec![output_filters, oup, 1, 1]),
+            bn2: BatchNorm2dBuilder::new(output_filters).build(),
         }
     }
 }
