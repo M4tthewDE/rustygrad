@@ -8,8 +8,8 @@ pub struct BatchNorm2d {
     pub running_mean: Tensor,
     pub running_var: Tensor,
     eps: f64,
-    pub weight: Option<Tensor>,
-    pub bias: Option<Tensor>,
+    pub weight: Tensor,
+    pub bias: Tensor,
 }
 
 // https://github.com/tinygrad/tinygrad/blob/master/tinygrad/nn/__init__.py
@@ -22,8 +22,8 @@ impl BatchNorm2d {
         let batch_invstd = expanded.add(self.eps).rsqrt();
 
         x.batchnorm(
-            self.weight.as_ref(),
-            self.bias.as_ref(),
+            Some(&self.weight),
+            Some(&self.bias),
             &self.running_mean,
             batch_invstd,
         )
@@ -33,7 +33,10 @@ impl BatchNorm2d {
 pub struct BatchNorm2dBuilder {
     num_features: usize,
     eps: f64,
-    affine: bool,
+    weight: Tensor,
+    bias: Tensor,
+    running_mean: Tensor,
+    running_var: Tensor,
 }
 
 impl BatchNorm2dBuilder {
@@ -41,7 +44,10 @@ impl BatchNorm2dBuilder {
         BatchNorm2dBuilder {
             num_features,
             eps: 1e-5,
-            affine: true,
+            weight: Tensor::ones(num_features),
+            bias: Tensor::ones(num_features),
+            running_mean: Tensor::zeros(num_features),
+            running_var: Tensor::ones(num_features),
         }
     }
 
@@ -50,23 +56,34 @@ impl BatchNorm2dBuilder {
         self
     }
 
-    pub fn build(self) -> BatchNorm2d {
-        let (weight, bias) = if self.affine {
-            (
-                Some(Tensor::ones(self.num_features)),
-                Some(Tensor::zeros(self.num_features)),
-            )
-        } else {
-            (None, None)
-        };
+    pub fn weight(mut self, weight: Tensor) -> BatchNorm2dBuilder {
+        self.weight = weight;
+        self
+    }
 
+    pub fn bias(mut self, bias: Tensor) -> BatchNorm2dBuilder {
+        self.bias = bias;
+        self
+    }
+
+    pub fn running_mean(mut self, running_mean: Tensor) -> BatchNorm2dBuilder {
+        self.running_mean = running_mean;
+        self
+    }
+
+    pub fn running_var(mut self, running_var: Tensor) -> BatchNorm2dBuilder {
+        self.running_var = running_var;
+        self
+    }
+
+    pub fn build(self) -> BatchNorm2d {
         BatchNorm2d {
             num_features: self.num_features,
-            running_mean: Tensor::zeros(self.num_features),
-            running_var: Tensor::ones(self.num_features),
+            running_mean: self.running_mean,
+            running_var: self.running_var,
             eps: self.eps,
-            weight,
-            bias,
+            weight: self.weight,
+            bias: self.bias,
         }
     }
 }
