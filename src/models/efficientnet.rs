@@ -12,16 +12,16 @@ use crate::{tensor::Tensor, util};
 static MODEL_URL: &str= "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b0-355c32eb.pth";
 static PARAMS: (f64, f64) = (1.0, 1.0);
 
-type BlockArgsTuple = (usize, usize, [usize; 2], usize, usize, usize, f64, bool);
+type BlockArgsTuple = (usize, usize, [usize; 2], usize, usize, usize, f64);
 
 static BLOCKS_ARGS: [BlockArgsTuple; 7] = [
-    (1, 3, [1, 1], 1, 32, 16, 0.25, true),
-    (2, 3, [2, 2], 6, 16, 24, 0.25, true),
-    (2, 5, [2, 2], 6, 24, 40, 0.25, true),
-    (3, 3, [2, 2], 6, 40, 80, 0.25, true),
-    (3, 5, [1, 1], 6, 80, 112, 0.25, true),
-    (4, 5, [2, 2], 6, 112, 192, 0.25, true),
-    (1, 3, [1, 1], 6, 192, 320, 0.25, true),
+    (1, 3, [1, 1], 1, 32, 16, 0.25),
+    (2, 3, [2, 2], 6, 16, 24, 0.25),
+    (2, 5, [2, 2], 6, 24, 40, 0.25),
+    (3, 3, [2, 2], 6, 40, 80, 0.25),
+    (3, 5, [1, 1], 6, 80, 112, 0.25),
+    (4, 5, [2, 2], 6, 112, 192, 0.25),
+    (1, 3, [1, 1], 6, 192, 320, 0.25),
 ];
 
 pub struct GlobalParams {
@@ -42,19 +42,18 @@ impl Default for GlobalParams {
 
 #[derive(Clone)]
 pub struct BlockArgs {
-    pub num_repeat: usize,
-    pub kernel_size: usize,
-    pub stride: (usize, usize),
-    pub expand_ratio: usize,
-    pub input_filters: usize,
-    pub output_filters: usize,
-    pub se_ratio: f64,
-    pub id_skip: bool,
+    num_repeat: usize,
+    kernel_size: usize,
+    stride: (usize, usize),
+    expand_ratio: usize,
+    input_filters: usize,
+    output_filters: usize,
+    se_ratio: f64,
 }
 
 impl BlockArgs {
-    fn from_tuple(tuple: BlockArgsTuple) -> Self {
-        Self {
+    fn from_tuple(tuple: BlockArgsTuple) -> BlockArgs {
+        BlockArgs {
             num_repeat: tuple.0,
             kernel_size: tuple.1,
             stride: tuple.2.into(),
@@ -62,7 +61,6 @@ impl BlockArgs {
             input_filters: tuple.4,
             output_filters: tuple.5,
             se_ratio: tuple.6,
-            id_skip: tuple.7,
         }
     }
 }
