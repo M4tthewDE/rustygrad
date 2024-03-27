@@ -229,20 +229,14 @@ impl Default for Efficientnet {
         let global_params = get_global_params(number);
         let blocks_args = BLOCKS_ARGS.map(BlockArgs::from_tuple).to_vec();
 
-        let out_channels = round_filters(32., global_params.width_coefficient);
+        let out_channels = round_filters(32, &global_params);
         let mut bn0 = BatchNorm2dBuilder::new(out_channels).build();
 
         let mut blocks: Vec<MBConvBlock> = Vec::new();
         for block_arg in &blocks_args {
             let filters = (
-                round_filters(
-                    block_arg.input_filters as f64,
-                    global_params.width_coefficient,
-                ),
-                round_filters(
-                    block_arg.output_filters as f64,
-                    global_params.width_coefficient,
-                ),
+                round_filters(block_arg.input_filters, &global_params),
+                round_filters(block_arg.output_filters, &global_params),
             );
 
             let mut input_filters = filters.0;
@@ -263,7 +257,7 @@ impl Default for Efficientnet {
             }
         }
 
-        let out_channels = round_filters(1280.0, global_params.width_coefficient);
+        let out_channels = round_filters(1280, &global_params);
         let mut bn1 = BatchNorm2dBuilder::new(out_channels).build();
 
         let start = Instant::now();
@@ -437,20 +431,17 @@ fn get_global_params(number: usize) -> GlobalParams {
     }
 }
 
-fn round_filters(mut filters: f64, multiplier: f64) -> usize {
-    let divisor = 8.0;
-    filters *= multiplier;
+const DIVISOR: f64 = 8.0;
 
-    let mut new_filters = f64::max(
-        divisor,
-        ((filters + divisor / 2.) / divisor).floor() * divisor,
-    );
+fn round_filters(filters: usize, global_params: &GlobalParams) -> usize {
+    let filters = filters as f64 * global_params.width_coefficient;
+    let new_filters = DIVISOR.max(((filters + DIVISOR / 2.) / DIVISOR).floor() * DIVISOR);
 
     if new_filters < 0.9 * filters {
-        new_filters += divisor;
+        (new_filters + DIVISOR) as usize
+    } else {
+        new_filters as usize
     }
-
-    new_filters as usize
 }
 
 fn round_repeats(repeats: usize, depth_coefficient: f64) -> usize {
