@@ -9,27 +9,9 @@ use tracing::info;
 
 use crate::{tensor::Tensor, util};
 
-pub static MODEL_URLS: [&str; 8] = [
-    "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b0-355c32eb.pth", 
-    "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b1-f1951068.pth",
-    "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b2-8bb594d6.pth",
-    "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b3-5fb5a3c3.pth",
-    "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b4-6ed6700e.pth",
-    "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b5-b6417697.pth",
-    "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b6-c76e70fd.pth",
-    "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b7-dcc49843.pth"
-];
+pub static MODEL_URL: &str= "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b0-355c32eb.pth";
 
-static PARAMS: [(f64, f64, i64, f64); 8] = [
-    (1.0, 1.0, 224, 0.2),
-    (1.0, 1.1, 240, 0.2),
-    (1.1, 1.2, 260, 0.3),
-    (1.2, 1.4, 300, 0.3),
-    (1.4, 1.8, 380, 0.4),
-    (1.6, 2.2, 456, 0.4),
-    (1.8, 2.6, 528, 0.5),
-    (2.0, 3.1, 600, 0.5),
-];
+static PARAMS: (f64, f64, i64, f64) = (1.0, 1.0, 224, 0.2);
 
 type BlockArgsTuple = (usize, usize, [usize; 2], usize, usize, usize, f64, bool);
 
@@ -54,6 +36,25 @@ pub struct GlobalParams {
     pub drop_connect_rate: f64,
     pub depth_divisor: usize,
     pub include_top: bool,
+}
+
+impl Default for GlobalParams {
+    fn default() -> GlobalParams {
+        let (width, depth, res, dropout) = PARAMS;
+
+        GlobalParams {
+            width_coefficient: width,
+            depth_coefficient: depth,
+            image_size: res,
+            dropout_rate: dropout,
+            num_classes: 1000,
+            batch_norm_momentum: 0.99,
+            batch_norm_epsilon: 1e-3,
+            drop_connect_rate: 0.2,
+            depth_divisor: 8,
+            include_top: true,
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -225,8 +226,7 @@ pub struct Efficientnet {
 
 impl Default for Efficientnet {
     fn default() -> Self {
-        let number = 0;
-        let global_params = get_global_params(number);
+        let global_params = GlobalParams::default();
         let blocks_args = BLOCKS_ARGS.map(BlockArgs::from_tuple).to_vec();
 
         let out_channels = round_filters(32, &global_params);
@@ -263,7 +263,7 @@ impl Default for Efficientnet {
         let start = Instant::now();
         info!("loading model, this might take a while...");
 
-        let model_data = util::load_torch_model(MODEL_URLS[number]);
+        let model_data = util::load_torch_model(MODEL_URL);
         bn0.weight = Some(Tensor::from_vec_single_dim(
             util::extract_floats(&model_data["_bn0.weight"]).unwrap(),
         ));
@@ -291,7 +291,6 @@ impl Default for Efficientnet {
 
         let conv_head = util::extract_4d_tensor(&model_data["_conv_head.weight"]).unwrap();
         let conv_stem = util::extract_4d_tensor(&model_data["_conv_stem.weight"]).unwrap();
-        // NOTE: is this permute correct? tinygrad changes the shape at some point, unsure where
         let fc = util::extract_2d_tensor(&model_data["_fc.weight"])
             .unwrap()
             .permute(vec![1, 0]);
@@ -411,23 +410,6 @@ impl Efficientnet {
         let shape = x.shape.clone();
         let x = x.reshape(vec![1, shape[1]]);
         x.linear(&self.fc, Some(&self.fc_bias))
-    }
-}
-
-fn get_global_params(number: usize) -> GlobalParams {
-    let (width, depth, res, dropout) = PARAMS[number];
-
-    GlobalParams {
-        width_coefficient: width,
-        depth_coefficient: depth,
-        image_size: res,
-        dropout_rate: dropout,
-        num_classes: 1000,
-        batch_norm_momentum: 0.99,
-        batch_norm_epsilon: 1e-3,
-        drop_connect_rate: 0.2,
-        depth_divisor: 8,
-        include_top: true,
     }
 }
 
