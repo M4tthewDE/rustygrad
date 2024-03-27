@@ -24,7 +24,7 @@ static BLOCKS_ARGS: [BlockArgsTuple; 7] = [
     (1, 3, [1, 1], 6, 192, 320, 0.25),
 ];
 
-pub struct GlobalParams {
+struct GlobalParams {
     width_coefficient: f64,
     depth_coefficient: f64,
 }
@@ -41,7 +41,7 @@ impl Default for GlobalParams {
 }
 
 #[derive(Clone)]
-pub struct BlockArgs {
+struct BlockArgs {
     num_repeat: usize,
     kernel_size: usize,
     stride: (usize, usize),
@@ -65,23 +65,23 @@ impl BlockArgs {
     }
 }
 
-pub struct MBConvBlock {
-    pub expand_conv: Option<Tensor>,
-    pub bn0: Option<BatchNorm2d>,
-    pub strides: (usize, usize),
-    pub pad: [usize; 4],
-    pub bn1: BatchNorm2d,
-    pub depthwise_conv: Tensor,
-    pub se_reduce: Tensor,
-    pub se_reduce_bias: Tensor,
-    pub se_expand: Tensor,
-    pub se_expand_bias: Tensor,
-    pub project_conv: Tensor,
-    pub bn2: BatchNorm2d,
+struct MBConvBlock {
+    expand_conv: Option<Tensor>,
+    bn0: Option<BatchNorm2d>,
+    strides: (usize, usize),
+    pad: [usize; 4],
+    bn1: BatchNorm2d,
+    depthwise_conv: Tensor,
+    se_reduce: Tensor,
+    se_reduce_bias: Tensor,
+    se_expand: Tensor,
+    se_expand_bias: Tensor,
+    project_conv: Tensor,
+    bn2: BatchNorm2d,
 }
 
 impl MBConvBlock {
-    pub fn new(
+    fn new(
         kernel_size: usize,
         strides: (usize, usize),
         expand_ratio: usize,
@@ -194,9 +194,7 @@ impl MBConvBlock {
 }
 
 pub struct Efficientnet {
-    pub global_params: GlobalParams,
-    pub blocks_args: Vec<BlockArgs>,
-    pub blocks: Vec<MBConvBlock>,
+    blocks: Vec<MBConvBlock>,
     conv_stem: Tensor,
     conv_head: Tensor,
     bn0: BatchNorm2d,
@@ -352,8 +350,6 @@ impl Default for Efficientnet {
         info!("loaded model in {:?}", start.elapsed());
 
         Self {
-            global_params,
-            blocks_args,
             blocks,
             conv_stem,
             conv_head,
