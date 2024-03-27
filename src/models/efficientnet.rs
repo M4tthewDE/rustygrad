@@ -195,9 +195,6 @@ impl Default for Efficientnet {
         let global_params = GlobalParams::default();
         let blocks_args = BLOCKS_ARGS.map(BlockArgs::from_tuple).to_vec();
 
-        let out_channels = round_filters(32, &global_params);
-        let mut bn0 = BatchNorm2dBuilder::new(out_channels).build();
-
         let mut blocks: Vec<MBConvBlock> = Vec::new();
         for block_arg in &blocks_args {
             let filters = (
@@ -223,37 +220,38 @@ impl Default for Efficientnet {
             }
         }
 
-        let out_channels = round_filters(1280, &global_params);
-        let mut bn1 = BatchNorm2dBuilder::new(out_channels).build();
-
         let start = Instant::now();
         info!("loading model, this might take a while...");
 
         let model_data = util::load_torch_model(MODEL_URL);
-        bn0.weight = Some(Tensor::from_vec_single_dim(
-            util::extract_floats(&model_data["_bn0.weight"]).unwrap(),
-        ));
-        bn0.bias = Some(Tensor::from_vec_single_dim(
-            util::extract_floats(&model_data["_bn0.bias"]).unwrap(),
-        ));
-        bn0.running_mean = Tensor::from_vec_single_dim(
-            util::extract_floats(&model_data["_bn0.running_mean"]).unwrap(),
-        );
-        bn0.running_var = Tensor::from_vec_single_dim(
-            util::extract_floats(&model_data["_bn0.running_var"]).unwrap(),
-        );
-        bn1.weight = Some(Tensor::from_vec_single_dim(
-            util::extract_floats(&model_data["_bn1.weight"]).unwrap(),
-        ));
-        bn1.bias = Some(Tensor::from_vec_single_dim(
-            util::extract_floats(&model_data["_bn1.bias"]).unwrap(),
-        ));
-        bn1.running_mean = Tensor::from_vec_single_dim(
-            util::extract_floats(&model_data["_bn1.running_mean"]).unwrap(),
-        );
-        bn1.running_var = Tensor::from_vec_single_dim(
-            util::extract_floats(&model_data["_bn1.running_var"]).unwrap(),
-        );
+        let bn0 = BatchNorm2dBuilder::new(round_filters(32, &global_params))
+            .weight(Tensor::from_vec_single_dim(
+                util::extract_floats(&model_data["_bn0.weight"]).unwrap(),
+            ))
+            .bias(Tensor::from_vec_single_dim(
+                util::extract_floats(&model_data["_bn0.bias"]).unwrap(),
+            ))
+            .running_mean(Tensor::from_vec_single_dim(
+                util::extract_floats(&model_data["_bn0.running_mean"]).unwrap(),
+            ))
+            .running_var(Tensor::from_vec_single_dim(
+                util::extract_floats(&model_data["_bn0.running_var"]).unwrap(),
+            ))
+            .build();
+        let bn1 = BatchNorm2dBuilder::new(round_filters(1280, &global_params))
+            .weight(Tensor::from_vec_single_dim(
+                util::extract_floats(&model_data["_bn1.weight"]).unwrap(),
+            ))
+            .bias(Tensor::from_vec_single_dim(
+                util::extract_floats(&model_data["_bn1.bias"]).unwrap(),
+            ))
+            .running_mean(Tensor::from_vec_single_dim(
+                util::extract_floats(&model_data["_bn1.running_mean"]).unwrap(),
+            ))
+            .running_var(Tensor::from_vec_single_dim(
+                util::extract_floats(&model_data["_bn1.running_var"]).unwrap(),
+            ))
+            .build();
 
         let conv_head = util::extract_4d_tensor(&model_data["_conv_head.weight"]).unwrap();
         let conv_stem = util::extract_4d_tensor(&model_data["_conv_stem.weight"]).unwrap();
@@ -311,14 +309,14 @@ impl Default for Efficientnet {
                     _ => panic!(),
                 };
 
-                bn.weight = Some(Tensor::from_vec_single_dim(
+                bn.weight = Tensor::from_vec_single_dim(
                     util::extract_floats(&model_data[format!("_blocks.{}._bn{}.weight", i, j)])
                         .unwrap(),
-                ));
-                bn.bias = Some(Tensor::from_vec_single_dim(
+                );
+                bn.bias = Tensor::from_vec_single_dim(
                     util::extract_floats(&model_data[format!("_blocks.{}._bn{}.bias", i, j)])
                         .unwrap(),
-                ));
+                );
                 bn.running_mean = Tensor::from_vec_single_dim(
                     util::extract_floats(
                         &model_data[format!("_blocks.{}._bn{}.running_mean", i, j)],

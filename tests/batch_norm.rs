@@ -5,18 +5,20 @@ mod util;
 #[test]
 fn test_batchnorm2d_no_training() {
     let num_features = 4;
-    let mut bn = BatchNorm2dBuilder::new(num_features).eps(1e-5).build();
-    bn.weight = Some(Tensor::rand(vec![4]));
-    bn.bias = Some(Tensor::rand(vec![4]));
-    bn.running_mean = Tensor::rand(vec![4]);
-    bn.running_var = Tensor::rand(vec![4]);
+    let bn = BatchNorm2dBuilder::new(num_features)
+        .eps(1e-5)
+        .weight(Tensor::rand(vec![4]))
+        .bias(Tensor::rand(vec![4]))
+        .running_mean(Tensor::rand(vec![4]))
+        .running_var(Tensor::rand(vec![4]))
+        .build();
 
     let input = Tensor::rand(vec![2, num_features, 3, 3]);
     let tch_input = util::to_tch(input.clone());
     let out = bn.forward(&input);
     let (data, shape) = out.realize();
-    let tch_weight = util::to_tch(bn.weight.unwrap());
-    let tch_bias = util::to_tch(bn.bias.unwrap());
+    let tch_weight = util::to_tch(bn.weight);
+    let tch_bias = util::to_tch(bn.bias);
     let tch_running_mean = util::to_tch(bn.running_mean);
     let tch_running_var = util::to_tch(bn.running_var);
     let tch_out = tch_input.batch_norm(
