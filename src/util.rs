@@ -81,19 +81,22 @@ pub fn extract_floats(array: &Value) -> Option<Vec<f64>> {
         .into()
 }
 
+pub fn extract_1d_tensor(v: &Value) -> Option<Tensor> {
+    let data = extract_floats(v)?;
+    let len = data.len();
+    Some(Tensor::from_vec(data, vec![len]))
+}
+
 pub fn extract_2d_tensor(v: &Value) -> Option<Tensor> {
-    let data = extract_2d_array(v)?;
+    let data = v
+        .as_array()?
+        .iter()
+        .map(extract_floats)
+        .collect::<Option<Vec<Vec<f64>>>>()?;
     Some(Tensor::from_vec(
         data.clone().into_iter().flatten().collect(),
         vec![data.len(), data[0].len()],
     ))
-}
-
-fn extract_2d_array(v: &Value) -> Option<Vec<Vec<f64>>> {
-    v.as_array()?
-        .iter()
-        .map(extract_floats)
-        .collect::<Option<Vec<Vec<f64>>>>()
 }
 
 fn extract_4d_array(v: &Value) -> Option<Vec<Vec<Vec<Vec<f64>>>>> {
