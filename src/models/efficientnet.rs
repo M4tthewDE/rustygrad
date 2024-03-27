@@ -225,32 +225,16 @@ impl Default for Efficientnet {
 
         let model_data = util::load_torch_model(MODEL_URL);
         let bn0 = BatchNorm2dBuilder::new(round_filters(32, &global_params))
-            .weight(Tensor::from_vec_single_dim(
-                util::extract_floats(&model_data["_bn0.weight"]).unwrap(),
-            ))
-            .bias(Tensor::from_vec_single_dim(
-                util::extract_floats(&model_data["_bn0.bias"]).unwrap(),
-            ))
-            .running_mean(Tensor::from_vec_single_dim(
-                util::extract_floats(&model_data["_bn0.running_mean"]).unwrap(),
-            ))
-            .running_var(Tensor::from_vec_single_dim(
-                util::extract_floats(&model_data["_bn0.running_var"]).unwrap(),
-            ))
+            .weight(util::extract_1d_tensor(&model_data["_bn0.weight"]).unwrap())
+            .bias(util::extract_1d_tensor(&model_data["_bn0.bias"]).unwrap())
+            .running_mean(util::extract_1d_tensor(&model_data["_bn0.running_mean"]).unwrap())
+            .running_var(util::extract_1d_tensor(&model_data["_bn0.running_var"]).unwrap())
             .build();
         let bn1 = BatchNorm2dBuilder::new(round_filters(1280, &global_params))
-            .weight(Tensor::from_vec_single_dim(
-                util::extract_floats(&model_data["_bn1.weight"]).unwrap(),
-            ))
-            .bias(Tensor::from_vec_single_dim(
-                util::extract_floats(&model_data["_bn1.bias"]).unwrap(),
-            ))
-            .running_mean(Tensor::from_vec_single_dim(
-                util::extract_floats(&model_data["_bn1.running_mean"]).unwrap(),
-            ))
-            .running_var(Tensor::from_vec_single_dim(
-                util::extract_floats(&model_data["_bn1.running_var"]).unwrap(),
-            ))
+            .weight(util::extract_1d_tensor(&model_data["_bn1.weight"]).unwrap())
+            .bias(util::extract_1d_tensor(&model_data["_bn1.bias"]).unwrap())
+            .running_mean(util::extract_1d_tensor(&model_data["_bn1.running_mean"]).unwrap())
+            .running_var(util::extract_1d_tensor(&model_data["_bn1.running_var"]).unwrap())
             .build();
 
         let conv_head = util::extract_4d_tensor(&model_data["_conv_head.weight"]).unwrap();
@@ -258,8 +242,7 @@ impl Default for Efficientnet {
         let fc = util::extract_2d_tensor(&model_data["_fc.weight"])
             .unwrap()
             .permute(vec![1, 0]);
-        let fc_bias =
-            Tensor::from_vec_single_dim(util::extract_floats(&model_data["_fc.bias"]).unwrap());
+        let fc_bias = util::extract_1d_tensor(&model_data["_fc.bias"]).unwrap();
 
         for (i, block) in blocks.iter_mut().enumerate() {
             block.depthwise_conv = util::extract_4d_tensor(
@@ -289,7 +272,6 @@ impl Default for Efficientnet {
             );
 
             for j in 0..3 {
-                // this works right?
                 let bn = match j {
                     0 => {
                         if block.bn0.is_none() {
@@ -309,26 +291,20 @@ impl Default for Efficientnet {
                     _ => panic!(),
                 };
 
-                bn.weight = Tensor::from_vec_single_dim(
-                    util::extract_floats(&model_data[format!("_blocks.{}._bn{}.weight", i, j)])
-                        .unwrap(),
-                );
-                bn.bias = Tensor::from_vec_single_dim(
-                    util::extract_floats(&model_data[format!("_blocks.{}._bn{}.bias", i, j)])
-                        .unwrap(),
-                );
-                bn.running_mean = Tensor::from_vec_single_dim(
-                    util::extract_floats(
-                        &model_data[format!("_blocks.{}._bn{}.running_mean", i, j)],
-                    )
-                    .unwrap(),
-                );
-                bn.running_var = Tensor::from_vec_single_dim(
-                    util::extract_floats(
-                        &model_data[format!("_blocks.{}._bn{}.running_var", i, j)],
-                    )
-                    .unwrap(),
-                );
+                bn.weight =
+                    util::extract_1d_tensor(&model_data[format!("_blocks.{}._bn{}.weight", i, j)])
+                        .unwrap();
+                bn.bias =
+                    util::extract_1d_tensor(&model_data[format!("_blocks.{}._bn{}.bias", i, j)])
+                        .unwrap();
+                bn.running_mean = util::extract_1d_tensor(
+                    &model_data[format!("_blocks.{}._bn{}.running_mean", i, j)],
+                )
+                .unwrap();
+                bn.running_var = util::extract_1d_tensor(
+                    &model_data[format!("_blocks.{}._bn{}.running_var", i, j)],
+                )
+                .unwrap();
             }
         }
 
