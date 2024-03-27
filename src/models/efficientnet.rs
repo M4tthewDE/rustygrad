@@ -9,9 +9,8 @@ use tracing::info;
 
 use crate::{tensor::Tensor, util};
 
-pub static MODEL_URL: &str= "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b0-355c32eb.pth";
-
-static PARAMS: (f64, f64, i64, f64) = (1.0, 1.0, 224, 0.2);
+static MODEL_URL: &str= "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b0-355c32eb.pth";
+static PARAMS: (f64, f64) = (1.0, 1.0);
 
 type BlockArgsTuple = (usize, usize, [usize; 2], usize, usize, usize, f64, bool);
 
@@ -26,33 +25,17 @@ static BLOCKS_ARGS: [BlockArgsTuple; 7] = [
 ];
 
 pub struct GlobalParams {
-    pub width_coefficient: f64,
-    pub depth_coefficient: f64,
-    pub image_size: i64,
-    pub dropout_rate: f64,
-    pub num_classes: usize,
-    pub batch_norm_momentum: f64,
-    pub batch_norm_epsilon: f64,
-    pub drop_connect_rate: f64,
-    pub depth_divisor: usize,
-    pub include_top: bool,
+    width_coefficient: f64,
+    depth_coefficient: f64,
 }
 
 impl Default for GlobalParams {
     fn default() -> GlobalParams {
-        let (width, depth, res, dropout) = PARAMS;
+        let (width, depth) = PARAMS;
 
         GlobalParams {
             width_coefficient: width,
             depth_coefficient: depth,
-            image_size: res,
-            dropout_rate: dropout,
-            num_classes: 1000,
-            batch_norm_momentum: 0.99,
-            batch_norm_epsilon: 1e-3,
-            drop_connect_rate: 0.2,
-            depth_divisor: 8,
-            include_top: true,
         }
     }
 }
