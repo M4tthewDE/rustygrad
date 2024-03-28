@@ -3,14 +3,14 @@
 
 use crate::nn::batch_norm::BatchNorm2d;
 use crate::nn::batch_norm::BatchNorm2dBuilder;
-use std::time::Instant;
 
-use tracing::info;
+use serde_json::Value;
 
 use crate::{tensor::Tensor, util};
 
 static MODEL_URL: &str= "https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b0-355c32eb.pth";
-static PARAMS: (f64, f64) = (1.0, 1.0);
+const DEPTH_COEFFICIENT: f64 = 1.0;
+const WIDTH_COEFFICIENT: f64 = 1.0;
 
 type BlockArgsTuple = (usize, usize, [usize; 2], usize, usize, usize, f64);
 
@@ -23,20 +23,6 @@ static BLOCKS_ARGS: [BlockArgsTuple; 7] = [
     (4, 5, [2, 2], 6, 112, 192, 0.25),
     (1, 3, [1, 1], 6, 192, 320, 0.25),
 ];
-
-struct GlobalParams {
-    width_coefficient: f64,
-    depth_coefficient: f64,
-}
-
-impl Default for GlobalParams {
-    fn default() -> GlobalParams {
-        GlobalParams {
-            width_coefficient: PARAMS.0,
-            depth_coefficient: PARAMS.1,
-        }
-    }
-}
 
 #[derive(Clone)]
 struct BlockArgs {
@@ -80,50 +66,140 @@ struct MBConvBlock {
 
 impl MBConvBlock {
     fn new(
-        kernel_size: usize,
+        model_data: &Value,
+        i: usize,
+        block_arg: &BlockArgs,
         strides: (usize, usize),
-        expand_ratio: usize,
         input_filters: usize,
         output_filters: usize,
-        se_ratio: f64,
     ) -> MBConvBlock {
-        let oup = expand_ratio * input_filters;
+        let oup = block_arg.expand_ratio * input_filters;
 
-        let (expand_conv, bn0) = if expand_ratio != 1 {
+        let (expand_conv, bn0) = if block_arg.expand_ratio != 1 {
             (
-                Some(Tensor::glorot_uniform(vec![oup, input_filters, 1, 1])),
-                Some(BatchNorm2dBuilder::new(oup).build()),
+                Some(
+                    util::extract_4d_tensor(
+                        &model_data[format!("_blocks.{}._expand_conv.weight", i)],
+                    )
+                    .unwrap(),
+                ),
+                Some(
+                    BatchNorm2dBuilder::new(oup)
+                        .weight(
+                            util::extract_1d_tensor(
+                                &model_data[format!("_blocks.{}._bn0.weight", i)],
+                            )
+                            .unwrap(),
+                        )
+                        .bias(
+                            util::extract_1d_tensor(
+                                &model_data[format!("_blocks.{}._bn0.bias", i)],
+                            )
+                            .unwrap(),
+                        )
+                        .running_mean(
+                            util::extract_1d_tensor(
+                                &model_data[format!("_blocks.{}._bn0.running_mean", i)],
+                            )
+                            .unwrap(),
+                        )
+                        .running_var(
+                            util::extract_1d_tensor(
+                                &model_data[format!("_blocks.{}._bn0.running_var", i)],
+                            )
+                            .unwrap(),
+                        )
+                        .build(),
+                ),
             )
         } else {
             (None, None)
         };
 
         let pad = if strides == (2, 2) {
-            let v0 = ((kernel_size as f64 - 1.0) / 2.0).floor() as usize - 1;
-            let v1 = ((kernel_size as f64 - 1.0) / 2.0).floor() as usize;
+            let v0 = ((block_arg.kernel_size as f64 - 1.0) / 2.0).floor() as usize - 1;
+            let v1 = ((block_arg.kernel_size as f64 - 1.0) / 2.0).floor() as usize;
             [v0, v1, v0, v1]
         } else {
-            [((kernel_size as f64 - 1.0) / 2.0).floor() as usize; 4]
+            [((block_arg.kernel_size as f64 - 1.0) / 2.0).floor() as usize; 4]
         };
-
-        let num_squeezed_channels = ((input_filters as f64 * se_ratio) as usize).max(1);
 
         MBConvBlock {
             expand_conv,
             bn0,
             strides,
             pad,
-            bn1: BatchNorm2dBuilder::new(oup).build(),
-            depthwise_conv: Tensor::glorot_uniform(vec![oup, 1, kernel_size, kernel_size]),
-            se_reduce: Tensor::glorot_uniform(vec![num_squeezed_channels, oup, 1, 1]),
+            bn1: BatchNorm2dBuilder::new(oup)
+                .weight(
+                    util::extract_1d_tensor(&model_data[format!("_blocks.{}._bn1.weight", i)])
+                        .unwrap(),
+                )
+                .bias(
+                    util::extract_1d_tensor(&model_data[format!("_blocks.{}._bn1.bias", i)])
+                        .unwrap(),
+                )
+                .running_mean(
+                    util::extract_1d_tensor(
+                        &model_data[format!("_blocks.{}._bn1.running_mean", i)],
+                    )
+                    .unwrap(),
+                )
+                .running_var(
+                    util::extract_1d_tensor(&model_data[format!("_blocks.{}._bn1.running_var", i)])
+                        .unwrap(),
+                )
+                .build(),
+            depthwise_conv: util::extract_4d_tensor(
+                &model_data[format!("_blocks.{}._depthwise_conv.weight", i)],
+            )
+            .unwrap(),
+            se_reduce: util::extract_4d_tensor(
+                &model_data[format!("_blocks.{}._se_reduce.weight", i)],
+            )
+            .unwrap(),
             se_reduce_bias: Tensor::from_vec(
-                vec![0.0; num_squeezed_channels],
-                vec![1, num_squeezed_channels, 1, 1],
+                util::extract_floats(&model_data[format!("_blocks.{}._se_reduce.bias", i)])
+                    .unwrap(),
+                vec![
+                    1,
+                    ((input_filters as f64 * block_arg.se_ratio) as usize).max(1),
+                    1,
+                    1,
+                ],
             ),
-            se_expand: Tensor::glorot_uniform(vec![oup, num_squeezed_channels, 1, 1]),
-            se_expand_bias: Tensor::from_vec(vec![0.0; oup], vec![1, oup, 1, 1]),
-            project_conv: Tensor::glorot_uniform(vec![output_filters, oup, 1, 1]),
-            bn2: BatchNorm2dBuilder::new(output_filters).build(),
+            se_expand: util::extract_4d_tensor(
+                &model_data[format!("_blocks.{}._se_expand.weight", i)],
+            )
+            .unwrap(),
+            se_expand_bias: Tensor::from_vec(
+                util::extract_floats(&model_data[format!("_blocks.{}._se_expand.bias", i)])
+                    .unwrap(),
+                vec![1, oup, 1, 1],
+            ),
+            project_conv: util::extract_4d_tensor(
+                &model_data[format!("_blocks.{}._project_conv.weight", i)],
+            )
+            .unwrap(),
+            bn2: BatchNorm2dBuilder::new(output_filters)
+                .weight(
+                    util::extract_1d_tensor(&model_data[format!("_blocks.{}._bn2.weight", i)])
+                        .unwrap(),
+                )
+                .bias(
+                    util::extract_1d_tensor(&model_data[format!("_blocks.{}._bn2.bias", i)])
+                        .unwrap(),
+                )
+                .running_mean(
+                    util::extract_1d_tensor(
+                        &model_data[format!("_blocks.{}._bn2.running_mean", i)],
+                    )
+                    .unwrap(),
+                )
+                .running_var(
+                    util::extract_1d_tensor(&model_data[format!("_blocks.{}._bn2.running_var", i)])
+                        .unwrap(),
+                )
+                .build(),
         }
     }
 }
@@ -192,132 +268,52 @@ pub struct Efficientnet {
 
 impl Default for Efficientnet {
     fn default() -> Self {
-        let global_params = GlobalParams::default();
         let blocks_args = BLOCKS_ARGS.map(BlockArgs::from_tuple).to_vec();
+        let model_data = util::load_torch_model(MODEL_URL);
 
         let mut blocks: Vec<MBConvBlock> = Vec::new();
+        let mut i = 0;
         for block_arg in &blocks_args {
-            let filters = (
-                round_filters(block_arg.input_filters, &global_params),
-                round_filters(block_arg.output_filters, &global_params),
-            );
-
-            let mut input_filters = filters.0;
+            let mut input_filters = round_filters(block_arg.input_filters);
+            let output_filters = round_filters(block_arg.output_filters);
 
             let mut strides = block_arg.stride;
-            for _ in 0..round_repeats(block_arg.num_repeat, global_params.depth_coefficient) {
+            for _ in 0..((DEPTH_COEFFICIENT * block_arg.num_repeat as f64).ceil() as usize) {
                 blocks.push(MBConvBlock::new(
-                    block_arg.kernel_size,
+                    &model_data,
+                    i,
+                    block_arg,
                     strides,
-                    block_arg.expand_ratio,
                     input_filters,
-                    filters.1,
-                    block_arg.se_ratio,
+                    output_filters,
                 ));
 
                 strides = (1, 1);
-                input_filters = filters.1;
+                input_filters = output_filters;
+                i += 1;
             }
         }
-
-        let start = Instant::now();
-        info!("loading model, this might take a while...");
-
-        let model_data = util::load_torch_model(MODEL_URL);
-        let bn0 = BatchNorm2dBuilder::new(round_filters(32, &global_params))
-            .weight(util::extract_1d_tensor(&model_data["_bn0.weight"]).unwrap())
-            .bias(util::extract_1d_tensor(&model_data["_bn0.bias"]).unwrap())
-            .running_mean(util::extract_1d_tensor(&model_data["_bn0.running_mean"]).unwrap())
-            .running_var(util::extract_1d_tensor(&model_data["_bn0.running_var"]).unwrap())
-            .build();
-        let bn1 = BatchNorm2dBuilder::new(round_filters(1280, &global_params))
-            .weight(util::extract_1d_tensor(&model_data["_bn1.weight"]).unwrap())
-            .bias(util::extract_1d_tensor(&model_data["_bn1.bias"]).unwrap())
-            .running_mean(util::extract_1d_tensor(&model_data["_bn1.running_mean"]).unwrap())
-            .running_var(util::extract_1d_tensor(&model_data["_bn1.running_var"]).unwrap())
-            .build();
-
-        let conv_head = util::extract_4d_tensor(&model_data["_conv_head.weight"]).unwrap();
-        let conv_stem = util::extract_4d_tensor(&model_data["_conv_stem.weight"]).unwrap();
-        let fc = util::extract_2d_tensor(&model_data["_fc.weight"])
-            .unwrap()
-            .permute(vec![1, 0]);
-        let fc_bias = util::extract_1d_tensor(&model_data["_fc.bias"]).unwrap();
-
-        for (i, block) in blocks.iter_mut().enumerate() {
-            block.depthwise_conv = util::extract_4d_tensor(
-                &model_data[format!("_blocks.{}._depthwise_conv.weight", i)],
-            )
-            .unwrap();
-            block.project_conv =
-                util::extract_4d_tensor(&model_data[format!("_blocks.{}._project_conv.weight", i)])
-                    .unwrap();
-
-            block.se_reduce =
-                util::extract_4d_tensor(&model_data[format!("_blocks.{}._se_reduce.weight", i)])
-                    .unwrap();
-            block.se_reduce_bias = Tensor::from_vec(
-                util::extract_floats(&model_data[format!("_blocks.{}._se_reduce.bias", i)])
-                    .unwrap(),
-                block.se_reduce_bias.shape.clone(),
-            );
-
-            block.se_expand =
-                util::extract_4d_tensor(&model_data[format!("_blocks.{}._se_expand.weight", i)])
-                    .unwrap();
-            block.se_expand_bias = Tensor::from_vec(
-                util::extract_floats(&model_data[format!("_blocks.{}._se_expand.bias", i)])
-                    .unwrap(),
-                block.se_expand_bias.shape.clone(),
-            );
-
-            for j in 0..3 {
-                let bn = match j {
-                    0 => {
-                        if block.bn0.is_none() {
-                            continue;
-                        }
-                        block.expand_conv = Some(
-                            util::extract_4d_tensor(
-                                &model_data[format!("_blocks.{}._expand_conv.weight", i)],
-                            )
-                            .unwrap(),
-                        );
-
-                        block.bn0.as_mut().unwrap()
-                    }
-                    1 => &mut block.bn1,
-                    2 => &mut block.bn2,
-                    _ => panic!(),
-                };
-
-                bn.weight =
-                    util::extract_1d_tensor(&model_data[format!("_blocks.{}._bn{}.weight", i, j)])
-                        .unwrap();
-                bn.bias =
-                    util::extract_1d_tensor(&model_data[format!("_blocks.{}._bn{}.bias", i, j)])
-                        .unwrap();
-                bn.running_mean = util::extract_1d_tensor(
-                    &model_data[format!("_blocks.{}._bn{}.running_mean", i, j)],
-                )
-                .unwrap();
-                bn.running_var = util::extract_1d_tensor(
-                    &model_data[format!("_blocks.{}._bn{}.running_var", i, j)],
-                )
-                .unwrap();
-            }
-        }
-
-        info!("loaded model in {:?}", start.elapsed());
 
         Self {
             blocks,
-            conv_stem,
-            conv_head,
-            bn0,
-            bn1,
-            fc,
-            fc_bias,
+            conv_stem: util::extract_4d_tensor(&model_data["_conv_stem.weight"]).unwrap(),
+            conv_head: util::extract_4d_tensor(&model_data["_conv_head.weight"]).unwrap(),
+            bn0: BatchNorm2dBuilder::new(round_filters(32))
+                .weight(util::extract_1d_tensor(&model_data["_bn0.weight"]).unwrap())
+                .bias(util::extract_1d_tensor(&model_data["_bn0.bias"]).unwrap())
+                .running_mean(util::extract_1d_tensor(&model_data["_bn0.running_mean"]).unwrap())
+                .running_var(util::extract_1d_tensor(&model_data["_bn0.running_var"]).unwrap())
+                .build(),
+            bn1: BatchNorm2dBuilder::new(round_filters(1280))
+                .weight(util::extract_1d_tensor(&model_data["_bn1.weight"]).unwrap())
+                .bias(util::extract_1d_tensor(&model_data["_bn1.bias"]).unwrap())
+                .running_mean(util::extract_1d_tensor(&model_data["_bn1.running_mean"]).unwrap())
+                .running_var(util::extract_1d_tensor(&model_data["_bn1.running_var"]).unwrap())
+                .build(),
+            fc: util::extract_2d_tensor(&model_data["_fc.weight"])
+                .unwrap()
+                .permute(vec![1, 0]),
+            fc_bias: util::extract_1d_tensor(&model_data["_fc.bias"]).unwrap(),
         }
     }
 }
@@ -353,8 +349,8 @@ impl Efficientnet {
 
 const DIVISOR: f64 = 8.0;
 
-fn round_filters(filters: usize, global_params: &GlobalParams) -> usize {
-    let filters = filters as f64 * global_params.width_coefficient;
+fn round_filters(filters: usize) -> usize {
+    let filters = filters as f64 * WIDTH_COEFFICIENT;
     let new_filters = DIVISOR.max(((filters + DIVISOR / 2.) / DIVISOR).floor() * DIVISOR);
 
     if new_filters < 0.9 * filters {
@@ -362,8 +358,4 @@ fn round_filters(filters: usize, global_params: &GlobalParams) -> usize {
     } else {
         new_filters as usize
     }
-}
-
-fn round_repeats(repeats: usize, depth_coefficient: f64) -> usize {
-    (depth_coefficient * repeats as f64).ceil() as usize
 }

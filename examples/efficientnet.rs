@@ -9,13 +9,16 @@ use tracing::info;
 fn main() {
     tracing_subscriber::fmt::init();
 
+    let start = Instant::now();
     let efficientnet = Efficientnet::default();
+    info!("loaded model in {:?}", start.elapsed());
+
     let img_name = env::args().nth(1).unwrap();
     let img = Reader::open(img_name).unwrap().decode().unwrap();
 
     let start = Instant::now();
     infer(efficientnet, img);
-    info!("did inference in {:?}", start.elapsed());
+    info!("inference took {:?}", start.elapsed());
 }
 
 const BIAS: [f64; 3] = [0.485, 0.456, 0.406];
