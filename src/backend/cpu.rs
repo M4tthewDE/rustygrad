@@ -149,7 +149,7 @@ fn sum(
     (result, new_shape)
 }
 
-pub fn pool2d(
+fn pool2d(
     t: &Rc<UnrealizedOp>,
     kernel: &(usize, usize),
     stride: &usize,
@@ -199,7 +199,8 @@ pub fn pool2d(
         vec![batch, channels, output_height, output_width],
     )
 }
-pub fn conv2d(
+
+fn conv2d(
     t: &Rc<UnrealizedOp>,
     kernel: &Rc<UnrealizedOp>,
     strides: &(usize, usize),
@@ -308,7 +309,7 @@ fn pad2d(
     (new_data, new_shape)
 }
 
-pub fn reshape(
+fn reshape(
     t: &Rc<UnrealizedOp>,
     shape: &Vec<usize>,
     cache: &mut OpCache,
@@ -317,11 +318,7 @@ pub fn reshape(
     (data, shape.to_owned())
 }
 
-pub fn permute(
-    t: &Rc<UnrealizedOp>,
-    dims: &[usize],
-    cache: &mut OpCache,
-) -> (Vec<f64>, Vec<usize>) {
+fn permute(t: &Rc<UnrealizedOp>, dims: &[usize], cache: &mut OpCache) -> (Vec<f64>, Vec<usize>) {
     let (data, shape) = realize(t, cache);
     let new_shape: Vec<usize> = dims.iter().map(|&d| shape[d]).collect();
     let mut new_data = vec![0.0; data.len()];
@@ -347,7 +344,7 @@ pub fn permute(
     (new_data, new_shape)
 }
 
-pub fn expand(
+fn expand(
     t: &Rc<UnrealizedOp>,
     new_shape: &Vec<usize>,
     cache: &mut OpCache,
@@ -414,7 +411,7 @@ fn matmul(
     (result, vec![lhs_shape[0], rhs_shape[1]])
 }
 
-pub fn load(data: &[f64], shape: &[usize]) -> (Vec<f64>, Vec<usize>) {
+fn load(data: &[f64], shape: &[usize]) -> (Vec<f64>, Vec<usize>) {
     (data.to_owned(), shape.to_owned())
 }
 
