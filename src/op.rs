@@ -8,7 +8,7 @@ use std::{
 };
 
 use crate::{
-    backend::{cpu, cuda},
+    backend::{cpu, gpu},
     device::Device,
 };
 
@@ -35,7 +35,7 @@ impl UnrealizedOp {
         let mut cache = OpCache::new();
         match device {
             Device::Cpu => cpu::realize(self, &mut cache),
-            Device::Cuda => cuda::realize(self, &mut cache),
+            Device::Gpu => gpu::realize(self, &mut cache),
         }
     }
 }

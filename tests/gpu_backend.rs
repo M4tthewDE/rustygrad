@@ -4,7 +4,7 @@ mod util;
 
 #[test]
 fn load() {
-    std::env::set_var("CUDA", "1");
+    std::env::set_var("GPU", "1");
 
     let a = Tensor::from_scalar(2.0);
     let (data, shape) = a.realize();
@@ -15,7 +15,7 @@ fn load() {
 
 #[test]
 fn addition() {
-    std::env::set_var("CUDA", "1");
+    std::env::set_var("GPU", "1");
 
     let a = Tensor::from_scalar(2.0);
     let b = Tensor::from_scalar(3.0);
@@ -27,7 +27,7 @@ fn addition() {
 
 #[test]
 fn addition_broadcasting() {
-    std::env::set_var("CUDA", "1");
+    std::env::set_var("GPU", "1");
 
     let a = Tensor::from_vec(vec![2.0; 100 * 100], vec![100, 100]);
     let b = Tensor::from_scalar(3.0);
@@ -39,7 +39,7 @@ fn addition_broadcasting() {
 
 #[test]
 fn sub() {
-    std::env::set_var("CUDA", "1");
+    std::env::set_var("GPU", "1");
 
     let a = Tensor::from_scalar(2.0);
     let b = Tensor::from_scalar(3.0);
@@ -51,7 +51,7 @@ fn sub() {
 
 #[test]
 fn mul() {
-    std::env::set_var("CUDA", "1");
+    std::env::set_var("GPU", "1");
 
     let a = Tensor::from_scalar(2.0);
     let b = Tensor::from_scalar(3.0);
@@ -63,7 +63,7 @@ fn mul() {
 
 #[test]
 fn div() {
-    std::env::set_var("CUDA", "1");
+    std::env::set_var("GPU", "1");
 
     let a = Tensor::from_scalar(2.0);
     let b = Tensor::from_scalar(3.0);
@@ -75,7 +75,7 @@ fn div() {
 
 #[test]
 fn sqrt() {
-    std::env::set_var("CUDA", "1");
+    std::env::set_var("GPU", "1");
 
     let input = Tensor::rand(vec![100, 100]);
     let tch_input = util::to_tch(input.clone());
@@ -92,7 +92,7 @@ fn sqrt() {
 
 #[test]
 fn log() {
-    std::env::set_var("CUDA", "1");
+    std::env::set_var("GPU", "1");
 
     let input = Tensor::rand(vec![100, 100]);
     let tch_input = util::to_tch(input.clone());
@@ -109,7 +109,7 @@ fn log() {
 
 #[test]
 fn relu() {
-    std::env::set_var("CUDA", "1");
+    std::env::set_var("GPU", "1");
     let input = Tensor::rand(vec![100, 100]);
     let tch_input = util::to_tch(input.clone());
 
@@ -125,7 +125,7 @@ fn relu() {
 
 #[test]
 fn max() {
-    std::env::set_var("CUDA", "1");
+    std::env::set_var("GPU", "1");
     let input = Tensor::rand(vec![100, 100]);
     let tch_input = util::to_tch(input.clone());
 
@@ -141,7 +141,7 @@ fn max() {
 
 #[test]
 fn min() {
-    std::env::set_var("CUDA", "1");
+    std::env::set_var("GPU", "1");
     let input = Tensor::rand(vec![100, 100]);
     let tch_input = util::to_tch(input.clone());
 
@@ -157,7 +157,7 @@ fn min() {
 
 #[test]
 fn matmul() {
-    std::env::set_var("CUDA", "1");
+    std::env::set_var("GPU", "1");
     let a = Tensor::rand(vec![100, 100]);
     let b = Tensor::rand(vec![100, 100]);
     let tch_a = util::to_tch(a.clone());
@@ -175,7 +175,7 @@ fn matmul() {
 
 #[test]
 fn expand() {
-    std::env::set_var("CUDA", "1");
+    std::env::set_var("GPU", "1");
     let input = Tensor::rand(vec![10, 1]);
     let tch_input = util::to_tch(input.clone());
 
@@ -191,7 +191,7 @@ fn expand() {
 
 #[test]
 fn pad_2d_cuda() {
-    std::env::set_var("CUDA", "1");
+    std::env::set_var("GPU", "1");
     let input = Tensor::rand(vec![1, 1, 3, 3]);
     let tch_input = util::to_tch(input.clone());
     let output = input.pad_2d(0., [1, 1, 1, 1]);
@@ -206,7 +206,7 @@ fn pad_2d_cuda() {
 
 #[test]
 fn pad_2d_weird_padding() {
-    std::env::set_var("CUDA", "1");
+    std::env::set_var("GPU", "1");
     let input = Tensor::rand(vec![1, 3, 16, 16]);
     let tch_input = util::to_tch(input.clone());
     let output = input.pad_2d(0., [1, 2, 3, 4]);
@@ -221,7 +221,7 @@ fn pad_2d_weird_padding() {
 
 #[test]
 fn permute() {
-    std::env::set_var("CUDA", "1");
+    std::env::set_var("GPU", "1");
     let input = Tensor::rand(vec![5, 15]);
     let tch_input = util::to_tch(input.clone());
 
@@ -237,7 +237,7 @@ fn permute() {
 
 #[test]
 fn permute_harder() {
-    std::env::set_var("CUDA", "1");
+    std::env::set_var("GPU", "1");
     let input = Tensor::rand(vec![224, 224, 3]);
     let tch_input = util::to_tch(input.clone());
 
@@ -253,7 +253,7 @@ fn permute_harder() {
 
 #[test]
 fn reduce_sum_default_dims() {
-    std::env::set_var("CUDA", "1");
+    std::env::set_var("GPU", "1");
     let input = Tensor::rand(vec![2, 4, 3, 3]);
     let tch_input = util::to_tch(input.clone());
     let sum = input.reduce_sum(None, false);
@@ -267,7 +267,7 @@ fn reduce_sum_default_dims() {
 
 #[test]
 fn reduce_sum() {
-    std::env::set_var("CUDA", "1");
+    std::env::set_var("GPU", "1");
     let input = Tensor::rand(vec![2, 4, 3, 3]);
     let tch_input = util::to_tch(input.clone());
     let sum = input.reduce_sum(Some(vec![0, 2, 3]), false);
@@ -281,7 +281,7 @@ fn reduce_sum() {
 
 #[test]
 fn avg_pool_2d() {
-    std::env::set_var("CUDA", "1");
+    std::env::set_var("GPU", "1");
     let input = Tensor::rand(vec![1, 3, 3, 3]);
     let tch_input = util::to_tch(input.clone());
     let output = input.avg_pool_2d((2, 2), None);
@@ -295,7 +295,7 @@ fn avg_pool_2d() {
 
 #[test]
 fn max_pool_2d() {
-    std::env::set_var("CUDA", "1");
+    std::env::set_var("GPU", "1");
     let input = Tensor::rand(vec![1, 3, 3, 3]);
     let tch_input = util::to_tch(input.clone());
 
@@ -311,7 +311,7 @@ fn max_pool_2d() {
 
 #[test]
 fn rand() {
-    std::env::set_var("CUDA", "1");
+    std::env::set_var("GPU", "1");
     let input = Tensor::rand(vec![4]);
     let (data, shape) = input.clone().realize();
     assert_eq!(shape, vec![4]);
@@ -320,7 +320,7 @@ fn rand() {
 
 #[test]
 fn conv2d_4d() {
-    std::env::set_var("CUDA", "1");
+    std::env::set_var("GPU", "1");
     let input = Tensor::rand(vec![1, 3, 224, 224]);
     let tch_input = util::to_tch(input.clone());
     let kernel = Tensor::rand(vec![32, 3, 3, 3]);

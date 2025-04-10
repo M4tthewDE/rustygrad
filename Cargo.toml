@@ -16,20 +16,18 @@ tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
 lazy_static = "1.4.0"
 petgraph = "0.6.4"
+ocl = "0.19.7"
 
 [dev-dependencies]
 criterion = { version = "0.4", features = ["html_reports"] }
 tch = { version = "0.14.0", features = ["download-libtorch"] }
-
-[build-dependencies]
-cc = "1.0.83"
 
 [[bench]]
 name = "expand"
 harness = false
 
 [[bench]]
-name = "expand_cuda"
+name = "expand_gpu"
 harness = false
 
 [[bench]]
@@ -37,7 +35,7 @@ name = "conv2d"
 harness = false
 
 [[bench]]
-name = "conv2d_cuda"
+name = "conv2d_gpu"
 harness = false
 
 [[bench]]
@@ -45,5 +43,5 @@ name = "avg_pool_2d"
 harness = false
 
 [[bench]]
-name = "avg_pool_2d_cuda"
+name = "avg_pool_2d_gpu"
 harness = false

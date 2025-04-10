@@ -9,5 +9,5 @@ Inspired by [tinygrad](https://github.com/tinygrad/tinygrad)
 ## Environment variables
 
 * RUST_LOG to adjust log level (ERROR, INFO, DEBUG, TRACE)
-* CUDA=1 to enable cuda backend
+* GPU=1 to enable opencl gpu backend
 * GRAPH=1 to output compute graph (graph.dot)
